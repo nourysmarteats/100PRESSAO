@@ -108,7 +108,7 @@ function Hero() {
 
         <motion.div variants={rise} className="mt-12">
           <MotionLink
-            to="/conhecer-a-casa"
+            to="/quem-somos"
             whileHover="hover"
             whileTap={{ scale: 0.96 }}
             initial="rest"
