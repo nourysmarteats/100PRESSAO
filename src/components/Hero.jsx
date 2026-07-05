@@ -5,6 +5,7 @@ import {
   useTransform,
   useReducedMotion,
 } from 'framer-motion'
+import logoStamp from '../assets/logo-100pressao.png'
 
 const EASE_OUT = [0.22, 1, 0.36, 1]
 
@@ -24,45 +25,19 @@ function StampBadge() {
   const prefersReducedMotion = useReducedMotion()
 
   return (
-    <motion.div variants={rise} className="mx-auto mb-8 h-24 w-24 sm:h-28 sm:w-28">
-      <motion.svg
-        viewBox="0 0 100 100"
-        className="h-full w-full"
-        animate={prefersReducedMotion ? undefined : { rotate: 360 }}
-        transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
-        aria-hidden="true"
-      >
-        <defs>
-          <path
-            id="badge-circle"
-            d="M 50,50 m -36,0 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"
-          />
-        </defs>
-        <circle
-          cx="50"
-          cy="50"
-          r="47"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeDasharray="3 4"
-          className="text-creme-500/60"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="26"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1"
-          className="text-ambar-500/70"
-        />
-        <text className="fill-creme-100 text-[9.5px] font-semibold uppercase tracking-[0.28em]">
-          <textPath href="#badge-circle">
-            · Draft House · Cerveja Artesanal
-          </textPath>
-        </text>
-      </motion.svg>
+    <motion.div
+      variants={rise}
+      className="mx-auto mb-8 h-36 w-36 sm:h-44 sm:w-44"
+    >
+      <motion.img
+        src={logoStamp}
+        alt="Logótipo 100PRESSÃO Draft House"
+        width="640"
+        height="640"
+        animate={prefersReducedMotion ? undefined : { y: [0, -6, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        className="h-full w-full mix-blend-lighten [mask-image:radial-gradient(circle_closest-side,black_78%,transparent_100%)]"
+      />
     </motion.div>
   )
 }
@@ -115,10 +90,9 @@ function Hero() {
 
         <motion.h1
           variants={rise}
-          className="font-display text-5xl leading-none tracking-tight text-creme-50 sm:text-7xl lg:text-8xl"
+          className="font-display text-6xl font-bold uppercase leading-none tracking-tight text-creme-50 sm:text-8xl lg:text-9xl"
         >
-          100PRESS
-          <span className="text-ambar-400">Ã</span>O
+          100PRESSÃO
         </motion.h1>
 
         <motion.p
