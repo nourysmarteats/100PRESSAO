@@ -49,7 +49,7 @@ function Footer() {
           />
           <p className="mt-4 max-w-xs leading-relaxed">
             Cervejaria artesanal com alma luso-brasileira. A pressão certa,
-            no copo certo.
+            no seu copo!
           </p>
         </div>
 

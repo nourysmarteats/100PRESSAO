@@ -1,4 +1,8 @@
-import { motion, useReducedMotion } from 'framer-motion'
+import { useRef } from 'react'
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
+import barril1 from '../assets/barril-1.jpg'
+import barril2 from '../assets/barril-2.jpg'
+import barril3 from '../assets/barril-3.jpg'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -15,72 +19,74 @@ const HISTORIA = [
   'O 100PRESSÃO é o que acontece quando essas peças se juntam. É um trocadilho, sim, cerveja de pressão, mas é também uma promessa: aqui a pressão é boa. É a pressão do copo bem tirado, do petisco feito na hora, da conversa que não tem pressa de acabar.',
   'Instalados no Mercado Municipal de Algés, trazemos uma cervejaria artesanal com alma luso-brasileira: cerveja europeia a sério, petiscos que atravessam o Atlântico e um atendimento que não conhece formalidades, só hospitalidade.',
   'Não somos uma marca que nasceu numa sala de reuniões. Nascemos de uma saudade, de uma boa cerveja gelada e de uma sócia que disse "vamos fazer isto" no momento certo. O resto construímos todos os dias, copo a copo, mesa a mesa.',
-  '100PRESSÃO. A pressão certa, no copo certo.',
+  '100PRESSÃO. A pressão certa, no seu copo!',
 ]
 
-function Barril({ className }) {
+/*
+ * Fotos royalty-free (Openverse/Flickr):
+ * barril-1: "Barrels." — Bernard Spragg (domínio público)
+ * barril-2: "Taylor's Port Wine Cellar, Vila Nova de Gaia" — Ray in Manila (CC BY)
+ * barril-3: "Greene King Brewery Tour" — Karen Roe (CC BY)
+ */
+const BARRIS = [
+  { src: barril1, alt: 'Fileiras de barris de carvalho numa adega', credito: 'Bernard Spragg' },
+  { src: barril2, alt: 'Cave escura com barris de carvalho em Vila Nova de Gaia', credito: 'Ray in Manila, CC BY' },
+  { src: barril3, alt: 'Barril de cerveja rústico pendurado numa fachada', credito: 'Karen Roe, CC BY' },
+]
+
+function BarrilCard({ barril, i, scrollYProgress, prefersReducedMotion }) {
+  // Parallax por camada: cada cartão desloca-se a um ritmo diferente
+  const y = useTransform(scrollYProgress, [0, 1], [30 + i * 30, -30 - i * 30])
+  // Leque 3D: lateral esquerdo/direito rodados para dentro, centro plano
+  const rotateY = useTransform(scrollYProgress, [0, 1], [(i - 1) * 22, (i - 1) * 6])
+
   return (
-    <svg viewBox="0 0 90 110" className={className} aria-hidden="true">
-      {/* Corpo do barril */}
-      <path
-        d="M12 14 C8 40 8 70 12 96 C30 102 60 102 78 96 C82 70 82 40 78 14 C60 8 30 8 12 14 Z"
-        fill="var(--color-cobre-600)"
+    <motion.figure
+      style={prefersReducedMotion ? undefined : { y, rotateY, transformStyle: 'preserve-3d' }}
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.7, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={prefersReducedMotion ? undefined : { scale: 1.04, rotateY: 0, zIndex: 10 }}
+      className={`overflow-hidden rounded-2xl border border-creme-300 shadow-xl shadow-grafite-900/15 ${
+        i === 1 ? 'sm:-mt-8' : 'sm:mt-8'
+      }`}
+    >
+      <img
+        src={barril.src}
+        alt={barril.alt}
+        loading="lazy"
+        className="aspect-[4/5] w-full object-cover"
       />
-      <path
-        d="M12 14 C8 40 8 70 12 96 C20 99 30 100.5 40 101 L40 9 C30 9.5 20 11 12 14 Z"
-        fill="var(--color-cobre-500)"
-      />
-      {/* Aduelas */}
-      <path d="M32 9.2 L32 100.8" stroke="var(--color-grafite-800)" strokeOpacity="0.35" strokeWidth="1.5" />
-      <path d="M58 9.2 L58 100.8" stroke="var(--color-grafite-800)" strokeOpacity="0.35" strokeWidth="1.5" />
-      {/* Arcos */}
-      <path d="M10.5 26 C33 32 57 32 79.5 26" stroke="var(--color-creme-300)" strokeWidth="5" fill="none" />
-      <path d="M9 55 C33 61 57 61 81 55" stroke="var(--color-creme-300)" strokeWidth="5" fill="none" />
-      <path d="M10.5 84 C33 90 57 90 79.5 84" stroke="var(--color-creme-300)" strokeWidth="5" fill="none" />
-      {/* Batoque */}
-      <circle cx="45" cy="57" r="5" fill="var(--color-grafite-900)" />
-      <circle cx="45" cy="57" r="2.5" fill="var(--color-ambar-500)" />
-    </svg>
+    </motion.figure>
   )
 }
 
 function BarrisAnimados() {
   const prefersReducedMotion = useReducedMotion()
+  const ref = useRef(null)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start end', 'end start'],
+  })
 
   return (
-    <motion.div
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: '-100px' }}
-      variants={{ hidden: {}, show: { transition: { staggerChildren: 0.18 } } }}
-      className="flex items-end justify-center gap-8 sm:gap-14"
-      aria-hidden="true"
-    >
-      {[0, 1, 2].map((i) => (
-        <motion.div
-          key={i}
-          variants={{
-            hidden: { opacity: 0, x: -140, rotate: -200 },
-            show: {
-              opacity: 1,
-              x: 0,
-              rotate: 0,
-              transition: prefersReducedMotion
-                ? { duration: 0.01 }
-                : { type: 'spring', stiffness: 60, damping: 14 },
-            },
-          }}
-          animate={
-            prefersReducedMotion
-              ? undefined
-              : { y: [0, -5, 0], transition: { duration: 3.5 + i, repeat: Infinity, ease: 'easeInOut' } }
-          }
-          className={i === 1 ? 'w-28 sm:w-36' : 'w-20 sm:w-28'}
-        >
-          <Barril className="h-auto w-full drop-shadow-lg" />
-        </motion.div>
-      ))}
-    </motion.div>
+    <div ref={ref} className="mx-auto max-w-5xl px-6" style={{ perspective: '1200px' }}>
+      <div className="grid grid-cols-3 gap-4 sm:gap-8">
+        {BARRIS.map((b, i) => (
+          <BarrilCard
+            key={b.src}
+            barril={b}
+            i={i}
+            scrollYProgress={scrollYProgress}
+            prefersReducedMotion={prefersReducedMotion}
+          />
+        ))}
+      </div>
+      <p className="mt-6 text-center text-xs text-grafite-600/50">
+        Fotos: Bernard Spragg · Ray in Manila (CC BY) · Karen Roe (CC BY)
+      </p>
+    </div>
   )
 }
 
