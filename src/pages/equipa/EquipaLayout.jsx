@@ -20,6 +20,7 @@ const PIN_STORAGE_KEY = 'pin_equipa_ok'
 function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [mostrarPassword, setMostrarPassword] = useState(false)
   const [erro, setErro] = useState('')
   const [ocupado, setOcupado] = useState(false)
 
@@ -63,14 +64,37 @@ function Login() {
           <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
             Palavra-passe
           </span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-            className="mt-2 w-full rounded-xl border border-grafite-700 bg-grafite-800 px-4 py-3 text-creme-50 outline-none focus:border-ambar-500"
-          />
+          <div className="relative mt-2">
+            <input
+              type={mostrarPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              className="w-full rounded-xl border border-grafite-700 bg-grafite-800 py-3 pl-4 pr-12 text-creme-50 outline-none focus:border-ambar-500"
+            />
+            <button
+              type="button"
+              onClick={() => setMostrarPassword((v) => !v)}
+              aria-label={mostrarPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
+              aria-pressed={mostrarPassword}
+              className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center text-creme-500 transition-colors hover:text-creme-50"
+            >
+              {mostrarPassword ? (
+                /* olho cortado — a password está visível */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M10.6 5.2A9.8 9.8 0 0 1 12 5.1c6.5 0 9.5 6.9 9.5 6.9a15.6 15.6 0 0 1-2.2 3.2M14.1 14.2a3 3 0 0 1-4.2-4.2M4.7 7.4A15 15 0 0 0 2.5 12S5.5 18.9 12 18.9c1.3 0 2.5-.3 3.5-.7" />
+                  <path d="m3 3 18 18" />
+                </svg>
+              ) : (
+                /* olho aberto */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M2.5 12S5.5 5.1 12 5.1 21.5 12 21.5 12 18.5 18.9 12 18.9 2.5 12 2.5 12Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
         </label>
         <p className="mt-3 h-5 text-sm text-red-400" role="alert">
           {erro}
