@@ -1,6 +1,53 @@
 @import "tailwindcss";
 
+@theme {
+  /* Paleta 100PRESSÃO — derivada do logo (carimbo grafite + creme) */
+  --color-grafite-950: #0e1013;
+  --color-grafite-900: #16181d;
+  --color-grafite-800: #1e2126;
+  --color-grafite-700: #2a2e35;
+  --color-grafite-600: #3a3f48;
+
+  --color-creme-50: #f6f1e7;
+  --color-creme-100: #efe8da;
+  --color-creme-300: #d9cfba;
+  --color-creme-500: #b8ac92;
+
+  /* Acentos: âmbar de cerveja + cobre de tanque */
+  --color-ambar-400: #e09a3e;
+  --color-ambar-500: #c9822e;
+  --color-ambar-600: #a86722;
+
+  --color-cobre-500: #a45f2d;
+  --color-cobre-600: #8a4c22;
+
+  --font-display: "Alfa Slab One", ui-serif, Georgia, serif;
+  --font-sans: "Barlow", system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
+  background-color: var(--color-grafite-900);
+  color: var(--color-creme-50);
+}
+
+/* Grão/distressed sutil — ruído SVG inline, sem asset externo nem custo de rede */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

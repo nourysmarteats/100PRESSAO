@@ -1,50 +1,190 @@
-import { motion } from 'framer-motion'
+import { useRef } from 'react'
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useReducedMotion,
+} from 'framer-motion'
 
-const container = {
-  hidden: { opacity: 0 },
+const EASE_OUT = [0.22, 1, 0.36, 1]
+
+const layers = {
+  hidden: {},
   show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15 },
+    transition: { staggerChildren: 0.18, delayChildren: 0.2 },
   },
 }
 
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
+const rise = {
+  hidden: { opacity: 0, y: 28 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT } },
+}
+
+function StampBadge() {
+  const prefersReducedMotion = useReducedMotion()
+
+  return (
+    <motion.div variants={rise} className="mx-auto mb-8 h-24 w-24 sm:h-28 sm:w-28">
+      <motion.svg
+        viewBox="0 0 100 100"
+        className="h-full w-full"
+        animate={prefersReducedMotion ? undefined : { rotate: 360 }}
+        transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
+        aria-hidden="true"
+      >
+        <defs>
+          <path
+            id="badge-circle"
+            d="M 50,50 m -36,0 a 36,36 0 1,1 72,0 a 36,36 0 1,1 -72,0"
+          />
+        </defs>
+        <circle
+          cx="50"
+          cy="50"
+          r="47"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeDasharray="3 4"
+          className="text-creme-500/60"
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="26"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          className="text-ambar-500/70"
+        />
+        <text className="fill-creme-100 text-[9.5px] font-semibold uppercase tracking-[0.28em]">
+          <textPath href="#badge-circle">
+            · Draft House · Cerveja Artesanal
+          </textPath>
+        </text>
+      </motion.svg>
+    </motion.div>
+  )
 }
 
 function Hero() {
+  const sectionRef = useRef(null)
+  const prefersReducedMotion = useReducedMotion()
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start start', 'end start'],
+  })
+
+  // Parallax: o brilho de fundo desce mais devagar que o conteúdo
+  const glowY = useTransform(scrollYProgress, [0, 1], ['0%', '30%'])
+  const contentY = useTransform(scrollYProgress, [0, 1], ['0%', '-18%'])
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.7], [1, 0])
+
+  const parallax = prefersReducedMotion
+    ? {}
+    : { y: contentY, opacity: contentOpacity }
+
   return (
-    <section className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white to-slate-100 px-6">
+    <section
+      ref={sectionRef}
+      className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-grafite-900 px-6"
+    >
+      {/* Camada 1: fundo — brilho âmbar + vinheta */}
       <motion.div
-        variants={container}
+        aria-hidden="true"
+        className="absolute inset-0"
+        style={prefersReducedMotion ? undefined : { y: glowY }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.4, ease: 'easeOut' }}
+      >
+        <div className="absolute left-1/2 top-1/3 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-ambar-500/15 blur-[120px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,var(--color-grafite-950)_100%)]" />
+      </motion.div>
+
+      {/* Camada 2: conteúdo */}
+      <motion.div
+        variants={layers}
         initial="hidden"
         animate="show"
-        className="max-w-2xl text-center"
+        style={parallax}
+        className="relative z-10 max-w-3xl py-24 text-center"
       >
+        <StampBadge />
+
         <motion.h1
-          variants={item}
-          className="text-4xl sm:text-6xl font-bold tracking-tight text-slate-900"
+          variants={rise}
+          className="font-display text-5xl leading-none tracking-tight text-creme-50 sm:text-7xl lg:text-8xl"
         >
-          100PRESSAO
+          100PRESS
+          <span className="text-ambar-400">Ã</span>O
         </motion.h1>
 
         <motion.p
-          variants={item}
-          className="mt-6 text-lg sm:text-xl text-slate-600"
+          variants={rise}
+          className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-creme-300 sm:text-xl"
         >
-          Título placeholder — substitui por uma proposta de valor clara e direta.
+          Cerveja artesanal luso-brasileira, tirada com alma e à pressão.
+          Do tanque ao copo, sem atalhos.
         </motion.p>
 
-        <motion.div variants={item} className="mt-10">
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="rounded-full bg-slate-900 px-8 py-3 text-white font-medium shadow-lg hover:bg-slate-700 transition-colors"
+        <motion.div variants={rise} className="mt-12">
+          <motion.a
+            href="#"
+            whileHover="hover"
+            whileTap={{ scale: 0.96 }}
+            initial="rest"
+            animate="rest"
+            className="group relative inline-flex cursor-pointer items-center gap-3 overflow-hidden rounded-full bg-ambar-500 px-9 py-4 text-base font-semibold uppercase tracking-widest text-grafite-950 shadow-lg shadow-ambar-600/25 transition-colors duration-300 hover:bg-ambar-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ambar-400"
           >
-            Começar
-          </motion.button>
+            {/* Varredura de brilho no hover */}
+            <motion.span
+              aria-hidden="true"
+              variants={{
+                rest: { x: '-120%' },
+                hover: {
+                  x: '220%',
+                  transition: { duration: 0.7, ease: 'easeInOut' },
+                },
+              }}
+              className="absolute inset-y-0 w-1/3 -skew-x-12 bg-creme-50/40"
+            />
+            <span className="relative">Conhecer a casa</span>
+            <motion.svg
+              variants={{
+                rest: { x: 0 },
+                hover: { x: 5, transition: { duration: 0.25, ease: EASE_OUT } },
+              }}
+              className="relative h-4 w-4"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M2 8h11M9 3.5 13.5 8 9 12.5" />
+            </motion.svg>
+          </motion.a>
+        </motion.div>
+      </motion.div>
+
+      {/* Camada 3: indicador de scroll */}
+      <motion.div
+        aria-hidden="true"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.6, duration: 0.8 }}
+      >
+        <motion.div
+          animate={prefersReducedMotion ? undefined : { y: [0, 8, 0] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+          className="h-9 w-5 rounded-full border border-creme-500/40 p-1"
+        >
+          <div className="mx-auto h-2 w-1 rounded-full bg-ambar-400/80" />
         </motion.div>
       </motion.div>
     </section>
