@@ -5,11 +5,17 @@ import { AuthProvider, useSessaoAuth } from '../../lib/auth'
 import logoStamp from '../../assets/logo-100pressao.png'
 
 const MODULOS = [
-  { to: '/equipa/staff', label: 'Staff' },
-  { to: '/equipa/operacional', label: 'Operacional' },
-  { to: '/equipa/ecra', label: 'Ecrã' },
-  { to: '/equipa/admin', label: 'Admin' },
+  { to: '/staff', label: 'Staff' },
+  { to: '/operacional', label: 'Operacional' },
+  { to: '/ecran', label: 'Ecrã' },
+  { to: '/admin', label: 'Admin' },
 ]
+
+// PIN de conveniência POR CIMA do Supabase Auth (não o substitui): o
+// dispositivo já está autenticado; isto só desbloqueia a UI no turno.
+// Valor temporário — data de abertura (17/07). Sem relação com o Oráculo.
+const PIN_UI = '1707'
+const PIN_STORAGE_KEY = 'pin_equipa_ok'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -81,8 +87,55 @@ function Login() {
   )
 }
 
+function PinGate({ aoDesbloquear }) {
+  const [pin, setPin] = useState('')
+  const [erro, setErro] = useState(false)
+
+  function verificar(valor) {
+    setPin(valor)
+    setErro(false)
+    if (valor.length < 4) return
+    if (valor === PIN_UI) {
+      sessionStorage.setItem(PIN_STORAGE_KEY, '1')
+      aoDesbloquear()
+    } else {
+      setErro(true)
+      setPin('')
+    }
+  }
+
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-grafite-950 px-6">
+      <img
+        src={logoStamp}
+        alt="Logótipo 100PRESSÃO"
+        className="h-24 w-24 rounded-full mix-blend-lighten"
+      />
+      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-creme-500">
+        Introduz o PIN do turno
+      </p>
+      <input
+        type="password"
+        inputMode="numeric"
+        maxLength={4}
+        value={pin}
+        onChange={(e) => verificar(e.target.value.replace(/\D/g, ''))}
+        autoFocus
+        aria-label="PIN do turno"
+        className="w-40 rounded-xl border border-grafite-700 bg-grafite-800 px-4 py-4 text-center font-display text-3xl tracking-[0.5em] text-creme-50 outline-none focus:border-ambar-500"
+      />
+      <p className="h-5 text-sm text-red-400" role="alert">
+        {erro ? 'PIN incorreto' : ''}
+      </p>
+    </div>
+  )
+}
+
 function AreaEquipa() {
   const sessao = useSessaoAuth()
+  const [pinOk, setPinOk] = useState(
+    () => sessionStorage.getItem(PIN_STORAGE_KEY) === '1',
+  )
 
   if (!supabase) {
     return (
@@ -97,6 +150,8 @@ function AreaEquipa() {
   }
 
   if (!sessao) return <Login />
+
+  if (!pinOk) return <PinGate aoDesbloquear={() => setPinOk(true)} />
 
   return (
     <div className="min-h-dvh bg-grafite-950 text-creme-50">

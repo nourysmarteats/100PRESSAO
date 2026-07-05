@@ -41,16 +41,22 @@ function App() {
           <Route path="/conhecer-a-casa" element={<Navigate to="/cardapio" replace />} />
         </Route>
 
-        {/* Ecrã público (TV) — sem auth, só mostra números de pedido */}
-        <Route path="/equipa/ecra" element={interna(Ecra)} />
+        {/* Ecrã público (TV) — sem auth nem PIN, só mostra números de pedido */}
+        <Route path="/ecran" element={interna(Ecra)} />
 
-        {/* Área da equipa — protegida por Supabase Auth */}
-        <Route path="/equipa" element={interna(EquipaLayout)}>
-          <Route index element={<Navigate to="/equipa/staff" replace />} />
-          <Route path="staff" element={interna(Staff)} />
-          <Route path="operacional" element={interna(Operacional)} />
-          <Route path="admin" element={interna(Admin)} />
+        {/* Área da equipa — Supabase Auth + PIN de conveniência */}
+        <Route element={interna(EquipaLayout)}>
+          <Route path="/staff" element={interna(Staff)} />
+          <Route path="/operacional" element={interna(Operacional)} />
+          <Route path="/admin" element={interna(Admin)} />
         </Route>
+
+        {/* Rotas antigas da fase 2 */}
+        <Route path="/equipa" element={<Navigate to="/staff" replace />} />
+        <Route path="/equipa/staff" element={<Navigate to="/staff" replace />} />
+        <Route path="/equipa/operacional" element={<Navigate to="/operacional" replace />} />
+        <Route path="/equipa/admin" element={<Navigate to="/admin" replace />} />
+        <Route path="/equipa/ecra" element={<Navigate to="/ecran" replace />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
