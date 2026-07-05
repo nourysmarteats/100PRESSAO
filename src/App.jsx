@@ -7,50 +7,52 @@ const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
 const Contato = lazy(() => import('./pages/Contato'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
+const EquipaLayout = lazy(() => import('./pages/equipa/EquipaLayout'))
+const Staff = lazy(() => import('./pages/equipa/Staff'))
+const Operacional = lazy(() => import('./pages/equipa/Operacional'))
+const Ecra = lazy(() => import('./pages/equipa/Ecra'))
+const Admin = lazy(() => import('./pages/equipa/Admin'))
 
-const fallback = <div className="min-h-dvh bg-creme-50" />
+const fallbackClaro = <div className="min-h-dvh bg-creme-50" />
+const fallbackEscuro = <div className="min-h-dvh bg-grafite-950" />
+
+const pagina = (Componente) => (
+  <Suspense fallback={fallbackClaro}>
+    <Componente />
+  </Suspense>
+)
+const interna = (Componente) => (
+  <Suspense fallback={fallbackEscuro}>
+    <Componente />
+  </Suspense>
+)
 
 function App() {
   return (
     <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Hero />} />
-        <Route
-          path="/quem-somos"
-          element={
-            <Suspense fallback={fallback}>
-              <QuemSomos />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/cardapio"
-          element={
-            <Suspense fallback={fallback}>
-              <Cardapio />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/contato"
-          element={
-            <Suspense fallback={fallback}>
-              <Contato />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/faca-parte"
-          element={
-            <Suspense fallback={fallback}>
-              <FacaParte />
-            </Suspense>
-          }
-        />
-        {/* Rota antiga — o cardápio mudou de endereço */}
-        <Route path="/conhecer-a-casa" element={<Navigate to="/cardapio" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
+        {/* Site público */}
+        <Route element={<Layout />}>
+          <Route path="/" element={<Hero />} />
+          <Route path="/quem-somos" element={pagina(QuemSomos)} />
+          <Route path="/cardapio" element={pagina(Cardapio)} />
+          <Route path="/contato" element={pagina(Contato)} />
+          <Route path="/faca-parte" element={pagina(FacaParte)} />
+          {/* Rota antiga — o cardápio mudou de endereço */}
+          <Route path="/conhecer-a-casa" element={<Navigate to="/cardapio" replace />} />
+        </Route>
+
+        {/* Ecrã público (TV) — sem auth, só mostra números de pedido */}
+        <Route path="/equipa/ecra" element={interna(Ecra)} />
+
+        {/* Área da equipa — protegida por Supabase Auth */}
+        <Route path="/equipa" element={interna(EquipaLayout)}>
+          <Route index element={<Navigate to="/equipa/staff" replace />} />
+          <Route path="staff" element={interna(Staff)} />
+          <Route path="operacional" element={interna(Operacional)} />
+          <Route path="admin" element={interna(Admin)} />
+        </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
