@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '../../lib/supabase'
+import { supabasePublico as supabase } from '../../lib/supabase'
 import { beep } from '../../lib/pedidos'
 import logoStamp from '../../assets/logo-100pressao.png'
 

@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '../lib/supabase'
+import { supabasePublico as supabase } from '../lib/supabase'
+
+// Promessa com prazo: se a rede/Supabase não responder, rejeita em vez de
+// deixar a UI presa em "Um momento…" indefinidamente.
+function comTimeout(promessa, ms = 12000) {
+  return Promise.race([
+    promessa,
+    new Promise((_, rejeitar) =>
+      setTimeout(() => rejeitar(new Error('timeout')), ms),
+    ),
+  ])
+}
 
 /*
  * Sistema de pedidos — fase 1 (cliente).
@@ -159,59 +170,77 @@ function Cardapio() {
     e.preventDefault()
     if (!nome.trim() || ocupado) return
     setOcupado(true)
-    const { data, error } = await supabase
-      .from('sessions')
-      .insert({ nome_cliente: nome.trim(), posicao_mesa: mesa.trim() || null })
-      .select()
-      .single()
-    setOcupado(false)
-    if (error) {
-      mostrarAviso('Não foi possível iniciar. Tenta novamente.')
-      return
+    try {
+      const { data, error } = await comTimeout(
+        supabase
+          .from('sessions')
+          .insert({ nome_cliente: nome.trim(), posicao_mesa: mesa.trim() || null })
+          .select()
+          .single(),
+      )
+      if (error) {
+        mostrarAviso('Não foi possível iniciar. Tenta novamente.')
+        return
+      }
+      setSessao(data)
+      setFase('menu')
+    } catch {
+      mostrarAviso('A ligação está lenta. Tenta novamente.')
+    } finally {
+      setOcupado(false)
     }
-    setSessao(data)
-    setFase('menu')
   }
 
   async function confirmarPedido() {
     if (!metodo || contagemCarrinho === 0 || ocupado) return
     setOcupado(true)
+    try {
+      const { data: order, error: erroPedido } = await comTimeout(
+        supabase
+          .from('orders')
+          .insert({
+            session_id: sessao.id,
+            estado: 'recebido',
+            metodo_pagamento: metodo,
+            estado_pagamento: 'pendente',
+            total: totalCarrinho,
+          })
+          .select()
+          .single(),
+      )
 
-    const { data: order, error: erroPedido } = await supabase
-      .from('orders')
-      .insert({
-        session_id: sessao.id,
-        estado: 'recebido',
-        metodo_pagamento: metodo,
-        estado_pagamento: 'pendente',
-        total: totalCarrinho,
-      })
-      .select()
-      .single()
-
-    if (erroPedido) {
-      setOcupado(false)
-      mostrarAviso('Erro ao criar o pedido. Tenta novamente.')
-      return
-    }
-
-    const itens = Object.entries(carrinho).map(([id, qtd]) => {
-      const p = produtos.find((x) => String(x.id) === String(id))
-      return {
-        order_id: order.id,
-        product_id: p.id,
-        quantidade: qtd,
-        preco_unitario: p.preco,
+      if (erroPedido) {
+        mostrarAviso('Erro ao criar o pedido. Tenta novamente.')
+        return
       }
-    })
 
-    const { error: erroItens } = await supabase.from('order_items').insert(itens)
-    setOcupado(false)
-    if (erroItens) {
-      mostrarAviso('Erro ao registar os itens. Chama alguém da equipa.')
-      return
+      const itens = Object.entries(carrinho).map(([id, qtd]) => {
+        const p = produtos.find((x) => String(x.id) === String(id))
+        return {
+          order_id: order.id,
+          product_id: p.id,
+          quantidade: qtd,
+          preco_unitario: p.preco,
+        }
+      })
+
+      const { error: erroItens } = await comTimeout(
+        supabase.from('order_items').insert(itens),
+      )
+      if (erroItens) {
+        mostrarAviso('Erro ao registar os itens. Chama alguém da equipa.')
+        return
+      }
+
+      aoConcluir(order, itens)
+    } catch {
+      mostrarAviso('A ligação está lenta. Tenta novamente.')
+    } finally {
+      setOcupado(false)
     }
+  }
 
+  function aoConcluir(order, itens) {
     setPedido({
       id: order.id,
       numero: order.numero,
