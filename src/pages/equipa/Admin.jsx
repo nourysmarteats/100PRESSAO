@@ -10,6 +10,8 @@ const PRODUTO_VAZIO = {
   estilo: '',
   abv: '',
   alergenios: '',
+  origem: '',
+  imagem_url: '',
   ordem: 0,
   disponivel: true,
 }
@@ -201,6 +203,8 @@ function Produtos() {
             estilo: p.estilo || '',
             abv: p.abv ?? '',
             alergenios: p.alergenios || '',
+            origem: p.origem || '',
+            imagem_url: p.imagem_url || '',
             ordem: p.ordem,
             disponivel: p.disponivel,
           }
@@ -218,6 +222,8 @@ function Produtos() {
       estilo: form.estilo.trim() || null,
       abv: form.abv === '' ? null : Number(form.abv),
       alergenios: form.alergenios.trim() || null,
+      origem: form.origem || null,
+      imagem_url: form.imagem_url.trim() || null,
       ordem: Number(form.ordem) || 0,
       disponivel: form.disponivel,
     }
@@ -320,12 +326,32 @@ function Produtos() {
             value={form.abv}
             onChange={alterar('abv')}
           />
+          <CampoTexto
+            rotulo="Alergénios (petisco)"
+            value={form.alergenios}
+            onChange={alterar('alergenios')}
+            placeholder="Ex.: Glúten, lacticínios"
+          />
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
+              Origem (petisco)
+            </span>
+            <select
+              value={form.origem}
+              onChange={alterar('origem')}
+              className="mt-1.5 w-full rounded-lg border border-grafite-700 bg-grafite-800 px-3 py-2.5 text-creme-50 outline-none focus:border-ambar-500"
+            >
+              <option value="">—</option>
+              <option value="Portugues">Português</option>
+              <option value="Brasileiro">Brasileiro</option>
+            </select>
+          </label>
           <div className="sm:col-span-2">
             <CampoTexto
-              rotulo="Alergénios (petisco)"
-              value={form.alergenios}
-              onChange={alterar('alergenios')}
-              placeholder="Ex.: Glúten, lacticínios"
+              rotulo="URL da imagem"
+              value={form.imagem_url}
+              onChange={alterar('imagem_url')}
+              placeholder="https://… (deixa vazio se ainda não houver foto)"
             />
           </div>
           <label className="flex items-center gap-3 text-creme-50">

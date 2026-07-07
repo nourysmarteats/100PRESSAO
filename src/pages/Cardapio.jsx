@@ -89,6 +89,7 @@ function Cardapio() {
   const [categorias, setCategorias] = useState([])
   const [produtos, setProdutos] = useState([])
   const [catAtiva, setCatAtiva] = useState('todas')
+  const [subOrigem, setSubOrigem] = useState('todas') // sub-filtro de Petiscos
   const [carrinho, setCarrinho] = useState({}) // productId -> quantidade
   const [metodo, setMetodo] = useState(null)
   const [pedido, setPedido] = useState(null) // { id, numero, estado, total, itens }
@@ -261,10 +262,15 @@ function Cardapio() {
     setFase('menu')
   }
 
-  const produtosFiltrados =
-    catAtiva === 'todas'
-      ? produtos
-      : produtos.filter((p) => String(p.category_id) === String(catAtiva))
+  const categoriaPetiscos = categorias.find((c) => c.nome === 'Petiscos')
+  const emPetiscos =
+    categoriaPetiscos && String(catAtiva) === String(categoriaPetiscos.id)
+
+  const produtosFiltrados = produtos.filter((p) => {
+    if (catAtiva !== 'todas' && String(p.category_id) !== String(catAtiva)) return false
+    if (emPetiscos && subOrigem !== 'todas' && p.origem !== subOrigem) return false
+    return true
+  })
 
   const grupos = useMemo(() => {
     const g = new Map()
@@ -357,7 +363,10 @@ function Cardapio() {
                     <button
                       key={c.id}
                       type="button"
-                      onClick={() => setCatAtiva(c.id)}
+                      onClick={() => {
+                        setCatAtiva(c.id)
+                        setSubOrigem('todas')
+                      }}
                       className={`shrink-0 cursor-pointer rounded-full border px-5 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors ${
                         String(catAtiva) === String(c.id)
                           ? 'border-grafite-900 bg-grafite-900 text-creme-50'
@@ -368,6 +377,30 @@ function Cardapio() {
                     </button>
                   ))}
                 </div>
+
+                {/* Sub-filtro por origem, só dentro de Petiscos */}
+                {emPetiscos && (
+                  <div className="mt-3 flex gap-2 overflow-x-auto">
+                    {[
+                      { id: 'todas', nome: 'Todos' },
+                      { id: 'Portugues', nome: 'Portugueses' },
+                      { id: 'Brasileiro', nome: 'Brasileiros' },
+                    ].map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        onClick={() => setSubOrigem(o.id)}
+                        className={`shrink-0 cursor-pointer rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
+                          subOrigem === o.id
+                            ? 'border-ambar-600 bg-ambar-500/20 text-grafite-900'
+                            : 'border-creme-300 bg-white/60 text-grafite-600 hover:border-ambar-600'
+                        }`}
+                      >
+                        {o.nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {produtos.length === 0 && (
                   <div className="mt-8 rounded-2xl border border-creme-300 bg-white/60 p-8 text-center text-grafite-600">
@@ -385,8 +418,17 @@ function Cardapio() {
                         {itens.map((p) => (
                           <article
                             key={p.id}
-                            className="rounded-xl border border-creme-300 bg-white/70 p-5"
+                            className="overflow-hidden rounded-xl border border-creme-300 bg-white/70"
                           >
+                            {p.imagem_url && (
+                              <img
+                                src={p.imagem_url}
+                                alt={p.nome}
+                                loading="lazy"
+                                className="aspect-[16/9] w-full object-cover"
+                              />
+                            )}
+                            <div className="p-5">
                             <div className="flex items-start justify-between gap-4">
                               <div>
                                 <h3 className="font-display text-lg font-bold uppercase text-grafite-900">
@@ -420,6 +462,7 @@ function Cardapio() {
                                 onMais={() => alterarQtd(p.id, 1)}
                                 onMenos={() => alterarQtd(p.id, -1)}
                               />
+                            </div>
                             </div>
                           </article>
                         ))}
