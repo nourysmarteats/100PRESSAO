@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import barril1 from '../assets/barril-1.jpg'
 import barril2 from '../assets/barril-2.jpg'
 import barril3 from '../assets/barril-3.jpg'
@@ -9,10 +9,11 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
 }
 
-// Vídeo stock placeholder (Mixkit, licença livre) — barman a tirar cerveja à pressão
-// Variante 720p (6,3 MB vs 58,8 MB da 1080p): a 1080p demorava tanto a carregar
-// em rede móvel que o vídeo parecia parado no ícone de play
-const VIDEO_URL = 'https://assets.mixkit.co/videos/8709/8709-720.mp4'
+// Vídeo stock placeholder (Mixkit, licença livre) — barman a tirar cerveja à pressão.
+// Auto-hospedado em public/ (720p, 6 MB): servido diretamente do CDN da Mixkit
+// ficava preso em readyState 0 — o HEAD respondia 200 mas o stream nunca chegava,
+// e o Content-Disposition: attachment deles trava a reprodução nalguns browsers
+const VIDEO_URL = '/quem-somos-banner.mp4'
 
 const HISTORIA = [
   'Chamo-me Leandro Miranda e o 100PRESSÃO nasceu de uma vida dividida ao meio, e de uma sócia que acreditou nisso antes de mim.',
@@ -36,20 +37,17 @@ const BARRIS = [
   { src: barril3, alt: 'Barril de cerveja rústico pendurado numa fachada', credito: 'Karen Roe, CC BY' },
 ]
 
-function BarrilCard({ barril, i, scrollYProgress, prefersReducedMotion }) {
-  // Parallax por camada: cada cartão desloca-se a um ritmo diferente
-  const y = useTransform(scrollYProgress, [0, 1], [30 + i * 30, -30 - i * 30])
-  // Leque 3D: lateral esquerdo/direito rodados para dentro, centro plano
-  const rotateY = useTransform(scrollYProgress, [0, 1], [(i - 1) * 22, (i - 1) * 6])
-
+function BarrilCard({ barril, i, prefersReducedMotion }) {
+  // Só animação de entrada (uma vez) — o parallax 3D anterior recalculava
+  // transformações na thread principal em cada frame de scroll e congelava
+  // a página em telemóveis com menos CPU
   return (
     <motion.figure
-      style={prefersReducedMotion ? undefined : { y, rotateY, transformStyle: 'preserve-3d' }}
-      initial={{ opacity: 0, y: 40 }}
+      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 40 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.7, delay: i * 0.12, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={prefersReducedMotion ? undefined : { scale: 1.04, rotateY: 0, zIndex: 10 }}
+      whileHover={prefersReducedMotion ? undefined : { scale: 1.04 }}
       className={`overflow-hidden rounded-2xl border border-creme-300 shadow-xl shadow-grafite-900/15 ${
         i === 1 ? 'sm:-mt-8' : 'sm:mt-8'
       }`}
@@ -66,21 +64,15 @@ function BarrilCard({ barril, i, scrollYProgress, prefersReducedMotion }) {
 
 function BarrisAnimados() {
   const prefersReducedMotion = useReducedMotion()
-  const ref = useRef(null)
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start end', 'end start'],
-  })
 
   return (
-    <div ref={ref} className="mx-auto max-w-5xl px-6" style={{ perspective: '1200px' }}>
+    <div className="mx-auto max-w-5xl px-6">
       <div className="grid grid-cols-3 gap-4 sm:gap-8">
         {BARRIS.map((b, i) => (
           <BarrilCard
             key={b.src}
             barril={b}
             i={i}
-            scrollYProgress={scrollYProgress}
             prefersReducedMotion={prefersReducedMotion}
           />
         ))}
@@ -112,7 +104,7 @@ function QuemSomos() {
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           className="h-full w-full object-cover opacity-80"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-grafite-950/85 via-grafite-950/20 to-grafite-950/40" />
