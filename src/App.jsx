@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
-import Hero from './components/Hero'
+import Home from './pages/Home'
 
 const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
@@ -32,7 +32,7 @@ function App() {
     <Routes>
         {/* Site público */}
         <Route element={<Layout />}>
-          <Route path="/" element={<Hero />} />
+          <Route path="/" element={<Home />} />
           <Route path="/quem-somos" element={pagina(QuemSomos)} />
           <Route path="/cardapio" element={pagina(Cardapio)} />
           <Route path="/contato" element={pagina(Contato)} />

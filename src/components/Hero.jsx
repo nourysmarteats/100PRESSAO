@@ -5,10 +5,7 @@ import {
   useTransform,
   useReducedMotion,
 } from 'framer-motion'
-import { Link } from 'react-router-dom'
 import logoStamp from '../assets/logo-100pressao.png'
-
-const MotionLink = motion.create(Link)
 
 const EASE_OUT = [0.22, 1, 0.36, 1]
 
@@ -107,8 +104,9 @@ function Hero() {
         </motion.p>
 
         <motion.div variants={rise} className="mt-12">
-          <MotionLink
-            to="/quem-somos"
+          {/* Scrolla para as secções da casa na própria Home (suave via CSS) */}
+          <motion.a
+            href="#a-casa"
             whileHover="hover"
             whileTap={{ scale: 0.96 }}
             initial="rest"
@@ -144,7 +142,7 @@ function Hero() {
             >
               <path d="M2 8h11M9 3.5 13.5 8 9 12.5" />
             </motion.svg>
-          </MotionLink>
+          </motion.a>
         </motion.div>
       </motion.div>
 
