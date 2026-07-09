@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import barril1 from '../assets/barril-1.jpg'
 import barril2 from '../assets/barril-2.jpg'
@@ -10,7 +10,9 @@ const fadeUp = {
 }
 
 // Vídeo stock placeholder (Mixkit, licença livre) — barman a tirar cerveja à pressão
-const VIDEO_URL = 'https://assets.mixkit.co/videos/8709/8709-1080.mp4'
+// Variante 720p (6,3 MB vs 58,8 MB da 1080p): a 1080p demorava tanto a carregar
+// em rede móvel que o vídeo parecia parado no ícone de play
+const VIDEO_URL = 'https://assets.mixkit.co/videos/8709/8709-720.mp4'
 
 const HISTORIA = [
   'Chamo-me Leandro Miranda e o 100PRESSÃO nasceu de uma vida dividida ao meio, e de uma sócia que acreditou nisso antes de mim.',
@@ -91,11 +93,20 @@ function BarrisAnimados() {
 }
 
 function QuemSomos() {
+  const videoRef = useRef(null)
+
+  // iOS/Android podem ignorar o autoplay declarativo (ex.: modo poupança de
+  // bateria); repetir via API dá uma segunda oportunidade sem afetar o desktop
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {})
+  }, [])
+
   return (
     <main className="bg-creme-50 text-grafite-800">
       {/* a. Banner com vídeo em loop */}
       <section className="relative h-[55vh] min-h-80 overflow-hidden bg-grafite-900 sm:h-[65vh]">
         <video
+          ref={videoRef}
           src={VIDEO_URL}
           autoPlay
           muted
