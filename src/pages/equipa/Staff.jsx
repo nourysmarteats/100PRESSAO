@@ -13,11 +13,11 @@ function Kpi({ rotulo, valor, destaque }) {
   return (
     <div
       className={`rounded-xl border p-4 ${
-        destaque ? 'border-ambar-500/50 bg-ambar-500/10' : 'border-grafite-700 bg-grafite-900'
+        destaque ? 'border-ambar-500/50 bg-ambar-500/10' : 'border-creme-300 bg-white/70'
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-widest text-creme-500">{rotulo}</p>
-      <p className="mt-1 font-display text-3xl font-bold text-creme-50">{valor}</p>
+      <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">{rotulo}</p>
+      <p className="mt-1 font-display text-3xl font-bold text-grafite-900">{valor}</p>
     </div>
   )
 }
@@ -30,26 +30,26 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   return (
     <article
       className={`rounded-2xl border p-5 ${
-        pronto ? 'border-ambar-500/60 bg-grafite-900' : 'border-grafite-700 bg-grafite-900'
+        pronto ? 'border-ambar-500/60 bg-white/70' : 'border-creme-300 bg-white/70'
       }`}
     >
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-display text-2xl font-bold text-ambar-400">nº {pedido.numero}</p>
-          <p className="mt-0.5 text-sm text-creme-300">
+          <p className="font-display text-2xl font-bold text-ambar-600">nº {pedido.numero}</p>
+          <p className="mt-0.5 text-sm text-grafite-600">
             {pedido.sessions?.nome_cliente}
             {pedido.sessions?.posicao_mesa ? ` · ${pedido.sessions.posicao_mesa}` : ''}
           </p>
         </div>
         <div className="text-right">
-          <span className="rounded-full border border-grafite-700 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-creme-300">
+          <span className="rounded-full border border-creme-300 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-grafite-600">
             {ROTULO_ESTADO[pedido.estado]}
           </span>
-          <p className="mt-1 text-xs text-creme-500">{minutosDesde(pedido.criado_em)} min</p>
+          <p className="mt-1 text-xs text-grafite-600/70">{minutosDesde(pedido.criado_em)} min</p>
         </div>
       </header>
 
-      <ul className="mt-4 space-y-1 border-t border-grafite-700 pt-3 text-sm text-creme-300">
+      <ul className="mt-4 space-y-1 border-t border-creme-300 pt-3 text-sm text-grafite-600">
         {pedido.order_items.map((i) => (
           <li key={i.id} className="flex justify-between">
             <span>
@@ -58,14 +58,14 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
             <span>{fmt(i.preco_unitario * i.quantidade)}</span>
           </li>
         ))}
-        <li className="flex justify-between pt-2 font-display font-bold text-creme-50">
+        <li className="flex justify-between pt-2 font-display font-bold text-grafite-900">
           <span>Total</span>
           <span>{fmt(pedido.total)}</span>
         </li>
       </ul>
 
       {pronto ? (
-        <div className="mt-4 border-t border-grafite-700 pt-4">
+        <div className="mt-4 border-t border-creme-300 pt-4">
           <div className="grid grid-cols-2 gap-2">
             {METODOS_PAGAMENTO.map((m) => (
               <button
@@ -74,8 +74,8 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
                 onClick={() => setMetodo(m.id)}
                 className={`cursor-pointer rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${
                   metodo === m.id
-                    ? 'border-ambar-500 bg-ambar-500/20 text-creme-50'
-                    : 'border-grafite-700 text-creme-500 hover:text-creme-50'
+                    ? 'border-ambar-500 bg-ambar-500/20 text-grafite-900'
+                    : 'border-creme-300 text-grafite-600/70 hover:text-grafite-900'
                 }`}
               >
                 {m.rotulo}
@@ -104,7 +104,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
             await aoAvancar(pedido)
             setOcupado(false)
           }}
-          className="mt-4 w-full cursor-pointer rounded-full border border-creme-500/40 px-6 py-3 text-sm font-semibold uppercase tracking-widest text-creme-50 transition-colors hover:border-ambar-500 hover:text-ambar-400 disabled:opacity-40"
+          className="mt-4 w-full cursor-pointer rounded-full border border-grafite-600/40 px-6 py-3 text-sm font-semibold uppercase tracking-widest text-grafite-900 transition-colors hover:border-ambar-500 hover:text-ambar-600 disabled:opacity-40"
         >
           → {ROTULO_ESTADO[proximoEstado(pedido.estado)]}
         </button>
@@ -185,11 +185,11 @@ function Staff() {
       </div>
 
       <section className="mt-8">
-        <h2 className="font-display text-xl font-bold uppercase text-ambar-400">
+        <h2 className="font-display text-xl font-bold uppercase text-ambar-600">
           Prontos para entrega
         </h2>
         {prontos.length === 0 ? (
-          <p className="mt-3 text-creme-500">Nada pronto neste momento.</p>
+          <p className="mt-3 text-grafite-600/70">Nada pronto neste momento.</p>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {prontos.map((p) => (
@@ -200,9 +200,9 @@ function Staff() {
       </section>
 
       <section className="mt-10">
-        <h2 className="font-display text-xl font-bold uppercase text-creme-300">Em curso</h2>
+        <h2 className="font-display text-xl font-bold uppercase text-grafite-600">Em curso</h2>
         {emCurso.length === 0 ? (
-          <p className="mt-3 text-creme-500">Sem pedidos em curso.</p>
+          <p className="mt-3 text-grafite-600/70">Sem pedidos em curso.</p>
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {emCurso.map((p) => (
