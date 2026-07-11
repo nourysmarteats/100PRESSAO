@@ -33,9 +33,9 @@ const CATEGORIA_VAZIA = { nome: '', ordem: 0, visivel: true }
 // tanto na superfície escura atual como na clara (tema futuro)
 const GRAFICO = {
   serie: '#c9822e',
-  grelha: '#2a2e35',
-  tinta: '#b8ac92',
-  tintaForte: '#efe8da',
+  grelha: '#d9cfba',
+  tinta: '#3a3f48',
+  tintaForte: '#16181d',
 }
 
 // ── REORDENAÇÃO (partilhada por produtos e categorias) ─────
@@ -98,7 +98,7 @@ function SetasOrdem({ i, total, mover, rotulo }) {
         onClick={() => mover(i, i - 1)}
         disabled={i === 0}
         aria-label={`Subir ${rotulo}`}
-        className="cursor-pointer px-1 text-creme-500 hover:text-ambar-400 disabled:opacity-20"
+        className="cursor-pointer px-1 text-grafite-600/70 hover:text-ambar-600 disabled:opacity-20"
       >
         ▲
       </button>
@@ -107,7 +107,7 @@ function SetasOrdem({ i, total, mover, rotulo }) {
         onClick={() => mover(i, i + 1)}
         disabled={i === total - 1}
         aria-label={`Descer ${rotulo}`}
-        className="cursor-pointer px-1 text-creme-500 hover:text-ambar-400 disabled:opacity-20"
+        className="cursor-pointer px-1 text-grafite-600/70 hover:text-ambar-600 disabled:opacity-20"
       >
         ▼
       </button>
@@ -120,10 +120,10 @@ function SetasOrdem({ i, total, mover, rotulo }) {
 function TooltipGrafico({ active, payload, label, formatador }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-lg border border-grafite-700 bg-grafite-950 px-3 py-2 text-xs shadow-lg">
-      <p className="text-creme-500">{label}</p>
+    <div className="rounded-lg border border-creme-300 bg-creme-50 px-3 py-2 text-xs shadow-lg">
+      <p className="text-grafite-600/70">{label}</p>
       {payload.map((p) => (
-        <p key={p.dataKey} className="mt-0.5 font-semibold text-creme-50">
+        <p key={p.dataKey} className="mt-0.5 font-semibold text-grafite-900">
           {p.name}: {formatador ? formatador(p.value) : p.value}
         </p>
       ))}
@@ -250,7 +250,7 @@ function Analytics() {
             className={`cursor-pointer rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${
               periodo === p.id
                 ? 'border-ambar-500 bg-ambar-500 text-grafite-950'
-                : 'border-grafite-700 text-creme-300 hover:border-creme-500'
+                : 'border-creme-300 text-grafite-600 hover:border-grafite-600'
             }`}
           >
             {p.rotulo}
@@ -268,22 +268,22 @@ function Analytics() {
             valor: kpis?.tempoMedio != null ? `${kpis.tempoMedio} min` : '—',
           },
         ].map((k) => (
-          <div key={k.rotulo} className="rounded-xl border border-grafite-700 bg-grafite-900 p-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-creme-500">
+          <div key={k.rotulo} className="rounded-xl border border-creme-300 bg-white/70 p-4">
+            <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">
               {k.rotulo}
             </p>
-            <p className="mt-1 font-display text-3xl font-bold text-creme-50">{k.valor}</p>
+            <p className="mt-1 font-display text-3xl font-bold text-grafite-900">{k.valor}</p>
           </div>
         ))}
       </div>
 
       {/* Tendência de receita no período */}
-      <div className="mt-6 rounded-xl border border-grafite-700 bg-grafite-900 p-4">
-        <h3 className="font-display text-lg font-bold uppercase text-creme-300">
+      <div className="mt-6 rounded-xl border border-creme-300 bg-white/70 p-4">
+        <h3 className="font-display text-lg font-bold uppercase text-grafite-600">
           Tendência de receita
         </h3>
         {serie.every((b) => b.receita === 0) ? (
-          <p className="mt-3 text-sm text-creme-500">Sem receita no período.</p>
+          <p className="mt-3 text-sm text-grafite-600/70">Sem receita no período.</p>
         ) : (
           <div className="mt-3">
             <ResponsiveContainer width="100%" height={220}>
@@ -321,14 +321,14 @@ function Analytics() {
         )}
       </div>
 
-      <h3 className="mt-8 font-display text-lg font-bold uppercase text-creme-300">
+      <h3 className="mt-8 font-display text-lg font-bold uppercase text-grafite-600">
         Produtos mais vendidos
       </h3>
       {top.length === 0 ? (
-        <p className="mt-3 text-creme-500">Sem vendas no período.</p>
+        <p className="mt-3 text-grafite-600/70">Sem vendas no período.</p>
       ) : (
         <>
-          <div className="mt-4 rounded-xl border border-grafite-700 bg-grafite-900 p-4">
+          <div className="mt-4 rounded-xl border border-creme-300 bg-white/70 p-4">
             <ResponsiveContainer width="100%" height={top.length * 36 + 24}>
               <BarChart
                 data={top}
@@ -365,13 +365,13 @@ function Analytics() {
             {top.map((p, i) => (
               <li
                 key={p.nome}
-                className="flex items-center justify-between rounded-lg border border-grafite-700 bg-grafite-900 px-4 py-3"
+                className="flex items-center justify-between rounded-lg border border-creme-300 bg-white/70 px-4 py-3"
               >
-                <span className="text-creme-50">
-                  <span className="mr-3 font-display font-bold text-ambar-400">{i + 1}.</span>
+                <span className="text-grafite-900">
+                  <span className="mr-3 font-display font-bold text-ambar-600">{i + 1}.</span>
                   {p.nome}
                 </span>
-                <span className="text-sm text-creme-300">
+                <span className="text-sm text-grafite-600">
                   {p.qtd}× · {fmt(p.receita)}
                 </span>
               </li>
@@ -388,12 +388,12 @@ function Analytics() {
 function CampoTexto({ rotulo, ...props }) {
   return (
     <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
+      <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
         {rotulo}
       </span>
       <input
         {...props}
-        className="mt-1.5 w-full rounded-lg border border-grafite-700 bg-grafite-800 px-3 py-2.5 text-creme-50 outline-none focus:border-ambar-500"
+        className="mt-1.5 w-full rounded-lg border border-creme-300 bg-creme-100 px-3 py-2.5 text-grafite-900 outline-none focus:border-ambar-500"
       />
     </label>
   )
@@ -434,16 +434,16 @@ function UploadImagem({ valor, aoMudar, aoAvisar }) {
 
   return (
     <div>
-      <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
+      <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
         Imagem do produto
       </span>
       {valor && (
-        <div className="relative mt-2 overflow-hidden rounded-lg border border-grafite-700">
+        <div className="relative mt-2 overflow-hidden rounded-lg border border-creme-300">
           <img src={valor} alt="Pré-visualização da imagem do produto" className="aspect-[16/9] w-full object-cover" />
           <button
             type="button"
             onClick={() => aoMudar('')}
-            className="absolute right-2 top-2 cursor-pointer rounded-full bg-grafite-950/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-creme-50 hover:bg-red-500/80"
+            className="absolute right-2 top-2 cursor-pointer rounded-full bg-grafite-950/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-900 hover:bg-red-500/80"
           >
             Remover
           </button>
@@ -462,11 +462,11 @@ function UploadImagem({ valor, aoMudar, aoAvisar }) {
           type="button"
           disabled={aEnviar}
           onClick={() => inputRef.current?.click()}
-          className="cursor-pointer rounded-full border border-grafite-700 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-300 hover:border-ambar-500 disabled:opacity-40"
+          className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500 disabled:opacity-40"
         >
           {aEnviar ? 'A enviar…' : valor ? 'Substituir imagem' : '↑ Enviar imagem'}
         </button>
-        <span className="text-xs text-creme-500">ou cola um URL abaixo</span>
+        <span className="text-xs text-grafite-600/70">ou cola um URL abaixo</span>
       </div>
     </div>
   )
@@ -606,7 +606,7 @@ function Produtos() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex cursor-pointer items-center gap-3 text-sm text-creme-500">
+        <label className="flex cursor-pointer items-center gap-3 text-sm text-grafite-600/70">
           <input
             type="checkbox"
             checked={todosSelecionados}
@@ -628,28 +628,28 @@ function Produtos() {
 
       {/* Barra de ações em lote */}
       {selecionados.size > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ambar-500/40 bg-grafite-900 px-4 py-3">
-          <span className="text-sm font-semibold text-creme-50">
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-ambar-500/40 bg-white/70 px-4 py-3">
+          <span className="text-sm font-semibold text-grafite-900">
             {selecionados.size} {selecionados.size === 1 ? 'selecionado' : 'selecionados'}
           </span>
           <button
             type="button"
             onClick={() => loteDisponibilidade(false)}
-            className="cursor-pointer rounded-full bg-red-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-400 hover:bg-red-500/25"
+            className="cursor-pointer rounded-full bg-red-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-600 hover:bg-red-500/25"
           >
             Marcar esgotados
           </button>
           <button
             type="button"
             onClick={() => loteDisponibilidade(true)}
-            className="cursor-pointer rounded-full border border-grafite-700 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-300 hover:border-ambar-500"
+            className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500"
           >
             Marcar disponíveis
           </button>
           <button
             type="button"
             onClick={() => setSelecionados(new Set())}
-            className="cursor-pointer px-2 text-xs font-semibold uppercase tracking-widest text-creme-500 hover:text-creme-50"
+            className="cursor-pointer px-2 text-xs font-semibold uppercase tracking-widest text-grafite-600/70 hover:text-grafite-900"
           >
             Limpar
           </button>
@@ -659,18 +659,18 @@ function Produtos() {
       {emEdicao && (
         <form
           onSubmit={guardar}
-          className="mt-6 grid gap-4 rounded-2xl border border-ambar-500/40 bg-grafite-900 p-6 sm:grid-cols-2"
+          className="mt-6 grid gap-4 rounded-2xl border border-ambar-500/40 bg-white/70 p-6 sm:grid-cols-2"
         >
           <CampoTexto rotulo="Nome *" value={form.nome} onChange={alterar('nome')} required />
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
               Categoria *
             </span>
             <select
               value={form.category_id}
               onChange={alterar('category_id')}
               required
-              className="mt-1.5 w-full rounded-lg border border-grafite-700 bg-grafite-800 px-3 py-2.5 text-creme-50 outline-none focus:border-ambar-500"
+              className="mt-1.5 w-full rounded-lg border border-creme-300 bg-creme-100 px-3 py-2.5 text-grafite-900 outline-none focus:border-ambar-500"
             >
               {categorias.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -713,13 +713,13 @@ function Produtos() {
             placeholder="Ex.: Glúten, lacticínios"
           />
           <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
               Origem (petisco)
             </span>
             <select
               value={form.origem}
               onChange={alterar('origem')}
-              className="mt-1.5 w-full rounded-lg border border-grafite-700 bg-grafite-800 px-3 py-2.5 text-creme-50 outline-none focus:border-ambar-500"
+              className="mt-1.5 w-full rounded-lg border border-creme-300 bg-creme-100 px-3 py-2.5 text-grafite-900 outline-none focus:border-ambar-500"
             >
               <option value="">—</option>
               <option value="Portugues">Português</option>
@@ -741,7 +741,7 @@ function Produtos() {
               placeholder="https://… (deixa vazio se ainda não houver foto)"
             />
           </div>
-          <label className="flex items-center gap-3 text-creme-50">
+          <label className="flex items-center gap-3 text-grafite-900">
             <input
               type="checkbox"
               checked={form.disponivel}
@@ -754,7 +754,7 @@ function Produtos() {
             <button
               type="button"
               onClick={() => setEmEdicao(null)}
-              className="cursor-pointer rounded-full border border-grafite-700 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-creme-300"
+              className="cursor-pointer rounded-full border border-creme-300 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-grafite-600"
             >
               Cancelar
             </button>
@@ -773,7 +773,7 @@ function Produtos() {
           <li
             key={p.id}
             {...propsArrasto(i)}
-            className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-grafite-700 bg-grafite-900 px-4 py-3 ${
+            className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-creme-300 bg-white/70 px-4 py-3 ${
               p.disponivel ? '' : 'opacity-50'
             }`}
           >
@@ -788,19 +788,19 @@ function Produtos() {
               <span
                 aria-hidden="true"
                 title="Arrasta para reordenar"
-                className="cursor-grab text-creme-500/60 active:cursor-grabbing"
+                className="cursor-grab text-grafite-600/50 active:cursor-grabbing"
               >
                 ⠿
               </span>
               <SetasOrdem i={i} total={produtos.length} mover={mover} rotulo={p.nome} />
               <div>
-                <p className="font-semibold text-creme-50">
+                <p className="font-semibold text-grafite-900">
                   {p.nome}
-                  <span className="ml-3 text-xs uppercase tracking-widest text-creme-500">
+                  <span className="ml-3 text-xs uppercase tracking-widest text-grafite-600/70">
                     {p.categories?.nome}
                   </span>
                 </p>
-                <p className="text-sm text-creme-500">
+                <p className="text-sm text-grafite-600/70">
                   {fmt(p.preco)}
                   {p.estilo ? ` · ${p.estilo}` : ''}
                   {p.abv != null ? ` · ${Number(p.abv).toFixed(1)}%` : ''}
@@ -811,21 +811,21 @@ function Produtos() {
               <button
                 type="button"
                 onClick={() => alternarDisponivel(p)}
-                className="cursor-pointer rounded-full border border-grafite-700 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-300 hover:border-ambar-500"
+                className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500"
               >
                 {p.disponivel ? 'Desativar' : 'Ativar'}
               </button>
               <button
                 type="button"
                 onClick={() => abrirEdicao(p)}
-                className="cursor-pointer rounded-full border border-grafite-700 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-300 hover:border-ambar-500"
+                className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500"
               >
                 Editar
               </button>
               <button
                 type="button"
                 onClick={() => apagar(p)}
-                className="cursor-pointer rounded-full border border-red-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-400 hover:border-red-500"
+                className="cursor-pointer rounded-full border border-red-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-600 hover:border-red-500"
               >
                 Apagar
               </button>
@@ -837,7 +837,7 @@ function Produtos() {
       {aviso && (
         <p
           role="status"
-          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-creme-50 px-6 py-3 text-sm font-semibold text-grafite-900 shadow-lg"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-grafite-900 px-6 py-3 text-sm font-semibold text-creme-50 shadow-lg"
         >
           {aviso}
         </p>
@@ -927,7 +927,7 @@ function Categorias() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-creme-500">
+        <p className="text-grafite-600/70">
           {categorias.length} categorias · ocultas não aparecem em /cardapio
         </p>
         <button
@@ -942,7 +942,7 @@ function Categorias() {
       {emEdicao && (
         <form
           onSubmit={guardar}
-          className="mt-6 grid gap-4 rounded-2xl border border-ambar-500/40 bg-grafite-900 p-6 sm:grid-cols-2"
+          className="mt-6 grid gap-4 rounded-2xl border border-ambar-500/40 bg-white/70 p-6 sm:grid-cols-2"
         >
           <CampoTexto
             rotulo="Nome *"
@@ -956,7 +956,7 @@ function Categorias() {
             value={form.ordem}
             onChange={(e) => setForm((f) => ({ ...f, ordem: e.target.value }))}
           />
-          <label className="flex items-center gap-3 text-creme-50">
+          <label className="flex items-center gap-3 text-grafite-900">
             <input
               type="checkbox"
               checked={form.visivel}
@@ -969,7 +969,7 @@ function Categorias() {
             <button
               type="button"
               onClick={() => setEmEdicao(null)}
-              className="cursor-pointer rounded-full border border-grafite-700 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-creme-300"
+              className="cursor-pointer rounded-full border border-creme-300 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-grafite-600"
             >
               Cancelar
             </button>
@@ -990,7 +990,7 @@ function Categorias() {
             <li
               key={c.id}
               {...propsArrasto(i)}
-              className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-grafite-700 bg-grafite-900 px-4 py-3 ${
+              className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-creme-300 bg-white/70 px-4 py-3 ${
                 visivel ? '' : 'opacity-50'
               }`}
             >
@@ -998,15 +998,15 @@ function Categorias() {
                 <span
                   aria-hidden="true"
                   title="Arrasta para reordenar"
-                  className="cursor-grab text-creme-500/60 active:cursor-grabbing"
+                  className="cursor-grab text-grafite-600/50 active:cursor-grabbing"
                 >
                   ⠿
                 </span>
                 <SetasOrdem i={i} total={categorias.length} mover={mover} rotulo={c.nome} />
-                <p className="font-semibold text-creme-50">
+                <p className="font-semibold text-grafite-900">
                   {c.nome}
                   {!visivel && (
-                    <span className="ml-3 rounded-full border border-creme-500/30 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-creme-500">
+                    <span className="ml-3 rounded-full border border-grafite-600/30 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-grafite-600/70">
                       Oculta
                     </span>
                   )}
@@ -1016,21 +1016,21 @@ function Categorias() {
                 <button
                   type="button"
                   onClick={() => alternarVisivel(c)}
-                  className="cursor-pointer rounded-full border border-grafite-700 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-300 hover:border-ambar-500"
+                  className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500"
                 >
                   {visivel ? 'Ocultar' : 'Mostrar'}
                 </button>
                 <button
                   type="button"
                   onClick={() => abrirEdicao(c)}
-                  className="cursor-pointer rounded-full border border-grafite-700 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-300 hover:border-ambar-500"
+                  className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500"
                 >
                   Editar
                 </button>
                 <button
                   type="button"
                   onClick={() => apagar(c)}
-                  className="cursor-pointer rounded-full border border-red-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-400 hover:border-red-500"
+                  className="cursor-pointer rounded-full border border-red-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-600 hover:border-red-500"
                 >
                   Apagar
                 </button>
@@ -1043,7 +1043,7 @@ function Categorias() {
       {aviso && (
         <p
           role="status"
-          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-creme-50 px-6 py-3 text-sm font-semibold text-grafite-900 shadow-lg"
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-grafite-900 px-6 py-3 text-sm font-semibold text-creme-50 shadow-lg"
         >
           {aviso}
         </p>
@@ -1071,8 +1071,8 @@ function Admin() {
             onClick={() => setAba(a.id)}
             className={`cursor-pointer rounded-full px-5 py-2.5 text-sm font-semibold uppercase tracking-widest transition-colors ${
               aba === a.id
-                ? 'bg-creme-50 text-grafite-950'
-                : 'text-creme-300 hover:text-creme-50'
+                ? 'bg-grafite-900 text-creme-50'
+                : 'text-grafite-600 hover:text-grafite-900'
             }`}
           >
             {a.rotulo}

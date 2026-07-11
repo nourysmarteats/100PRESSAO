@@ -34,21 +34,21 @@ function Login() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-grafite-950 px-6">
+    <div className="flex min-h-dvh items-center justify-center bg-creme-50 px-6">
       <form
         onSubmit={entrar}
-        className="w-full max-w-sm rounded-2xl border border-grafite-700 bg-grafite-900 p-8"
+        className="w-full max-w-sm rounded-2xl border border-creme-300 bg-white/70 p-8"
       >
         <img
           src={logoStamp}
           alt="Logótipo 100PRESSÃO"
-          className="mx-auto h-20 w-20 rounded-full mix-blend-lighten"
+          className="mx-auto h-20 w-20 rounded-full"
         />
-        <h1 className="mt-4 text-center font-display text-xl font-bold uppercase tracking-tight text-creme-50">
+        <h1 className="mt-4 text-center font-display text-xl font-bold uppercase tracking-tight text-grafite-900">
           Área da equipa
         </h1>
         <label className="mt-6 block">
-          <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
+          <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
             Email
           </span>
           <input
@@ -57,11 +57,11 @@ function Login() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="username"
-            className="mt-2 w-full rounded-xl border border-grafite-700 bg-grafite-800 px-4 py-3 text-creme-50 outline-none focus:border-ambar-500"
+            className="mt-2 w-full rounded-xl border border-creme-300 bg-creme-100 px-4 py-3 text-grafite-900 outline-none focus:border-ambar-500"
           />
         </label>
         <label className="mt-4 block">
-          <span className="text-xs font-semibold uppercase tracking-widest text-ambar-400">
+          <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
             Palavra-passe
           </span>
           <div className="relative mt-2">
@@ -71,14 +71,14 @@ function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full rounded-xl border border-grafite-700 bg-grafite-800 py-3 pl-4 pr-12 text-creme-50 outline-none focus:border-ambar-500"
+              className="w-full rounded-xl border border-creme-300 bg-creme-100 py-3 pl-4 pr-12 text-grafite-900 outline-none focus:border-ambar-500"
             />
             <button
               type="button"
               onClick={() => setMostrarPassword((v) => !v)}
               aria-label={mostrarPassword ? 'Ocultar palavra-passe' : 'Mostrar palavra-passe'}
               aria-pressed={mostrarPassword}
-              className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center text-creme-500 transition-colors hover:text-creme-50"
+              className="absolute inset-y-0 right-0 flex w-12 cursor-pointer items-center justify-center text-grafite-600/70 transition-colors hover:text-grafite-900"
             >
               {mostrarPassword ? (
                 /* olho cortado — a password está visível */
@@ -96,7 +96,7 @@ function Login() {
             </button>
           </div>
         </label>
-        <p className="mt-3 h-5 text-sm text-red-400" role="alert">
+        <p className="mt-3 h-5 text-sm text-red-600" role="alert">
           {erro}
         </p>
         <button
@@ -129,13 +129,13 @@ function PinGate({ aoDesbloquear }) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-grafite-950 px-6">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-creme-50 px-6">
       <img
         src={logoStamp}
         alt="Logótipo 100PRESSÃO"
-        className="h-24 w-24 rounded-full mix-blend-lighten"
+        className="h-24 w-24 rounded-full"
       />
-      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-creme-500">
+      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-grafite-600/70">
         Introduz o PIN do turno
       </p>
       <input
@@ -146,9 +146,9 @@ function PinGate({ aoDesbloquear }) {
         onChange={(e) => verificar(e.target.value.replace(/\D/g, ''))}
         autoFocus
         aria-label="PIN do turno"
-        className="w-40 rounded-xl border border-grafite-700 bg-grafite-800 px-4 py-4 text-center font-display text-3xl tracking-[0.5em] text-creme-50 outline-none focus:border-ambar-500"
+        className="w-40 rounded-xl border border-creme-300 bg-creme-100 px-4 py-4 text-center font-display text-3xl tracking-[0.5em] text-grafite-900 outline-none focus:border-ambar-500"
       />
-      <p className="h-5 text-sm text-red-400" role="alert">
+      <p className="h-5 text-sm text-red-600" role="alert">
         {erro ? 'PIN incorreto' : ''}
       </p>
     </div>
@@ -163,14 +163,14 @@ function AreaEquipa() {
 
   if (!supabase) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-grafite-950 px-6 text-creme-300">
+      <div className="flex min-h-dvh items-center justify-center bg-creme-50 px-6 text-grafite-600">
         Sistema indisponível — configuração em falta.
       </div>
     )
   }
 
   if (sessao === undefined) {
-    return <div className="min-h-dvh bg-grafite-950" />
+    return <div className="min-h-dvh bg-creme-50" />
   }
 
   if (!sessao) return <Login />
@@ -178,14 +178,14 @@ function AreaEquipa() {
   if (!pinOk) return <PinGate aoDesbloquear={() => setPinOk(true)} />
 
   return (
-    <div className="min-h-dvh bg-grafite-950 text-creme-50">
-      <header className="sticky top-0 z-40 border-b border-grafite-700 bg-grafite-900/95 backdrop-blur">
+    <div className="min-h-dvh bg-creme-50 text-grafite-900">
+      <header className="sticky top-0 z-40 border-b border-creme-300 bg-creme-50/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <img
               src={logoStamp}
               alt=""
-              className="h-10 w-10 rounded-full mix-blend-lighten"
+              className="h-10 w-10 rounded-full"
             />
             <span className="hidden font-display text-lg font-bold uppercase tracking-tight sm:block">
               100PRESSÃO
@@ -200,7 +200,7 @@ function AreaEquipa() {
                   `rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-widest transition-colors sm:px-4 sm:text-sm ${
                     isActive
                       ? 'bg-ambar-500 text-grafite-950'
-                      : 'text-creme-300 hover:text-creme-50'
+                      : 'text-grafite-600 hover:text-grafite-900'
                   }`
                 }
               >
@@ -211,7 +211,7 @@ function AreaEquipa() {
           <button
             type="button"
             onClick={() => supabase.auth.signOut()}
-            className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-creme-500 hover:text-creme-50"
+            className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-grafite-600/70 hover:text-grafite-900"
           >
             Sair
           </button>

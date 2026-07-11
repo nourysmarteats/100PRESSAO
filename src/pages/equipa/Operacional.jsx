@@ -110,9 +110,9 @@ function Operacional() {
             { rotulo: 'Prontos', valor: prontos },
             { rotulo: 'Entregues hoje', valor: entreguesHoje },
           ].map((k) => (
-            <div key={k.rotulo} className="rounded-xl border border-grafite-700 bg-grafite-900 px-4 py-2">
-              <span className="font-display text-2xl font-bold text-creme-50">{k.valor}</span>
-              <span className="ml-2 text-xs uppercase tracking-widest text-creme-500">
+            <div key={k.rotulo} className="rounded-xl border border-creme-300 bg-white/70 px-4 py-2">
+              <span className="font-display text-2xl font-bold text-grafite-900">{k.valor}</span>
+              <span className="ml-2 text-xs uppercase tracking-widest text-grafite-600/70">
                 {k.rotulo}
               </span>
             </div>
@@ -122,7 +122,7 @@ function Operacional() {
           type="button"
           onClick={() => setSomLigado((v) => !v)}
           aria-pressed={somLigado}
-          className="cursor-pointer rounded-full border border-grafite-700 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-300 hover:border-ambar-500"
+          className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500"
         >
           Som: {somLigado ? 'ligado' : 'desligado'}
         </button>
@@ -138,7 +138,7 @@ function Operacional() {
             className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors ${
               String(filtroCat) === String(c.id)
                 ? 'border-ambar-500 bg-ambar-500 text-grafite-950'
-                : 'border-grafite-700 text-creme-300 hover:border-creme-500'
+                : 'border-creme-300 text-grafite-600 hover:border-grafite-600'
             }`}
           >
             {c.nome}
@@ -147,7 +147,7 @@ function Operacional() {
       </div>
 
       {pedidos.length === 0 && (
-        <p className="mt-12 text-center text-creme-500">Sem pedidos ativos. 🍺 em paz.</p>
+        <p className="mt-12 text-center text-grafite-600/70">Sem pedidos ativos. 🍺 em paz.</p>
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -165,19 +165,19 @@ function Operacional() {
               key={p.id}
               className={`rounded-2xl border p-5 ${
                 p.estado === 'pronto'
-                  ? 'border-ambar-500/60 bg-grafite-900'
+                  ? 'border-ambar-500/60 bg-white/70'
                   : minutos >= 15
-                    ? 'border-red-500/50 bg-grafite-900'
-                    : 'border-grafite-700 bg-grafite-900'
+                    ? 'border-red-500/50 bg-white/70'
+                    : 'border-creme-300 bg-white/70'
               }`}
             >
               <header className="flex items-center justify-between">
-                <span className="font-display text-2xl font-bold text-ambar-400">
+                <span className="font-display text-2xl font-bold text-ambar-600">
                   nº {p.numero}
                 </span>
-                <div className="text-right text-xs text-creme-500">
+                <div className="text-right text-xs text-grafite-600/70">
                   <p>{p.sessions?.posicao_mesa || p.sessions?.nome_cliente || '—'}</p>
-                  <p className={minutos >= 15 ? 'font-bold text-red-400' : ''}>{minutos} min</p>
+                  <p className={minutos >= 15 ? 'font-bold text-red-600' : ''}>{minutos} min</p>
                 </div>
               </header>
 
@@ -187,12 +187,12 @@ function Operacional() {
                     key={i.id}
                     className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 ${
                       i.estado === 'pronto'
-                        ? 'border-grafite-700 opacity-50'
-                        : 'border-grafite-700'
+                        ? 'border-creme-300 opacity-50'
+                        : 'border-creme-300'
                     }`}
                   >
-                    <span className="text-sm text-creme-50">
-                      <strong className="text-ambar-400">{i.quantidade}×</strong>{' '}
+                    <span className="text-sm text-grafite-900">
+                      <strong className="text-ambar-600">{i.quantidade}×</strong>{' '}
                       {i.products?.nome}
                     </span>
                     <button
@@ -201,10 +201,10 @@ function Operacional() {
                       onClick={() => avancarItem(p, i)}
                       className={`shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
                         i.estado === 'pronto'
-                          ? 'text-creme-500'
+                          ? 'text-grafite-600/70'
                           : i.estado === 'em_preparacao'
                             ? 'bg-ambar-500 text-grafite-950 hover:bg-ambar-400'
-                            : 'border border-creme-500/40 text-creme-300 hover:border-ambar-500'
+                            : 'border border-grafite-600/40 text-grafite-600 hover:border-ambar-500'
                       }`}
                     >
                       {ESTADO_ITEM[i.estado]?.botao || i.estado}
@@ -213,9 +213,9 @@ function Operacional() {
                 ))}
               </ul>
 
-              <footer className="mt-4 flex items-center justify-between border-t border-grafite-700 pt-3 text-xs uppercase tracking-widest">
-                <span className="text-creme-500">{ROTULO_ESTADO[p.estado]}</span>
-                <span className="font-display text-sm font-bold text-creme-300">
+              <footer className="mt-4 flex items-center justify-between border-t border-creme-300 pt-3 text-xs uppercase tracking-widest">
+                <span className="text-grafite-600/70">{ROTULO_ESTADO[p.estado]}</span>
+                <span className="font-display text-sm font-bold text-grafite-600">
                   {fmt(p.total)}
                 </span>
               </footer>
