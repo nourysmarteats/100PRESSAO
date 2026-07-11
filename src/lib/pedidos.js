@@ -47,9 +47,46 @@ export function beep(frequencias = [880, 1100, 1320]) {
   }
 }
 
-// Consulta padrão: pedidos ativos com sessão e itens
+// Consulta padrão: pedidos ativos com sessão e itens (produtos, variantes
+// e combos — um item de pedido tem product_id OU combo_id)
 export const SELECT_PEDIDO_COMPLETO = `
+  *,
+  sessions ( nome_cliente, posicao_mesa ),
+  order_items ( *, products ( nome, category_id ), product_variants ( nome ), combos ( nome, category_id ) )
+`
+
+// Select antigo (sem combos/variantes) — fallback enquanto a migração SQL
+// v2 não estiver aplicada, para staff/operacional nunca ficarem às escuras
+export const SELECT_PEDIDO_LEGADO = `
   *,
   sessions ( nome_cliente, posicao_mesa ),
   order_items ( *, products ( nome, category_id ) )
 `
+
+export async function obterPedidosAtivos(supabase) {
+  let r = await supabase
+    .from('orders')
+    .select(SELECT_PEDIDO_COMPLETO)
+    .neq('estado', 'entregue')
+    .order('criado_em')
+  if (r.error) {
+    r = await supabase
+      .from('orders')
+      .select(SELECT_PEDIDO_LEGADO)
+      .neq('estado', 'entregue')
+      .order('criado_em')
+  }
+  return r
+}
+
+// Nome exibível de um item de pedido, seja produto (com variante) ou combo
+export function nomeItemPedido(item) {
+  if (item.combos?.nome) return `Combo ${item.combos.nome}`
+  const variante = item.product_variants?.nome ? ` ${item.product_variants.nome}` : ''
+  return `${item.products?.nome || '—'}${variante}`
+}
+
+// Categoria de um item (produto ou combo), para o filtro bar/cozinha
+export function categoriaItemPedido(item) {
+  return item.combos?.category_id ?? item.products?.category_id ?? null
+}

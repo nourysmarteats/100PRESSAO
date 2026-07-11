@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useHorario } from '../lib/horario'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -17,6 +18,7 @@ function InfoIcon({ children }) {
 }
 
 function Contato() {
+  const horario = useHorario()
   return (
     <main className="bg-creme-50 text-grafite-800">
       <div className="mx-auto max-w-5xl px-6 py-16">
@@ -73,10 +75,14 @@ function Contato() {
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-ambar-600">
                   Horário
                 </h2>
-                {/* TODO: confirmar se este é o horário de atendimento ao público */}
-                <p className="mt-1 text-lg text-grafite-800">
-                  Segunda a Sexta, 8:00 – 12:00
-                </p>
+                {/* Editável no admin (Avisos & Horário) */}
+                <div className="mt-1 space-y-0.5">
+                  {horario.map((l) => (
+                    <p key={l.dias} className="text-lg text-grafite-800">
+                      {l.dias}, {l.horas}
+                    </p>
+                  ))}
+                </div>
               </div>
             </div>
 

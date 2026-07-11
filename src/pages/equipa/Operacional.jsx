@@ -5,7 +5,9 @@ import {
   beep,
   minutosDesde,
   ROTULO_ESTADO,
-  SELECT_PEDIDO_COMPLETO,
+  nomeItemPedido,
+  categoriaItemPedido,
+  obterPedidosAtivos,
 } from '../../lib/pedidos'
 
 const ESTADO_ITEM = {
@@ -40,11 +42,7 @@ function Operacional() {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
     const [ativos, rCat, entregues] = await Promise.all([
-      supabase
-        .from('orders')
-        .select(SELECT_PEDIDO_COMPLETO)
-        .neq('estado', 'entregue')
-        .order('criado_em'),
+      obterPedidosAtivos(supabase),
       supabase.from('categories').select('*').order('ordem'),
       supabase
         .from('orders')
@@ -156,7 +154,7 @@ function Operacional() {
             filtroCat === 'todas'
               ? p.order_items
               : p.order_items.filter(
-                  (i) => String(i.products?.category_id) === String(filtroCat),
+                  (i) => String(categoriaItemPedido(i)) === String(filtroCat),
                 )
           if (itens.length === 0) return null
           const minutos = minutosDesde(p.criado_em)
@@ -193,7 +191,7 @@ function Operacional() {
                   >
                     <span className="text-sm text-grafite-900">
                       <strong className="text-ambar-600">{i.quantidade}×</strong>{' '}
-                      {i.products?.nome}
+                      {nomeItemPedido(i)}
                     </span>
                     <button
                       type="button"

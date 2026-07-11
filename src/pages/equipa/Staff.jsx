@@ -6,7 +6,8 @@ import {
   proximoEstado,
   ROTULO_ESTADO,
   METODOS_PAGAMENTO,
-  SELECT_PEDIDO_COMPLETO,
+  nomeItemPedido,
+  obterPedidosAtivos,
 } from '../../lib/pedidos'
 
 function Kpi({ rotulo, valor, destaque }) {
@@ -53,7 +54,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
         {pedido.order_items.map((i) => (
           <li key={i.id} className="flex justify-between">
             <span>
-              {i.quantidade}× {i.products?.nome}
+              {i.quantidade}× {nomeItemPedido(i)}
             </span>
             <span>{fmt(i.preco_unitario * i.quantidade)}</span>
           </li>
@@ -123,11 +124,7 @@ function Staff() {
     hoje.setHours(0, 0, 0, 0)
 
     const [ativos, entregues] = await Promise.all([
-      supabase
-        .from('orders')
-        .select(SELECT_PEDIDO_COMPLETO)
-        .neq('estado', 'entregue')
-        .order('criado_em'),
+      obterPedidosAtivos(supabase),
       supabase
         .from('orders')
         .select('total')

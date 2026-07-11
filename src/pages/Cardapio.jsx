@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../lib/supabase'
 
@@ -88,6 +88,9 @@ function Cardapio() {
   const [sessao, setSessao] = useState(null)
   const [categorias, setCategorias] = useState([])
   const [produtos, setProdutos] = useState([])
+  const [combos, setCombos] = useState([])
+  const [variantes, setVariantes] = useState({}) // product_id -> [variantes]
+  const [banner, setBanner] = useState('')
   const [catAtiva, setCatAtiva] = useState('todas')
   const [subOrigem, setSubOrigem] = useState('todas') // sub-filtro de Petiscos
   const [carrinho, setCarrinho] = useState({}) // productId -> quantidade
@@ -103,11 +106,23 @@ function Cardapio() {
     if (!supabase) return
     let ativo = true
     async function carregar() {
-      const [rCat, rProd] = await Promise.all([
+      // Combos e variantes podem ainda não existir no schema (migração v2)
+      // — cada consulta falha isolada sem afetar o resto do cardápio
+      const [rCat, rProd, rCombos, rVar] = await Promise.all([
         supabase.from('categories').select('*').order('ordem'),
         supabase
           .from('products')
           .select('*, categories(id, nome)')
+          .eq('disponivel', true)
+          .order('ordem'),
+        supabase
+          .from('combos')
+          .select('*, combo_items(quantidade, products(nome))')
+          .eq('disponivel', true)
+          .order('ordem'),
+        supabase
+          .from('product_variants')
+          .select('*')
           .eq('disponivel', true)
           .order('ordem'),
       ])
@@ -119,10 +134,44 @@ function Cardapio() {
       )
       if (!rCat.error) setCategorias(rCat.data.filter((c) => !ocultas.has(c.id)))
       if (!rProd.error) setProdutos(rProd.data.filter((p) => !ocultas.has(p.category_id)))
+      if (!rCombos.error) setCombos(rCombos.data.filter((c) => !ocultas.has(c.category_id)))
+      if (!rVar.error) {
+        const porProduto = {}
+        rVar.data.forEach((v) => {
+          ;(porProduto[v.product_id] = porProduto[v.product_id] || []).push(v)
+        })
+        setVariantes(porProduto)
+      }
     }
     carregar()
     return () => {
       ativo = false
+    }
+  }, [])
+
+  // Aviso operacional (item 6 da v2): faixa configurável no admin, com
+  // atualização em tempo real — sem reload manual
+  useEffect(() => {
+    if (!supabase) return
+    supabase
+      .from('definicoes')
+      .select('valor')
+      .eq('chave', 'banner')
+      .single()
+      .then(({ data, error }) => {
+        if (!error && typeof data?.valor === 'string') setBanner(data.valor)
+      })
+    const canal = supabase
+      .channel('definicoes-banner')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'definicoes', filter: 'chave=eq.banner' },
+        (payload) =>
+          setBanner(typeof payload.new?.valor === 'string' ? payload.new.valor : ''),
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(canal)
     }
   }, [])
 
@@ -149,13 +198,39 @@ function Cardapio() {
     setTimeout(() => setAviso(''), 3500)
   }
 
+  // Chaves do carrinho: "p:<id>" (produto), "p:<id>:v:<id>" (variante),
+  // "c:<id>" (combo) — resolve para nome/preço/refs num só sítio
+  const resolverChave = useCallback(
+    (chave) => {
+      const partes = chave.split(':')
+      if (partes[0] === 'c') {
+        const combo = combos.find((c) => String(c.id) === partes[1])
+        return combo ? { nome: `Combo ${combo.nome}`, preco: combo.preco, combo } : null
+      }
+      const p = produtos.find((x) => String(x.id) === partes[1])
+      if (!p) return null
+      const v =
+        partes[2] === 'v'
+          ? (variantes[p.id] || []).find((x) => String(x.id) === partes[3])
+          : null
+      if (partes[2] === 'v' && !v) return null
+      return {
+        nome: v ? `${p.nome} ${v.nome}` : p.nome,
+        preco: v ? v.preco : p.preco,
+        produto: p,
+        variante: v,
+      }
+    },
+    [produtos, combos, variantes],
+  )
+
   const totalCarrinho = useMemo(
     () =>
-      Object.entries(carrinho).reduce((soma, [id, qtd]) => {
-        const p = produtos.find((x) => String(x.id) === String(id))
-        return soma + (p ? p.preco * qtd : 0)
+      Object.entries(carrinho).reduce((soma, [chave, qtd]) => {
+        const r = resolverChave(chave)
+        return soma + (r ? r.preco * qtd : 0)
       }, 0),
-    [carrinho, produtos],
+    [carrinho, resolverChave],
   )
   const contagemCarrinho = useMemo(
     () => Object.values(carrinho).reduce((a, b) => a + b, 0),
@@ -220,14 +295,22 @@ function Cardapio() {
         return
       }
 
-      const itens = Object.entries(carrinho).map(([id, qtd]) => {
-        const p = produtos.find((x) => String(x.id) === String(id))
-        return {
+      // Combos entram como linha própria (combo_id); variantes levam
+      // variant_id. As colunas novas só vão no insert quando usadas, para
+      // o fluxo antigo continuar a funcionar antes da migração v2.
+      const entradas = Object.entries(carrinho)
+        .map(([chave, qtd]) => ({ r: resolverChave(chave), qtd }))
+        .filter((e) => e.r)
+      const itens = entradas.map(({ r, qtd }) => {
+        const item = {
           order_id: order.id,
-          product_id: p.id,
+          product_id: r.produto?.id ?? null,
           quantidade: qtd,
-          preco_unitario: p.preco,
+          preco_unitario: r.preco,
         }
+        if (r.variante) item.variant_id = r.variante.id
+        if (r.combo) item.combo_id = r.combo.id
+        return item
       })
 
       const { error: erroItens } = await comTimeout(
@@ -238,7 +321,7 @@ function Cardapio() {
         return
       }
 
-      aoConcluir(order, itens)
+      aoConcluir(order, entradas)
     } catch {
       mostrarAviso('A ligação está lenta. Tenta novamente.')
     } finally {
@@ -246,15 +329,16 @@ function Cardapio() {
     }
   }
 
-  function aoConcluir(order, itens) {
+  function aoConcluir(order, entradas) {
     setPedido({
       id: order.id,
       numero: order.numero,
       estado: order.estado,
       total: totalCarrinho,
-      itens: itens.map((i) => ({
-        ...i,
-        nome: produtos.find((p) => p.id === i.product_id)?.nome,
+      itens: entradas.map(({ r, qtd }) => ({
+        nome: r.nome,
+        quantidade: qtd,
+        preco_unitario: r.preco,
       })),
     })
     setFase('acompanhar')
@@ -277,15 +361,27 @@ function Cardapio() {
     return true
   })
 
+  // Combos filtram pela categoria ativa; sem categoria ficam na secção
+  // própria "Combos" (visível só em "Tudo")
+  const combosFiltrados = combos.filter(
+    (c) => catAtiva === 'todas' || String(c.category_id) === String(catAtiva),
+  )
+
   const grupos = useMemo(() => {
     const g = new Map()
+    const grupo = (chave) => {
+      if (!g.has(chave)) g.set(chave, { produtos: [], combos: [] })
+      return g.get(chave)
+    }
+    combosFiltrados.forEach((c) => {
+      const nomeCat = categorias.find((x) => String(x.id) === String(c.category_id))?.nome
+      grupo(nomeCat || 'Combos').combos.push(c)
+    })
     produtosFiltrados.forEach((p) => {
-      const chave = p.categories?.nome || 'Outros'
-      if (!g.has(chave)) g.set(chave, [])
-      g.get(chave).push(p)
+      grupo(p.categories?.nome || 'Outros').produtos.push(p)
     })
     return [...g.entries()]
-  }, [produtosFiltrados])
+  }, [produtosFiltrados, combosFiltrados, categorias])
 
   const indiceEstado = pedido
     ? ESTADOS_PEDIDO.findIndex((e) => e.id === pedido.estado)
@@ -297,6 +393,16 @@ function Cardapio() {
         <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">
           Cardápio
         </h1>
+
+        {/* Aviso operacional configurado no admin (tempo real) */}
+        {banner && (
+          <div
+            role="status"
+            className="mt-5 rounded-xl border border-ambar-500/50 bg-ambar-500/15 px-4 py-3 font-semibold text-grafite-900"
+          >
+            {banner}
+          </div>
+        )}
 
         {indisponivel && (
           <div className="mt-10 rounded-2xl border border-creme-300 bg-white/60 p-8 text-center">
@@ -407,20 +513,69 @@ function Cardapio() {
                   </div>
                 )}
 
-                {produtos.length === 0 && (
+                {produtos.length === 0 && combos.length === 0 && (
                   <div className="mt-8 rounded-2xl border border-creme-300 bg-white/60 p-8 text-center text-grafite-600">
                     O cardápio está a ser preparado — volta já de seguida.
                   </div>
                 )}
 
                 <div className="mt-6 space-y-10 pb-28">
-                  {grupos.map(([nomeGrupo, itens]) => (
+                  {grupos.map(([nomeGrupo, grupo]) => (
                     <section key={nomeGrupo}>
                       <h2 className="font-display text-2xl font-bold uppercase text-cobre-600">
                         {nomeGrupo}
                       </h2>
                       <div className="mt-4 space-y-4">
-                        {itens.map((p) => (
+                        {/* Combos primeiro: conjunto a preço fixo */}
+                        {grupo.combos.map((c) => (
+                          <article
+                            key={`combo-${c.id}`}
+                            className="overflow-hidden rounded-xl border-2 border-ambar-500/50 bg-white/70"
+                          >
+                            {c.imagem_url && (
+                              <img
+                                src={c.imagem_url}
+                                alt={c.nome}
+                                loading="lazy"
+                                className="aspect-[16/9] w-full object-cover"
+                              />
+                            )}
+                            <div className="p-5">
+                              <div className="flex items-start justify-between gap-4">
+                                <div>
+                                  <span className="rounded-full bg-ambar-500/20 px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-widest text-cobre-600">
+                                    Combo
+                                  </span>
+                                  <h3 className="mt-1.5 font-display text-lg font-bold uppercase text-grafite-900">
+                                    {c.nome}
+                                  </h3>
+                                  {c.descricao && (
+                                    <p className="mt-2 text-sm leading-relaxed text-grafite-600">
+                                      {c.descricao}
+                                    </p>
+                                  )}
+                                  <p className="mt-2 text-xs uppercase tracking-widest text-grafite-600/70">
+                                    {c.combo_items
+                                      ?.map((i) => `${i.quantidade}× ${i.products?.nome || '?'}`)
+                                      .join(' + ')}
+                                  </p>
+                                </div>
+                                <span className="shrink-0 font-display text-lg font-bold text-cobre-600">
+                                  {fmt(c.preco)}
+                                </span>
+                              </div>
+                              <div className="mt-4 flex justify-end">
+                                <ControloQuantidade
+                                  qtd={carrinho[`c:${c.id}`] || 0}
+                                  onMais={() => alterarQtd(`c:${c.id}`, 1)}
+                                  onMenos={() => alterarQtd(`c:${c.id}`, -1)}
+                                />
+                              </div>
+                            </div>
+                          </article>
+                        ))}
+
+                        {grupo.produtos.map((p) => (
                           <article
                             key={p.id}
                             className="overflow-hidden rounded-xl border border-creme-300 bg-white/70"
@@ -458,16 +613,40 @@ function Cardapio() {
                                 )}
                               </div>
                               <span className="shrink-0 font-display text-lg font-bold text-cobre-600">
-                                {fmt(p.preco)}
+                                {variantes[p.id]?.length
+                                  ? `desde ${fmt(Math.min(...variantes[p.id].map((v) => Number(v.preco))))}`
+                                  : fmt(p.preco)}
                               </span>
                             </div>
-                            <div className="mt-4 flex justify-end">
-                              <ControloQuantidade
-                                qtd={carrinho[p.id] || 0}
-                                onMais={() => alterarQtd(p.id, 1)}
-                                onMenos={() => alterarQtd(p.id, -1)}
-                              />
-                            </div>
+                            {variantes[p.id]?.length ? (
+                              /* Variantes de tamanho: uma linha por opção */
+                              <ul className="mt-4 space-y-2 border-t border-creme-300 pt-3">
+                                {variantes[p.id].map((v) => (
+                                  <li
+                                    key={v.id}
+                                    className="flex items-center justify-between gap-4"
+                                  >
+                                    <span className="text-sm text-grafite-800">
+                                      {v.nome} ·{' '}
+                                      <strong className="text-cobre-600">{fmt(v.preco)}</strong>
+                                    </span>
+                                    <ControloQuantidade
+                                      qtd={carrinho[`p:${p.id}:v:${v.id}`] || 0}
+                                      onMais={() => alterarQtd(`p:${p.id}:v:${v.id}`, 1)}
+                                      onMenos={() => alterarQtd(`p:${p.id}:v:${v.id}`, -1)}
+                                    />
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <div className="mt-4 flex justify-end">
+                                <ControloQuantidade
+                                  qtd={carrinho[`p:${p.id}`] || 0}
+                                  onMais={() => alterarQtd(`p:${p.id}`, 1)}
+                                  onMenos={() => alterarQtd(`p:${p.id}`, -1)}
+                                />
+                              </div>
+                            )}
                             </div>
                           </article>
                         ))}
@@ -517,23 +696,23 @@ function Cardapio() {
                     O teu pedido
                   </h2>
                   <ul className="mt-4 divide-y divide-creme-300">
-                    {Object.entries(carrinho).map(([id, qtd]) => {
-                      const p = produtos.find((x) => String(x.id) === String(id))
-                      if (!p) return null
+                    {Object.entries(carrinho).map(([chave, qtd]) => {
+                      const r = resolverChave(chave)
+                      if (!r) return null
                       return (
-                        <li key={id} className="flex items-center justify-between gap-4 py-3">
+                        <li key={chave} className="flex items-center justify-between gap-4 py-3">
                           <div>
-                            <p className="font-semibold text-grafite-900">{p.nome}</p>
-                            <p className="text-sm text-grafite-600">{fmt(p.preco)} cada</p>
+                            <p className="font-semibold text-grafite-900">{r.nome}</p>
+                            <p className="text-sm text-grafite-600">{fmt(r.preco)} cada</p>
                           </div>
                           <div className="flex items-center gap-4">
                             <ControloQuantidade
                               qtd={qtd}
-                              onMais={() => alterarQtd(id, 1)}
-                              onMenos={() => alterarQtd(id, -1)}
+                              onMais={() => alterarQtd(chave, 1)}
+                              onMenos={() => alterarQtd(chave, -1)}
                             />
                             <span className="w-20 text-right font-display font-bold text-cobre-600">
-                              {fmt(p.preco * qtd)}
+                              {fmt(r.preco * qtd)}
                             </span>
                           </div>
                         </li>
@@ -640,7 +819,7 @@ function Cardapio() {
 
                   <ul className="mx-auto mt-8 max-w-md divide-y divide-creme-300 border-t border-creme-300 text-left">
                     {pedido.itens.map((i) => (
-                      <li key={i.product_id} className="flex justify-between py-2 text-grafite-600">
+                      <li key={i.nome} className="flex justify-between py-2 text-grafite-600">
                         <span>
                           {i.quantidade}× {i.nome}
                         </span>

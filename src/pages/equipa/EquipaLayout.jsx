@@ -1,21 +1,25 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { AuthProvider, useSessaoAuth } from '../../lib/auth'
+import {
+  PerfilContext,
+  hashPin,
+  operadorAtual,
+  definirOperador,
+} from '../../lib/equipa'
 import logoStamp from '../../assets/logo-100pressao.png'
 
 const MODULOS = [
   { to: '/staff', label: 'Staff' },
   { to: '/operacional', label: 'Operacional' },
   { to: '/ecran', label: 'Ecrã' },
-  { to: '/admin', label: 'Admin' },
+  { to: '/admin', label: 'Admin', soAdmin: true },
 ]
 
-// PIN de conveniência POR CIMA do Supabase Auth (não o substitui): o
-// dispositivo já está autenticado; isto só desbloqueia a UI no turno.
-// Valor temporário — data de abertura (17/07). Sem relação com o Oráculo.
-const PIN_UI = '1707'
-const PIN_STORAGE_KEY = 'pin_equipa_ok'
+// Fallback pré-migração: enquanto não existirem perfis com PIN pessoal,
+// o PIN partilhado de arranque continua a funcionar (data de abertura)
+const PIN_PARTILHADO = '1707'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -111,32 +115,38 @@ function Login() {
   )
 }
 
-function PinGate({ aoDesbloquear }) {
+// PIN pessoal: identifica quem está ao balcão (alimenta o audit_log).
+// Compara o hash do PIN digitado com todos os perfis ativos; sem perfis
+// com PIN definido, aceita o PIN partilhado de arranque.
+function PinGate({ perfis, aoDesbloquear }) {
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState(false)
+  const comPin = perfis.filter((p) => p.ativo !== false && p.pin_hash)
 
-  function verificar(valor) {
+  async function verificar(valor) {
     setPin(valor)
     setErro(false)
     if (valor.length < 4) return
-    if (valor === PIN_UI) {
-      sessionStorage.setItem(PIN_STORAGE_KEY, '1')
-      aoDesbloquear()
-    } else {
-      setErro(true)
-      setPin('')
+
+    for (const p of comPin) {
+      if ((await hashPin(p.id, valor)) === p.pin_hash) {
+        aoDesbloquear({ id: p.id, nome: p.nome, papel: p.papel })
+        return
+      }
     }
+    if (comPin.length === 0 && valor === PIN_PARTILHADO) {
+      aoDesbloquear({ id: null, nome: 'Equipa', papel: null })
+      return
+    }
+    setErro(true)
+    setPin('')
   }
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-creme-50 px-6">
-      <img
-        src={logoStamp}
-        alt="Logótipo 100PRESSÃO"
-        className="h-24 w-24 rounded-full"
-      />
+      <img src={logoStamp} alt="Logótipo 100PRESSÃO" className="h-24 w-24 rounded-full" />
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-grafite-600/70">
-        Introduz o PIN do turno
+        {comPin.length > 0 ? 'Introduz o teu PIN pessoal' : 'Introduz o PIN do turno'}
       </p>
       <input
         type="password"
@@ -145,7 +155,7 @@ function PinGate({ aoDesbloquear }) {
         value={pin}
         onChange={(e) => verificar(e.target.value.replace(/\D/g, ''))}
         autoFocus
-        aria-label="PIN do turno"
+        aria-label="PIN"
         className="w-40 rounded-xl border border-creme-300 bg-creme-100 px-4 py-4 text-center font-display text-3xl tracking-[0.5em] text-grafite-900 outline-none focus:border-ambar-500"
       />
       <p className="h-5 text-sm text-red-600" role="alert">
@@ -157,9 +167,39 @@ function PinGate({ aoDesbloquear }) {
 
 function AreaEquipa() {
   const sessao = useSessaoAuth()
-  const [pinOk, setPinOk] = useState(
-    () => sessionStorage.getItem(PIN_STORAGE_KEY) === '1',
-  )
+  const [operador, setOperador] = useState(operadorAtual)
+  const [perfis, setPerfis] = useState(null) // null = a carregar
+  const [perfilProprio, setPerfilProprio] = useState(null)
+
+  // Perfis: papel/PIN de cada conta. Se a tabela não existir (migração v2
+  // por aplicar), degrada para o comportamento antigo (todos veem tudo,
+  // PIN partilhado) em vez de trancar a equipa fora do sistema.
+  useEffect(() => {
+    if (!supabase || !sessao) return
+    let ativo = true
+    async function carregar() {
+      const { data, error } = await supabase.from('perfis').select('*')
+      if (!ativo) return
+      if (error) {
+        setPerfis([])
+        setPerfilProprio(null)
+        return
+      }
+      setPerfis(data)
+      const proprio = data.find((p) => p.id === sessao.user.id) || null
+      setPerfilProprio(proprio)
+      // Conta desativada: corta o acesso já (o ban do Supabase trata das
+      // sessões futuras; isto trata da sessão que ainda está aberta)
+      if (proprio && proprio.ativo === false) {
+        definirOperador(null)
+        supabase.auth.signOut()
+      }
+    }
+    carregar()
+    return () => {
+      ativo = false
+    }
+  }, [sessao])
 
   if (!supabase) {
     return (
@@ -175,50 +215,79 @@ function AreaEquipa() {
 
   if (!sessao) return <Login />
 
-  if (!pinOk) return <PinGate aoDesbloquear={() => setPinOk(true)} />
+  if (perfis === null) return <div className="min-h-dvh bg-creme-50" />
+
+  if (!operador) {
+    return (
+      <PinGate
+        perfis={perfis}
+        aoDesbloquear={(op) => {
+          definirOperador(op)
+          setOperador(op)
+        }}
+      />
+    )
+  }
+
+  const papel = perfilProprio?.papel || 'admin' // sem perfis = modo antigo
+  const modulosVisiveis = MODULOS.filter((m) => !m.soAdmin || papel === 'admin')
 
   return (
-    <div className="min-h-dvh bg-creme-50 text-grafite-900">
-      <header className="sticky top-0 z-40 border-b border-creme-300 bg-creme-50/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <img
-              src={logoStamp}
-              alt=""
-              className="h-10 w-10 rounded-full"
-            />
-            <span className="hidden font-display text-lg font-bold uppercase tracking-tight sm:block">
-              100PRESSÃO
-            </span>
-          </div>
-          <nav className="flex gap-1 sm:gap-2" aria-label="Módulos da equipa">
-            {MODULOS.map((m) => (
-              <NavLink
-                key={m.to}
-                to={m.to}
-                className={({ isActive }) =>
-                  `rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-widest transition-colors sm:px-4 sm:text-sm ${
-                    isActive
-                      ? 'bg-ambar-500 text-grafite-950'
-                      : 'text-grafite-600 hover:text-grafite-900'
-                  }`
-                }
+    <PerfilContext.Provider value={{ ...(perfilProprio || {}), papel, operador }}>
+      <div className="min-h-dvh bg-creme-50 text-grafite-900">
+        <header className="sticky top-0 z-40 border-b border-creme-300 bg-creme-50/95 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3">
+              <img src={logoStamp} alt="" className="h-10 w-10 rounded-full" />
+              <span className="hidden font-display text-lg font-bold uppercase tracking-tight sm:block">
+                100PRESSÃO
+              </span>
+            </div>
+            <nav className="flex gap-1 sm:gap-2" aria-label="Módulos da equipa">
+              {modulosVisiveis.map((m) => (
+                <NavLink
+                  key={m.to}
+                  to={m.to}
+                  className={({ isActive }) =>
+                    `rounded-full px-3 py-2 text-xs font-semibold uppercase tracking-widest transition-colors sm:px-4 sm:text-sm ${
+                      isActive
+                        ? 'bg-ambar-500 text-grafite-950'
+                        : 'text-grafite-600 hover:text-grafite-900'
+                    }`
+                  }
+                >
+                  {m.label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  definirOperador(null)
+                  setOperador(null)
+                }}
+                title="Trocar de operador (PIN)"
+                className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:text-grafite-900"
               >
-                {m.label}
-              </NavLink>
-            ))}
-          </nav>
-          <button
-            type="button"
-            onClick={() => supabase.auth.signOut()}
-            className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-grafite-600/70 hover:text-grafite-900"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-      <Outlet />
-    </div>
+                {operador.nome} ⇄
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  definirOperador(null)
+                  supabase.auth.signOut()
+                }}
+                className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-grafite-600/70 hover:text-grafite-900"
+              >
+                Sair
+              </button>
+            </div>
+          </div>
+        </header>
+        <Outlet />
+      </div>
+    </PerfilContext.Provider>
   )
 }
 

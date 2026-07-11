@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { NAV_LINKS } from './Header'
+import { useHorario } from '../lib/horario'
 import logoStamp from '../assets/logo-100pressao.png'
 
 const REDES = [
@@ -35,6 +36,7 @@ const REDES = [
 const PAGAMENTOS = ['Multibanco', 'MB Way', 'Visa', 'Mastercard'] // TODO: confirmar métodos antes de publicar
 
 function Footer() {
+  const horario = useHorario()
   return (
     <footer className="bg-grafite-950 text-creme-300">
       <div className="mx-auto grid max-w-6xl gap-12 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
@@ -74,9 +76,15 @@ function Footer() {
           <h3 className="text-sm font-semibold uppercase tracking-widest text-ambar-400">
             Horário
           </h3>
-          {/* TODO: confirmar se este é o horário de atendimento ao público */}
-          <p className="mt-4">Segunda a Sexta</p>
-          <p>8:00 – 12:00</p>
+          {/* Editável no admin (Avisos & Horário) — REST sem supabase-js */}
+          <div className="mt-4 space-y-2">
+            {horario.map((l) => (
+              <div key={l.dias}>
+                <p>{l.dias}</p>
+                <p>{l.horas}</p>
+              </div>
+            ))}
+          </div>
           <p className="mt-4 text-sm text-creme-500">
             Praceta Eugénio de Castro, Loja 6 — Carnaxide
           </p>
