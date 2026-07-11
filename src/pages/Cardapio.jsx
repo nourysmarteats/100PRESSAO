@@ -112,8 +112,13 @@ function Cardapio() {
           .order('ordem'),
       ])
       if (!ativo) return
-      if (!rCat.error) setCategorias(rCat.data)
-      if (!rProd.error) setProdutos(rProd.data)
+      // Categorias ocultas (visivel=false) saem do cardápio, junto com os
+      // seus produtos; visivel !== false tolera a coluna ainda não existir
+      const ocultas = new Set(
+        (rCat.data || []).filter((c) => c.visivel === false).map((c) => c.id),
+      )
+      if (!rCat.error) setCategorias(rCat.data.filter((c) => !ocultas.has(c.id)))
+      if (!rProd.error) setProdutos(rProd.data.filter((p) => !ocultas.has(p.category_id)))
     }
     carregar()
     return () => {
