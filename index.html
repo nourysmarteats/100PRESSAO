@@ -51,6 +51,29 @@
         "servesCuisine": ["Portuguesa", "Brasileira"]
       }
     </script>
+    <!--
+      Google Analytics 4 com Consent Mode v2 (RGPD/ePrivacy) — o script
+      pode carregar sempre, mas arranca com tudo "denied": não grava
+      cookies de identificação enquanto o visitante não aceitar no banner
+      (ver src/components/ConsentBanner.jsx e src/lib/analytics.js).
+      send_page_view desligado porque é uma SPA — o Layout.jsx envia
+      page_view manualmente a cada mudança de rota.
+    -->
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        analytics_storage: 'denied',
+        ad_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied'
+      });
+    </script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KLXQVNJZ5H"></script>
+    <script>
+      gtag('js', new Date());
+      gtag('config', 'G-KLXQVNJZ5H', { send_page_view: false });
+    </script>
   </head>
   <body>
     <div id="root"></div>
