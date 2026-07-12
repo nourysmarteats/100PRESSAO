@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { chamarApiFaturar } from '../../lib/equipa'
+import { useAviso } from './admin/comuns'
 import {
   fmt,
   minutosDesde,
@@ -26,6 +28,9 @@ function Kpi({ rotulo, valor, destaque }) {
 function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   const [metodo, setMetodo] = useState(pedido.metodo_pagamento || null)
   const [ocupado, setOcupado] = useState(false)
+  const [querFatura, setQuerFatura] = useState(false)
+  const [nif, setNif] = useState('')
+  const nifValido = !querFatura || /^\d{9}$/.test(nif) || nif === ''
   const pronto = pedido.estado === 'pronto'
 
   return (
@@ -83,12 +88,38 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
               </button>
             ))}
           </div>
+
+          <label className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-grafite-600">
+            <input
+              type="checkbox"
+              checked={querFatura}
+              onChange={(e) => setQuerFatura(e.target.checked)}
+              className="h-4 w-4 accent-ambar-500"
+            />
+            Cliente quer fatura
+          </label>
+          {querFatura && (
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="NIF (opcional, 9 dígitos)"
+              value={nif}
+              onChange={(e) => setNif(e.target.value.replace(/\D/g, '').slice(0, 9))}
+              className={`mt-2 w-full rounded-lg border px-3 py-2 text-sm text-grafite-900 outline-none ${
+                nifValido ? 'border-creme-300 focus:border-ambar-500' : 'border-red-500'
+              }`}
+            />
+          )}
+
           <button
             type="button"
-            disabled={!metodo || ocupado}
+            disabled={!metodo || ocupado || !nifValido}
             onClick={async () => {
               setOcupado(true)
-              await aoEntregar(pedido.id, metodo)
+              await aoEntregar(pedido.id, metodo, {
+                querFatura,
+                nif: nif || undefined,
+              })
               setOcupado(false)
             }}
             className="mt-3 w-full cursor-pointer rounded-full bg-ambar-500 px-6 py-3 font-semibold uppercase tracking-widest text-grafite-950 transition-colors hover:bg-ambar-400 disabled:opacity-40"
@@ -118,6 +149,7 @@ function Staff() {
   const [pedidos, setPedidos] = useState([])
   const [entreguesHoje, setEntreguesHoje] = useState({ n: 0, receita: 0 })
   const [, forcarTick] = useState(0)
+  const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
     const hoje = new Date()
@@ -161,12 +193,28 @@ function Staff() {
     carregar()
   }
 
-  async function entregar(id, metodo) {
+  async function entregar(id, metodo, opcoesFatura) {
     await supabase
       .from('orders')
       .update({ estado: 'entregue', metodo_pagamento: metodo, estado_pagamento: 'pago' })
       .eq('id', id)
     carregar()
+
+    if (opcoesFatura?.querFatura) {
+      try {
+        const r = await chamarApiFaturar({ pedido_id: id, nif: opcoesFatura.nif })
+        if (r.url) window.open(r.url, '_blank', 'noopener')
+        mostrarAviso(
+          r.modo_teste
+            ? 'Fatura emitida em modo de teste (Vendus) ✓'
+            : r.ja_existia
+              ? 'Fatura já tinha sido emitida ✓'
+              : 'Fatura emitida ✓',
+        )
+      } catch (erro) {
+        mostrarAviso(`Erro a emitir fatura: ${erro.message}`)
+      }
+    }
   }
 
   const prontos = pedidos.filter((p) => p.estado === 'pronto')
@@ -208,6 +256,7 @@ function Staff() {
           </div>
         )}
       </section>
+      {Aviso}
     </main>
   )
 }

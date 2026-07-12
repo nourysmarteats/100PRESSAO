@@ -60,3 +60,18 @@ export async function chamarApiEquipa(corpo) {
   if (!resp.ok) throw new Error(json.erro || 'Erro no servidor.')
   return json
 }
+
+// Emitir fatura via Vendus (sob pedido, no ecrã de Staff) — mesma Vercel
+// Function pattern, chave da Vendus nunca chega ao browser.
+export async function chamarApiFaturar(corpo) {
+  const { data } = await supabase.auth.getSession()
+  const token = data?.session?.access_token
+  const resp = await fetch('/api/faturar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(corpo),
+  })
+  const json = await resp.json().catch(() => ({}))
+  if (!resp.ok) throw new Error(json.erro || 'Erro no servidor.')
+  return json
+}
