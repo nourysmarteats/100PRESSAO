@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import SEOHead from '../components/SEOHead'
+import { SEO_PAGES } from '../seo/pages'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -157,13 +159,14 @@ function CartaoCategoria({ categoria, i }) {
 function Home() {
   return (
     <main className="bg-creme-50 text-grafite-800">
+      <SEOHead {...SEO_PAGES.home} />
       <div className="mx-auto max-w-5xl px-6 py-16">
         <motion.div variants={fadeUp} initial="hidden" animate="show">
           <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">
             A Casa
           </h1>
           <p className="mt-3 max-w-xl text-lg text-grafite-600">
-            O que servimos no Mercado Municipal de Algés. O cardápio completo —
+            O que servimos no Mercado Municipal de Carnaxide. O cardápio completo —
             com preços e pedidos à mesa — está no cardápio digital.
           </p>
         </motion.div>

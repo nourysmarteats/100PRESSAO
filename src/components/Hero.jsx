@@ -7,6 +7,8 @@ import {
 } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import logoStamp from '../assets/logo-100pressao.png'
+import SEOHead from './SEOHead'
+import { SEO_PAGES } from '../seo/pages'
 
 const MotionLink = motion.create(Link)
 
@@ -68,6 +70,7 @@ function Hero() {
       ref={sectionRef}
       className="grain relative flex min-h-dvh items-center justify-center overflow-hidden bg-grafite-900 px-6"
     >
+      <SEOHead {...SEO_PAGES.inicio} />
       {/* Camada 1: fundo — brilho âmbar + vinheta */}
       <motion.div
         aria-hidden="true"

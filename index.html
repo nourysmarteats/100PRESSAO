@@ -14,6 +14,43 @@
       href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Barlow:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Dados estruturados (schema.org) — site-wide, por isso ficam estáticos
+      aqui em vez de por rota via Helmet. Morada e telefone confirmados em
+      src/pages/Contato.jsx (2026-07-12). Horário usa o fallback de
+      src/lib/horario.js — o horário real é editável no /admin e pode
+      divergir deste JSON-LD; atualizar aqui manualmente se mudar de forma
+      permanente (não é lido do Supabase em build-time).
+    -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BarOrPub",
+        "name": "100PRESSÃO",
+        "@id": "https://www.100pressao.pt",
+        "url": "https://www.100pressao.pt",
+        "telephone": "+351935995011",
+        "email": "geral@100pressao.pt",
+        "priceRange": "€€",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Praceta Eugénio de Castro, Loja 6",
+          "addressLocality": "Carnaxide",
+          "postalCode": "2790-072",
+          "addressRegion": "Oeiras",
+          "addressCountry": "PT"
+        },
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "opens": "08:00",
+            "closes": "12:00"
+          }
+        ],
+        "servesCuisine": ["Portuguesa", "Brasileira"]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

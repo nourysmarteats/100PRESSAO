@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /staff
+Disallow: /operacional
+Disallow: /ecran
+Disallow: /equipa/
+
+Sitemap: https://www.100pressao.pt/sitemap.xml

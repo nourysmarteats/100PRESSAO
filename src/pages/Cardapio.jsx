@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../lib/supabase'
+import SEOHead from '../components/SEOHead'
+import { SEO_PAGES } from '../seo/pages'
 
 // Promessa com prazo: se a rede/Supabase não responder, rejeita em vez de
 // deixar a UI presa em "Um momento…" indefinidamente.
@@ -389,6 +391,7 @@ function Cardapio() {
 
   return (
     <main className="bg-creme-50 text-grafite-800">
+      <SEOHead {...SEO_PAGES.cardapio} />
       <div className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">
           Cardápio

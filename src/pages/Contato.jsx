@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 import { useHorario } from '../lib/horario'
+import SEOHead from '../components/SEOHead'
+import { SEO_PAGES } from '../seo/pages'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -21,6 +23,7 @@ function Contato() {
   const horario = useHorario()
   return (
     <main className="bg-creme-50 text-grafite-800">
+      <SEOHead {...SEO_PAGES.contato} />
       <div className="mx-auto max-w-5xl px-6 py-16">
         <motion.div variants={fadeUp} initial="hidden" animate="show">
           <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">
