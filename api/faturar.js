@@ -138,6 +138,12 @@ export default async function handler(req, res) {
     const lista = Array.isArray(metodos) ? metodos : metodos?.data || []
     const metodo = lista.find((m) => m.type === tipoVendus && m.status !== 'off')
     if (!metodo) {
+      // Log da lista completa nos Vercel Logs — para perceber que "type"
+      // a conta Vendus usa de facto (pode não bater certo com o mapa acima)
+      console.error(
+        `Sem método "${tipoVendus}" na conta Vendus. Métodos devolvidos:`,
+        JSON.stringify(lista),
+      )
       throw new Error(`Sem método de pagamento "${tipoVendus}" ativo na conta Vendus.`)
     }
 
