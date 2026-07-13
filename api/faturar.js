@@ -8,7 +8,10 @@
 //                           Só mudar para 'normal' depois de validar que a
 //                           integração está correta — em 'tests' o Vendus
 //                           não emite documentos fiscais verdadeiros.
-//   VENDUS_REGISTER_ID    — opcional, só se a conta tiver mais do que um POS.
+//   VENDUS_REGISTER_ID    — opcional. Se a conta tiver mais do que um
+//                           register do tipo "api", força qual usar. Caso
+//                           contrário, o código descobre automaticamente
+//                           o primeiro register ativo do tipo "api".
 import { createClient } from '@supabase/supabase-js'
 
 const VENDUS_BASE = 'https://www.vendus.pt/ws/v1.1'
@@ -159,6 +162,33 @@ export default async function handler(req, res) {
       tax_id: TAX_ID_DEFAULT,
     }))
 
+    // 3. Descobrir o "register" (posto) a usar. A Vendus exige que os
+    // documentos emitidos por API venham de um register do tipo "api" —
+    // caso contrário devolve o erro A001 ("You need to configure a
+    // register to be of type API"). Se VENDUS_REGISTER_ID não estiver
+    // definido, tentamos descobrir automaticamente um register ativo do
+    // tipo certo.
+    let registerId = process.env.VENDUS_REGISTER_ID
+      ? Number(process.env.VENDUS_REGISTER_ID)
+      : null
+    if (!registerId) {
+      const registos = await vendusFetch('/registers/?type=api&isActive=yes', vendusKey)
+      const listaRegistos = Array.isArray(registos) ? registos : registos?.data || []
+      if (listaRegistos[0]) {
+        registerId = listaRegistos[0].id
+      } else {
+        console.error(
+          'Sem register do tipo "api" ativo na conta Vendus. Registers devolvidos:',
+          JSON.stringify(listaRegistos),
+        )
+        throw new Error(
+          'A conta Vendus não tem nenhum posto (register) do tipo "API" configurado. ' +
+            'No backoffice da Vendus, cria ou edita um registo e define o Tipo como ' +
+            '"API (Integração Programática)".',
+        )
+      }
+    }
+
     const corpo = {
       type: 'FR', // Fatura-Recibo — já foi pago na entrega
       mode: process.env.VENDUS_MODE === 'normal' ? 'normal' : 'tests',
@@ -167,10 +197,8 @@ export default async function handler(req, res) {
       tx_id: pedido.id, // idempotência também do lado do Vendus
       items,
       payments: [{ id: metodo.id, amount: Number(pedido.total) }],
+      register_id: registerId,
       ...(nif ? { client: { fiscal_id: nif } } : {}),
-      ...(process.env.VENDUS_REGISTER_ID
-        ? { register_id: Number(process.env.VENDUS_REGISTER_ID) }
-        : {}),
     }
 
     const doc = await vendusFetch('/documents/', vendusKey, {
