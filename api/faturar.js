@@ -47,6 +47,9 @@ async function vendusFetch(path, apiKey, options = {}) {
   })
   const json = await resp.json().catch(() => ({}))
   if (!resp.ok) {
+    // Log completo no servidor — o erro que chega ao browser é só um
+    // resumo, isto fica nos Vercel Logs para diagnóstico
+    console.error(`Vendus ${options.method || 'GET'} ${path} -> ${resp.status}`, JSON.stringify(json))
     const msg = json?.error || json?.message || `Vendus respondeu ${resp.status}`
     throw new Error(msg)
   }
@@ -138,8 +141,12 @@ export default async function handler(req, res) {
       throw new Error(`Sem método de pagamento "${tipoVendus}" ativo na conta Vendus.`)
     }
 
-    // 2. Montar os itens (avulso — catálogo ainda não está sincronizado)
+    // 2. Montar os itens — a Vendus exige id OU reference em cada item
+    // (title sozinho não chega); usamos o id interno como reference.
+    // Como o produto ainda não existe no catálogo Vendus, é criado
+    // automaticamente na primeira fatura com esta reference.
     const items = pedido.order_items.map((i) => ({
+      reference: `100P-${i.product_id || i.combo_id || i.id}`,
       title: nomeItem(i),
       qty: Number(i.quantidade),
       gross_price: Number(i.preco_unitario),
