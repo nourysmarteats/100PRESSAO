@@ -25,12 +25,17 @@ const TAX_ID_DEFAULT = 'NOR'
 
 // Método de pagamento interno → "type" oficial do Vendus. Os IDs de cada
 // método são específicos da conta, por isso vão-se buscar à API em vez de
-// serem fixos aqui.
+// serem fixos aqui. Os códigos abaixo foram confirmados contra a lista real
+// devolvida por GET /documents/paymentmethods/ na conta 100PRESSÃO (vistos
+// nos Vercel Logs) — a conta tem "Multibanco" configurado como CD (Cartão
+// de Débito), não MB (que é para referências MB), e "Cartão de Crédito"
+// como CC. Ainda não há nenhum método do tipo MBWAY criado na conta — se
+// faltar, o pedido falha com uma mensagem clara a indicar isso.
 const TIPO_VENDUS_POR_METODO = {
   dinheiro: 'NU',
-  multibanco: 'MB',
+  multibanco: 'CD',
   mbway: 'MBWAY',
-  cartao: 'CD',
+  cartao: 'CC',
 }
 
 function nomeItem(item) {
