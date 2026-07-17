@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { AuthProvider, useSessaoAuth } from '../../lib/auth'
 import {
@@ -250,12 +250,20 @@ function AreaEquipa() {
       <div className="min-h-dvh bg-creme-50 text-grafite-900">
         <header className="sticky top-0 z-40 border-b border-creme-300 bg-creme-50/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-3">
-              <img src={logoStamp} alt="" className="h-10 w-10 rounded-full" />
+            <Link
+              to="/"
+              title="Ir para a página inicial do site"
+              className="flex items-center gap-3"
+            >
+              <img
+                src={logoStamp}
+                alt="Ir para a página inicial do site"
+                className="h-10 w-10 rounded-full"
+              />
               <span className="hidden font-display text-lg font-bold uppercase tracking-tight sm:block">
                 100PRESSÃO
               </span>
-            </div>
+            </Link>
             <nav className="flex gap-1 sm:gap-2" aria-label="Módulos da equipa">
               {modulosVisiveis.map((m) => (
                 <NavLink
