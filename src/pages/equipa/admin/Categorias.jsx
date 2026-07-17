@@ -122,7 +122,7 @@ function Categorias() {
               onChange={(e) => setForm((f) => ({ ...f, visivel: e.target.checked }))}
               className="h-5 w-5 accent-ambar-500"
             />
-            Visível no cardápio
+            Visível na ementa
           </label>
           <div className="flex justify-end gap-3">
             <button

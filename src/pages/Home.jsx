@@ -147,7 +147,7 @@ function CartaoCategoria({ categoria, i }) {
         to="/cardapio"
         className="mt-6 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-ambar-600 underline-offset-4 transition-colors duration-200 hover:text-cobre-600 hover:underline"
       >
-        Ver no cardápio
+        Ver na ementa
         <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M2 8h11M9 3.5 13.5 8 9 12.5" />
         </svg>
@@ -166,8 +166,8 @@ function Home() {
             A Casa
           </h1>
           <p className="mt-3 max-w-xl text-lg text-grafite-600">
-            O que servimos no Mercado Municipal de Carnaxide. O cardápio completo —
-            com preços e pedidos à mesa — está no cardápio digital.
+            O que servimos no Mercado Municipal de Carnaxide. A ementa completa —
+            com preços e pedidos à mesa — está na ementa digital.
           </p>
         </motion.div>
 
@@ -192,7 +192,7 @@ function Home() {
               to="/cardapio"
               className="inline-flex items-center gap-2 rounded-full bg-ambar-500 px-7 py-3 text-sm font-semibold uppercase tracking-widest text-grafite-950 shadow-md shadow-ambar-600/20 transition-colors duration-300 hover:bg-ambar-400 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ambar-500"
             >
-              Abrir o cardápio digital
+              Abrir a ementa digital
             </Link>
           </motion.div>
         </div>

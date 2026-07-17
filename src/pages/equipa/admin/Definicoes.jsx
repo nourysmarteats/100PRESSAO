@@ -87,7 +87,7 @@ function Definicoes() {
       {/* Item 6: banner operacional */}
       <form onSubmit={guardarBanner} className={`${CARTAO} p-6`}>
         <h3 className="font-display text-lg font-bold uppercase text-grafite-600">
-          Aviso no cardápio
+          Aviso na ementa
         </h3>
         <p className="mt-1 text-sm text-grafite-600/70">
           Aparece como faixa no topo de /cardapio enquanto estiver preenchido —

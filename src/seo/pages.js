@@ -27,9 +27,9 @@ export const SEO_PAGES = {
   },
   cardapio: {
     path: '/cardapio',
-    title: 'Cardápio — Petiscos e Cervejas | 100PRESSÃO',
+    title: 'Ementa — Petiscos e Cervejas | 100PRESSÃO',
     description:
-      'Petiscos portugueses e brasileiros para acompanhar cerveja artesanal. Veja o cardápio completo.',
+      'Petiscos portugueses e brasileiros para acompanhar cerveja artesanal. Veja a ementa completa.',
   },
   contato: {
     path: '/contato',

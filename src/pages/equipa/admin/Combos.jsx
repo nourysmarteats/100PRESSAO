@@ -199,7 +199,7 @@ function Combos() {
           </div>
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
-              Categoria no cardápio
+              Categoria na ementa
             </span>
             <select value={form.category_id} onChange={alterar('category_id')} className={CAMPO}>
               <option value="">Secção própria "Combos"</option>
@@ -217,7 +217,7 @@ function Combos() {
               onChange={alterar('disponivel')}
               className="h-5 w-5 accent-ambar-500"
             />
-            Disponível no cardápio
+            Disponível na ementa
           </label>
 
           {/* Composição do combo */}

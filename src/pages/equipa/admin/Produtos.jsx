@@ -136,7 +136,7 @@ function Variantes({ produtoId, aoAvisar }) {
       </div>
       <p className="mt-1.5 text-xs text-grafite-600/70">
         Sem variantes, vale o preço base do produto. Com variantes, o cliente
-        escolhe uma no cardápio.
+        escolhe uma na ementa.
       </p>
     </div>
   )
@@ -421,7 +421,7 @@ function Produtos() {
               onChange={alterar('disponivel')}
               className="h-5 w-5 accent-ambar-500"
             />
-            Disponível no cardápio
+            Disponível na ementa
           </label>
           <div className="flex justify-end gap-3">
             <button

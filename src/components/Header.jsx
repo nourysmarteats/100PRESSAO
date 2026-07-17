@@ -6,7 +6,7 @@ import logoStamp from '../assets/logo-100pressao.png'
 export const NAV_LINKS = [
   { to: '/', label: 'Início' },
   { to: '/quem-somos', label: 'Quem Somos' },
-  { to: '/cardapio', label: 'Cardápio' },
+  { to: '/cardapio', label: 'Ementa' },
   { to: '/contato', label: 'Contato' },
   { to: '/faca-parte', label: 'Faça Parte' },
 ]
