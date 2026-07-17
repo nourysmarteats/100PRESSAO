@@ -38,6 +38,11 @@ const ESTADOS_PEDIDO = [
   { id: 'entregue', rotulo: 'Entregue' },
 ]
 
+const LUGARES = [
+  { rotulo: 'Mesa', opcoes: Array.from({ length: 6 }, (_, i) => `Mesa ${i + 1}`) },
+  { rotulo: 'Salão', opcoes: Array.from({ length: 8 }, (_, i) => `Salão ${i + 1}`) },
+]
+
 const ecra = {
   hidden: { opacity: 0, y: 16 },
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
@@ -257,7 +262,7 @@ function Cardapio() {
       const { data, error } = await comTimeout(
         supabase
           .from('sessions')
-          .insert({ nome_cliente: nome.trim(), posicao_mesa: mesa.trim() || null })
+          .insert({ nome_cliente: nome.trim(), posicao_mesa: mesa })
           .select()
           .single(),
       )
@@ -450,17 +455,29 @@ function Cardapio() {
                 </label>
                 <label className="mt-4 block">
                   <span className="text-sm font-semibold uppercase tracking-widest text-ambar-600">
-                    Mesa / lugar (opcional)
+                    Mesa / lugar
                   </span>
-                  <input
-                    type="text"
+                  <select
                     value={mesa}
                     onChange={(e) => setMesa(e.target.value)}
-                    placeholder="Ex.: Mesa 3, balcão…"
+                    required
                     className="mt-2 w-full rounded-xl border border-creme-300 bg-creme-50 px-4 py-3 text-lg text-grafite-900 outline-none focus:border-ambar-500"
-                  />
+                  >
+                    <option value="" disabled>
+                      Escolhe a mesa ou o salão
+                    </option>
+                    {LUGARES.map((grupo) => (
+                      <optgroup key={grupo.rotulo} label={grupo.rotulo}>
+                        {grupo.opcoes.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </label>
-                <BotaoPrimario type="submit" disabled={!nome.trim() || ocupado} className="mt-8 w-full">
+                <BotaoPrimario type="submit" disabled={!nome.trim() || !mesa || ocupado} className="mt-8 w-full">
                   {ocupado ? 'Um momento…' : 'Ver a ementa'}
                 </BotaoPrimario>
               </motion.form>
