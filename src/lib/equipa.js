@@ -29,8 +29,22 @@ export function definirOperador(operador) {
   else sessionStorage.removeItem(OPERADOR_KEY)
 }
 
-// Auditoria: regista quem (conta + operador de turno) fez o quê. Nunca
-// bloqueia a operação principal — falha em silêncio se a tabela não existir.
+export const TURNO_KEY = 'turno_desbloqueado'
+
+// Cadeado de turno: guarda o id da conta que desbloqueou. Amarrar o cadeado
+// à conta faz o PIN reaparecer se o login mudar — evita que o estado (ou a
+// identidade) de um utilizador anterior fique preso no browser.
+export function turnoDesbloqueadoPor() {
+  return sessionStorage.getItem(TURNO_KEY) || null
+}
+
+export function definirTurno(userId) {
+  if (userId) sessionStorage.setItem(TURNO_KEY, userId)
+  else sessionStorage.removeItem(TURNO_KEY)
+}
+
+// Auditoria: o "operador" é a conta autenticada (não o PIN). Nunca bloqueia
+// a operação principal — falha em silêncio se a tabela não existir.
 export async function registarAuditoria(acao, detalhe = null) {
   try {
     const { data } = await supabase.auth.getSession()

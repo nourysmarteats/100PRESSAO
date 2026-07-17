@@ -5,8 +5,9 @@ import { AuthProvider, useSessaoAuth } from '../../lib/auth'
 import {
   PerfilContext,
   hashPin,
-  operadorAtual,
   definirOperador,
+  turnoDesbloqueadoPor,
+  definirTurno,
 } from '../../lib/equipa'
 import logoStamp from '../../assets/logo-100pressao.png'
 
@@ -117,25 +118,26 @@ function Login() {
 
 // PIN pessoal: identifica quem está ao balcão (alimenta o audit_log).
 // Compara o hash do PIN digitado com todos os perfis ativos; sem perfis
-// com PIN definido, aceita o PIN partilhado de arranque.
-function PinGate({ perfis, aoDesbloquear }) {
+// A identidade vem sempre do login: a conta autenticada desbloqueia com o
+// SEU PIN pessoal; antes de haver PINs configurados (pré-migração), vale o
+// PIN partilhado de arranque. O PIN é só um cadeado, não uma identidade.
+function PinGate({ perfilProprio, temPins, aoDesbloquear }) {
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState(false)
-  const comPin = perfis.filter((p) => p.ativo !== false && p.pin_hash)
+  const usaProprio = Boolean(perfilProprio?.pin_hash)
 
   async function verificar(valor) {
     setPin(valor)
     setErro(false)
     if (valor.length < 4) return
 
-    for (const p of comPin) {
-      if ((await hashPin(p.id, valor)) === p.pin_hash) {
-        aoDesbloquear({ id: p.id, nome: p.nome, papel: p.papel })
+    if (usaProprio) {
+      if ((await hashPin(perfilProprio.id, valor)) === perfilProprio.pin_hash) {
+        aoDesbloquear()
         return
       }
-    }
-    if (comPin.length === 0 && valor === PIN_PARTILHADO) {
-      aoDesbloquear({ id: null, nome: 'Equipa', papel: null })
+    } else if (!temPins && valor === PIN_PARTILHADO) {
+      aoDesbloquear()
       return
     }
     setErro(true)
@@ -146,7 +148,7 @@ function PinGate({ perfis, aoDesbloquear }) {
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-creme-50 px-6">
       <img src={logoStamp} alt="Logótipo 100PRESSÃO" className="h-24 w-24 rounded-full" />
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-grafite-600/70">
-        {comPin.length > 0 ? 'Introduz o teu PIN pessoal' : 'Introduz o PIN do turno'}
+        {usaProprio ? 'Introduz o teu PIN pessoal' : 'Introduz o PIN do turno'}
       </p>
       <input
         type="password"
@@ -167,9 +169,9 @@ function PinGate({ perfis, aoDesbloquear }) {
 
 function AreaEquipa() {
   const sessao = useSessaoAuth()
-  const [operador, setOperador] = useState(operadorAtual)
   const [perfis, setPerfis] = useState(null) // null = a carregar
   const [perfilProprio, setPerfilProprio] = useState(null)
+  const [desbloqueado, setDesbloqueado] = useState(false)
 
   // Perfis: papel/PIN de cada conta. Se a tabela não existir (migração v2
   // por aplicar), degrada para o comportamento antigo (todos veem tudo,
@@ -180,17 +182,20 @@ function AreaEquipa() {
     async function carregar() {
       const { data, error } = await supabase.from('perfis').select('*')
       if (!ativo) return
-      if (error) {
-        setPerfis([])
-        setPerfilProprio(null)
-        return
-      }
-      setPerfis(data)
-      const proprio = data.find((p) => p.id === sessao.user.id) || null
+      const lista = error ? [] : data
+      setPerfis(lista)
+      const proprio = lista.find((p) => p.id === sessao.user.id) || null
       setPerfilProprio(proprio)
+      // Identidade (nome no ecrã + operador na auditoria) = a conta
+      // autenticada, nunca um PIN de outra pessoa.
+      definirOperador({ id: sessao.user.id, nome: proprio?.nome || 'Equipa' })
+      // O cadeado do turno só conta como aberto se foi ESTA conta a
+      // desbloqueá-lo — se o login mudar, o PIN volta a ser pedido.
+      setDesbloqueado(turnoDesbloqueadoPor() === sessao.user.id)
       // Conta desativada: corta o acesso já (o ban do Supabase trata das
       // sessões futuras; isto trata da sessão que ainda está aberta)
       if (proprio && proprio.ativo === false) {
+        definirTurno(null)
         definirOperador(null)
         supabase.auth.signOut()
       }
@@ -217,23 +222,31 @@ function AreaEquipa() {
 
   if (perfis === null) return <div className="min-h-dvh bg-creme-50" />
 
-  if (!operador) {
+  const temPins = perfis.some((p) => p.ativo !== false && p.pin_hash)
+  // Exige PIN quando a conta tem PIN próprio; ou, em pré-migração (sem
+  // perfil e sem PINs), o PIN partilhado. Uma conta autenticada sem PIN
+  // não fica trancada — o login já a identifica.
+  const exigePin = perfilProprio ? Boolean(perfilProprio.pin_hash) : !temPins
+
+  if (exigePin && !desbloqueado) {
     return (
       <PinGate
-        perfis={perfis}
-        aoDesbloquear={(op) => {
-          definirOperador(op)
-          setOperador(op)
+        perfilProprio={perfilProprio}
+        temPins={temPins}
+        aoDesbloquear={() => {
+          definirTurno(sessao.user.id)
+          setDesbloqueado(true)
         }}
       />
     )
   }
 
   const papel = perfilProprio?.papel || 'admin' // sem perfis = modo antigo
+  const nome = perfilProprio?.nome || 'Equipa'
   const modulosVisiveis = MODULOS.filter((m) => !m.soAdmin || papel === 'admin')
 
   return (
-    <PerfilContext.Provider value={{ ...(perfilProprio || {}), papel, operador }}>
+    <PerfilContext.Provider value={{ ...(perfilProprio || {}), papel }}>
       <div className="min-h-dvh bg-creme-50 text-grafite-900">
         <header className="sticky top-0 z-40 border-b border-creme-300 bg-creme-50/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -261,20 +274,26 @@ function AreaEquipa() {
               ))}
             </nav>
             <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-widest text-grafite-600">
+                {nome}
+              </span>
+              {exigePin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    definirTurno(null)
+                    setDesbloqueado(false)
+                  }}
+                  title="Bloquear o ecrã (pede o PIN outra vez)"
+                  className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:text-grafite-900"
+                >
+                  Bloquear
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
-                  definirOperador(null)
-                  setOperador(null)
-                }}
-                title="Trocar de operador (PIN)"
-                className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:text-grafite-900"
-              >
-                {operador.nome} ⇄
-              </button>
-              <button
-                type="button"
-                onClick={() => {
+                  definirTurno(null)
                   definirOperador(null)
                   supabase.auth.signOut()
                 }}
