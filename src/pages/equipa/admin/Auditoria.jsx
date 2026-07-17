@@ -52,7 +52,7 @@ function Auditoria() {
       if (!ativo) return
       if (error) {
         setErro(
-          'Sem acesso ao log — a migração SQL v2 foi aplicada? (a leitura também é restrita a admins)',
+          'Sem acesso ao log. A migração SQL v2 foi aplicada? (a leitura também é restrita a admins)',
         )
         setRegistos([])
         return
@@ -75,7 +75,7 @@ function Auditoria() {
       </p>
       {registos.length === 0 ? (
         <p className={`${CARTAO} mt-4 p-6 text-grafite-600`}>
-          Ainda sem registos — as ações no admin começam a aparecer aqui.
+          Ainda sem registos. As ações no admin começam a aparecer aqui.
         </p>
       ) : (
         <ul className="mt-4 space-y-1.5">
@@ -97,7 +97,7 @@ function Auditoria() {
               <p className="mt-0.5 text-sm text-grafite-600">
                 {r.operador ? `${r.operador} · ` : ''}
                 {r.email || 'conta desconhecida'}
-                {r.detalhe ? ` — ${descreverDetalhe(r.detalhe)}` : ''}
+                {r.detalhe ? ` · ${descreverDetalhe(r.detalhe)}` : ''}
               </p>
             </li>
           ))}

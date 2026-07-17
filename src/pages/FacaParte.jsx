@@ -17,7 +17,7 @@ function FacaParte() {
             Faça Parte
           </h1>
           <p className="mt-3 max-w-xl text-lg text-grafite-600">
-            A casa cresce copo a copo — e há lugar para quem quiser crescer connosco.
+            A casa cresce copo a copo, e há lugar para quem quiser crescer connosco.
           </p>
         </motion.div>
 

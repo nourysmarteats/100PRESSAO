@@ -30,7 +30,7 @@ function Contato() {
             Contato
           </h1>
           <p className="mt-3 max-w-xl text-lg text-grafite-600">
-            Aparece, liga ou manda mensagem — por cá não há formalidades.
+            Aparece, liga ou manda mensagem. Por cá não há formalidades.
           </p>
         </motion.div>
 

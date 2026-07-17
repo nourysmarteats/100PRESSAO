@@ -154,7 +154,7 @@ export function UploadImagem({ valor, aoMudar, aoAvisar }) {
       return
     }
     if (ficheiro.size > 5 * 1024 * 1024) {
-      aoAvisar('Imagem acima de 5 MB — reduz o tamanho antes de enviar.')
+      aoAvisar('Imagem acima de 5 MB. Reduz o tamanho antes de enviar.')
       return
     }
     setAEnviar(true)
@@ -165,7 +165,7 @@ export function UploadImagem({ valor, aoMudar, aoAvisar }) {
       .upload(caminho, ficheiro, { cacheControl: '31536000' })
     setAEnviar(false)
     if (error) {
-      aoAvisar('Erro no upload — confirma que o bucket "produtos" existe (migração SQL).')
+      aoAvisar('Erro no upload. Confirma que o bucket "produtos" existe (migração SQL).')
       return
     }
     const { data } = supabase.storage.from('produtos').getPublicUrl(caminho)

@@ -55,7 +55,7 @@ function Categorias() {
       ? await supabase.from('categories').insert(registo)
       : await supabase.from('categories').update(registo).eq('id', emEdicao)
     if (error) {
-      mostrarAviso('Erro ao guardar — a migração SQL (coluna "visivel") já foi aplicada?')
+      mostrarAviso('Erro ao guardar. A migração SQL (coluna "visivel") já foi aplicada?')
       return
     }
     registarAuditoria(novo ? 'categoria_criada' : 'categoria_editada', { nome: registo.nome })
@@ -68,7 +68,7 @@ function Categorias() {
     const visivel = !(c.visivel !== false)
     const { error } = await supabase.from('categories').update({ visivel }).eq('id', c.id)
     if (error) {
-      mostrarAviso('Erro — a migração SQL (coluna "visivel") já foi aplicada?')
+      mostrarAviso('Erro. A migração SQL (coluna "visivel") já foi aplicada?')
       return
     }
     registarAuditoria('categoria_visibilidade', { nome: c.nome, visivel })

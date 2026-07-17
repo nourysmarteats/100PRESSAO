@@ -437,7 +437,7 @@ function Cardapio() {
                 className="mt-10 rounded-2xl border border-creme-300 bg-white/70 p-8"
               >
                 <p className="text-lg text-grafite-600">
-                  Diz-nos quem és e faz o teu pedido daqui — nós avisamos quando estiver pronto.
+                  Diz-nos quem és e faz o teu pedido daqui. Nós avisamos quando estiver pronto.
                 </p>
                 <label className="mt-6 block">
                   <span className="text-sm font-semibold uppercase tracking-widest text-ambar-600">
@@ -538,7 +538,7 @@ function Cardapio() {
 
                 {produtos.length === 0 && combos.length === 0 && (
                   <div className="mt-8 rounded-2xl border border-creme-300 bg-white/60 p-8 text-center text-grafite-600">
-                    A ementa está a ser preparada — volta já de seguida.
+                    A ementa está a ser preparada. Volta já de seguida.
                   </div>
                 )}
 
@@ -757,7 +757,7 @@ function Cardapio() {
                     Pagamento
                   </h2>
                   <p className="mt-1 text-sm text-grafite-600">
-                    Pagas quando o pedido for entregue — isto só nos diz como preferes.
+                    Pagas quando o pedido for entregue. Isto só nos diz como preferes.
                   </p>
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     {METODOS_PAGAMENTO.map((m) => (
@@ -833,7 +833,7 @@ function Cardapio() {
                             }`}
                           >
                             {e.rotulo}
-                            {atual && e.id === 'pronto' && ' — vem buscar!'}
+                            {atual && e.id === 'pronto' && ': vem buscar!'}
                           </span>
                         </li>
                       )

@@ -102,7 +102,7 @@ function Combos() {
     if (novo) {
       const { data, error } = await supabase.from('combos').insert(registo).select().single()
       if (error) {
-        mostrarAviso('Erro ao guardar — migração SQL v2 aplicada?')
+        mostrarAviso('Erro ao guardar. Migração SQL v2 aplicada?')
         return
       }
       comboId = data.id
@@ -119,7 +119,7 @@ function Combos() {
       validos.map((i) => ({ combo_id: comboId, product_id: i.product_id, quantidade: i.quantidade })),
     )
     if (erroItens) {
-      mostrarAviso('Combo gravado mas houve erro nos produtos — revê a composição.')
+      mostrarAviso('Combo gravado mas houve erro nos produtos. Revê a composição.')
       return
     }
     registarAuditoria(novo ? 'combo_criado' : 'combo_editado', {
@@ -158,7 +158,7 @@ function Combos() {
   if (tabelaEmFalta) {
     return (
       <p className={`${CARTAO} p-6 text-grafite-600`}>
-        A tabela de combos ainda não existe — aplica a migração
+        A tabela de combos ainda não existe. Aplica a migração
         <code className="mx-1 rounded bg-creme-100 px-1.5">docs/sql/2026-07-11-v2-equipa-combos-config.sql</code>
         no SQL Editor do Supabase.
       </p>

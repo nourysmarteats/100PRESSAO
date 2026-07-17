@@ -96,7 +96,7 @@ function Equipa() {
   if (tabelaEmFalta) {
     return (
       <p className={`${CARTAO} p-6 text-grafite-600`}>
-        A tabela de perfis ainda não existe — aplica a migração
+        A tabela de perfis ainda não existe. Aplica a migração
         <code className="mx-1 rounded bg-creme-100 px-1.5">docs/sql/2026-07-11-v2-equipa-combos-config.sql</code>
         no SQL Editor do Supabase.
       </p>
@@ -150,8 +150,8 @@ function Equipa() {
               Papel *
             </span>
             <select value={form.papel} onChange={alterar('papel')} className={CAMPO}>
-              <option value="staff">Staff — sem acesso ao /admin</option>
-              <option value="admin">Admin — acesso total</option>
+              <option value="staff">Staff: sem acesso ao /admin</option>
+              <option value="admin">Admin: acesso total</option>
             </select>
           </label>
           <div className="flex items-end justify-end gap-3">
@@ -167,7 +167,7 @@ function Equipa() {
             </button>
           </div>
           <p className="text-xs text-grafite-600/70 sm:col-span-2">
-            Anota a password e o PIN e entrega-os em mão — não ficam visíveis
+            Anota a password e o PIN e entrega-os em mão. Não ficam visíveis
             depois de criares a conta.
           </p>
         </form>
@@ -239,7 +239,7 @@ function Equipa() {
 
       <p className="mt-6 text-xs leading-relaxed text-grafite-600/70">
         Nota de segurança: isto não substitui as duas ações pendentes no
-        Supabase — desligar “Allow new users to sign up” (Authentication →
+        Supabase: desligar “Allow new users to sign up” (Authentication →
         Providers) e trocar a password da conta partilhada. Ambas continuam
         necessárias.
       </p>

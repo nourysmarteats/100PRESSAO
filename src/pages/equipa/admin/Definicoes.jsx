@@ -75,7 +75,7 @@ function Definicoes() {
   if (tabelaEmFalta) {
     return (
       <p className={`${CARTAO} p-6 text-grafite-600`}>
-        A tabela de definições ainda não existe — aplica a migração
+        A tabela de definições ainda não existe. Aplica a migração
         <code className="mx-1 rounded bg-creme-100 px-1.5">docs/sql/2026-07-11-v2-equipa-combos-config.sql</code>
         no SQL Editor do Supabase.
       </p>
@@ -90,7 +90,7 @@ function Definicoes() {
           Aviso na ementa
         </h3>
         <p className="mt-1 text-sm text-grafite-600/70">
-          Aparece como faixa no topo de /cardapio enquanto estiver preenchido —
+          Aparece como faixa no topo de /cardapio enquanto estiver preenchido.
           ex.: “Hoje fechamos às 20h” ou “IPA esgotada”. Vazio = sem aviso.
         </p>
         <textarea

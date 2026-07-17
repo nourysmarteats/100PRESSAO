@@ -60,7 +60,7 @@ function Ecra() {
   const grupos = [
     { id: 'recebido', titulo: 'Recebidos', cor: 'text-creme-500' },
     { id: 'em_preparacao', titulo: 'Em preparação', cor: 'text-creme-50' },
-    { id: 'pronto', titulo: 'Prontos — vem buscar!', cor: 'text-ambar-400' },
+    { id: 'pronto', titulo: 'Prontos: vem buscar!', cor: 'text-ambar-400' },
   ]
 
   return (

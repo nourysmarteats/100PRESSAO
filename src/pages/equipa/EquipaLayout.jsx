@@ -209,7 +209,7 @@ function AreaEquipa() {
   if (!supabase) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-creme-50 px-6 text-grafite-600">
-        Sistema indisponível — configuração em falta.
+        Sistema indisponível: configuração em falta.
       </div>
     )
   }

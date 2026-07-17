@@ -57,7 +57,7 @@ function Variantes({ produtoId, aoAvisar }) {
       ordem: (variantes.length + 1) * 10,
     })
     if (error) {
-      aoAvisar('Erro ao criar a variante — migração SQL v2 aplicada?')
+      aoAvisar('Erro ao criar a variante. Migração SQL v2 aplicada?')
       return
     }
     registarAuditoria('variante_criada', { produto_id: produtoId, nome: nova.nome, preco: nova.preco })

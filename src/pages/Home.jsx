@@ -84,7 +84,7 @@ const CATEGORIAS = [
     id: 'cervejas',
     titulo: 'Cervejas',
     descricao:
-      'Cerveja europeia a sério, tirada à pressão certa — do tanque ao copo, sem atalhos.',
+      'Cerveja europeia a sério, tirada à pressão certa, do tanque ao copo, sem atalhos.',
     emBreve: false,
     Icone: IconeCerveja,
   },
@@ -108,7 +108,7 @@ const CATEGORIAS = [
     id: 'vinhos',
     titulo: 'Vinhos',
     descricao:
-      'Uma seleção curta de vinhos para acompanhar o petisco — escolhidos com o mesmo critério da cerveja.',
+      'Uma seleção curta de vinhos para acompanhar o petisco, escolhidos com o mesmo critério da cerveja.',
     emBreve: true,
     Icone: IconeVinho,
   },
@@ -166,8 +166,8 @@ function Home() {
             A Casa
           </h1>
           <p className="mt-3 max-w-xl text-lg text-grafite-600">
-            O que servimos no Mercado Municipal de Carnaxide. A ementa completa —
-            com preços e pedidos à mesa — está na ementa digital.
+            O que servimos no Mercado Municipal de Carnaxide. A ementa completa,
+            com preços e pedidos à mesa, está na ementa digital.
           </p>
         </motion.div>
 

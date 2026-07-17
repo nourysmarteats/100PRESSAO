@@ -86,7 +86,7 @@ function Footer() {
             ))}
           </div>
           <p className="mt-4 text-sm text-creme-500">
-            Praceta Eugénio de Castro, Loja 6 — Carnaxide
+            Praceta Eugénio de Castro, Loja 6, Carnaxide
           </p>
         </div>
 
@@ -126,7 +126,7 @@ function Footer() {
             {REDES.map((r) => (
               <span
                 key={r.nome}
-                title={`${r.nome} — em breve`}
+                title={`${r.nome}: em breve`}
                 className="text-creme-500"
               >
                 {r.icone}
