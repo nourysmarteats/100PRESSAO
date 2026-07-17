@@ -391,10 +391,13 @@ function Cardapio() {
 
   return (
     <main className="bg-creme-50 text-grafite-800">
-      <SEOHead {...SEO_PAGES.cardapio} />
+      {/* Manifest próprio (scope/start_url = /cardapio) — permite "Adicionar
+          ao ecrã principal" instalar só o cardápio como app isolada, sem
+          ser preciso empacotar o site inteiro numa PWA separada. */}
+      <SEOHead {...SEO_PAGES.cardapio} manifest="/cardapio.webmanifest" />
       <div className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">
-          Cardápio
+          Ementa
         </h1>
 
         {/* Aviso operacional configurado no admin (tempo real) */}
@@ -458,7 +461,7 @@ function Cardapio() {
                   />
                 </label>
                 <BotaoPrimario type="submit" disabled={!nome.trim() || ocupado} className="mt-8 w-full">
-                  {ocupado ? 'Um momento…' : 'Ver o cardápio'}
+                  {ocupado ? 'Um momento…' : 'Ver a ementa'}
                 </BotaoPrimario>
               </motion.form>
             )}
@@ -518,7 +521,7 @@ function Cardapio() {
 
                 {produtos.length === 0 && combos.length === 0 && (
                   <div className="mt-8 rounded-2xl border border-creme-300 bg-white/60 p-8 text-center text-grafite-600">
-                    O cardápio está a ser preparado — volta já de seguida.
+                    A ementa está a ser preparada — volta já de seguida.
                   </div>
                 )}
 
@@ -691,7 +694,7 @@ function Cardapio() {
                   onClick={() => setFase('menu')}
                   className="mt-2 cursor-pointer text-sm font-semibold uppercase tracking-widest text-cobre-600 hover:text-cobre-500"
                 >
-                  ← Voltar ao cardápio
+                  ← Voltar à ementa
                 </button>
 
                 <div className="mt-6 rounded-2xl border border-creme-300 bg-white/70 p-6">
