@@ -6,7 +6,7 @@ import logoStamp from '../assets/logo-100pressao.png'
 const REDES = [
   {
     nome: 'Instagram',
-    // Placeholder — sem link funcional por agora
+    url: 'https://www.instagram.com/100pressao2026',
     icone: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
         <rect x="3" y="3" width="18" height="18" rx="5" />
@@ -25,6 +25,7 @@ const REDES = [
   },
   {
     nome: 'TikTok',
+    url: 'https://www.tiktok.com/@100pressao2026',
     icone: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
         <path d="M16.6 4c.3 1.7 1.4 3 3.4 3.2v2.6c-1.3 0-2.4-.4-3.4-1v5.7c0 3.1-2.1 5.5-5.3 5.5C8.3 20 6 17.9 6 15.1c0-2.7 2.1-4.9 5-4.9.3 0 .6 0 .9.1v2.7a2.3 2.3 0 0 0-3.2 2.1c0 1.3 1 2.3 2.4 2.3 1.5 0 2.5-1.1 2.5-2.8V4h3Z" />
@@ -122,16 +123,31 @@ function Footer() {
               </a>
             </li>
           </ul>
-          <div className="mt-5 flex gap-4" aria-label="Redes sociais (em breve)">
-            {REDES.map((r) => (
-              <span
-                key={r.nome}
-                title={`${r.nome}: em breve`}
-                className="text-creme-500"
-              >
-                {r.icone}
-              </span>
-            ))}
+          <div className="mt-5 flex gap-4" aria-label="Redes sociais">
+            {REDES.map((r) =>
+              r.url ? (
+                <a
+                  key={r.nome}
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={r.nome}
+                  aria-label={r.nome}
+                  className="text-creme-500 transition-colors hover:text-creme-50"
+                >
+                  {r.icone}
+                </a>
+              ) : (
+                <span
+                  key={r.nome}
+                  title={`${r.nome}: em breve`}
+                  aria-label={`${r.nome} (em breve)`}
+                  className="text-creme-500/50"
+                >
+                  {r.icone}
+                </span>
+              ),
+            )}
           </div>
         </div>
       </div>
