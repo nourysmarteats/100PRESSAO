@@ -151,22 +151,33 @@ function Hero() {
         </motion.div>
       </motion.div>
 
-      {/* Camada 3: indicador de scroll */}
-      <motion.div
-        aria-hidden="true"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+      {/* Camada 3: indicador de scroll — botão que desce ao rodapé
+          (morada, horário e contactos) */}
+      <motion.button
+        type="button"
+        onClick={() =>
+          document.querySelector('footer')?.scrollIntoView({
+            behavior: prefersReducedMotion ? 'auto' : 'smooth',
+            block: 'start',
+          })
+        }
+        aria-label="Ver morada, horário e contactos"
+        className="group absolute bottom-8 left-1/2 flex -translate-x-1/2 cursor-pointer flex-col items-center gap-2"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.6, duration: 0.8 }}
       >
-        <motion.div
+        <motion.span
           animate={prefersReducedMotion ? undefined : { y: [0, 8, 0] }}
           transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-          className="h-9 w-5 rounded-full border border-creme-500/40 p-1"
+          className="block h-9 w-5 rounded-full border border-creme-500/40 p-1 transition-colors group-hover:border-ambar-400"
         >
-          <div className="mx-auto h-2 w-1 rounded-full bg-ambar-400/80" />
-        </motion.div>
-      </motion.div>
+          <span className="mx-auto block h-2 w-1 rounded-full bg-ambar-400/80" />
+        </motion.span>
+        <span className="text-[0.6rem] font-semibold uppercase tracking-[0.25em] text-creme-500 transition-colors group-hover:text-creme-300">
+          Contactos
+        </span>
+      </motion.button>
     </section>
   )
 }

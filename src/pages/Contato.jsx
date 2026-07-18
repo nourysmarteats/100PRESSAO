@@ -133,17 +133,32 @@ function Contato() {
             </div>
           </motion.div>
 
-          {/* Espaço reservado para mapa incorporado */}
+          {/* Mapa incorporado (OpenStreetMap, sem cookies — respeita o
+              consentimento). Coordenadas da Praceta Eugénio de Castro, Carnaxide. */}
           <motion.div
             variants={fadeUp}
             initial="hidden"
             animate="show"
             transition={{ delay: 0.15 }}
-            className="flex min-h-72 items-center justify-center rounded-2xl border border-dashed border-creme-500 bg-creme-100/60"
+            className="overflow-hidden rounded-2xl border border-creme-300 bg-creme-100/60"
           >
-            <p className="text-sm uppercase tracking-widest text-grafite-600/60">
-              Mapa em breve
-            </p>
+            <iframe
+              title="Mapa da localização do 100PRESSÃO em Carnaxide"
+              src="https://www.openstreetmap.org/export/embed.html?bbox=-9.2419446%2C38.7237329%2C-9.2319446%2C38.7287329&layer=mapnik&marker=38.7262329%2C-9.2369446"
+              loading="lazy"
+              className="h-72 w-full border-0"
+            />
+            <a
+              href={GOOGLE_MAPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 border-t border-creme-300 bg-white/60 py-3 text-sm font-semibold uppercase tracking-widest text-cobre-600 transition-colors hover:text-cobre-500"
+            >
+              Como chegar
+              <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2 8h11M9 3.5 13.5 8 9 12.5" />
+              </svg>
+            </a>
           </motion.div>
         </div>
       </div>
