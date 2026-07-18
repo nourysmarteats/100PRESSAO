@@ -158,6 +158,20 @@ function Footer() {
           <p className="text-sm text-creme-500">
             © {new Date().getFullYear()} 100PRESSÃO Draft House
           </p>
+          <nav
+            aria-label="Documentos legais"
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs uppercase tracking-widest text-creme-500"
+          >
+            <Link to="/privacidade" className="transition-colors hover:text-creme-50">
+              Privacidade
+            </Link>
+            <Link to="/cookies" className="transition-colors hover:text-creme-50">
+              Cookies
+            </Link>
+            <Link to="/termos" className="transition-colors hover:text-creme-50">
+              Termos
+            </Link>
+          </nav>
           <ul className="flex flex-wrap gap-2" aria-label="Métodos de pagamento (a confirmar)">
             {PAGAMENTOS.map((p) => (
               <li

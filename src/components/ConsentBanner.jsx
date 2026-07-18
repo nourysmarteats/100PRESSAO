@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getStoredConsent, setConsent } from '../lib/analytics'
 
@@ -33,7 +34,14 @@ function ConsentBanner() {
             <p className="text-sm leading-relaxed text-grafite-700">
               Usamos cookies de análise (Google Analytics) só para perceber
               como o site é usado e melhorá-lo. Não os ativamos sem a tua
-              autorização.
+              autorização.{' '}
+              <Link
+                to="/cookies"
+                className="font-semibold text-cobre-600 underline-offset-4 hover:underline"
+              >
+                Saber mais
+              </Link>
+              .
             </p>
             <div className="flex shrink-0 gap-3">
               <button

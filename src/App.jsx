@@ -8,6 +8,9 @@ const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
 const Contato = lazy(() => import('./pages/Contato'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
+const Privacidade = lazy(() => import('./pages/legal/Privacidade'))
+const Cookies = lazy(() => import('./pages/legal/Cookies'))
+const Termos = lazy(() => import('./pages/legal/Termos'))
 const EquipaLayout = lazy(() => import('./pages/equipa/EquipaLayout'))
 const Staff = lazy(() => import('./pages/equipa/Staff'))
 const Operacional = lazy(() => import('./pages/equipa/Operacional'))
@@ -39,6 +42,10 @@ function App() {
           <Route path="/cardapio" element={pagina(Cardapio)} />
           <Route path="/contato" element={pagina(Contato)} />
           <Route path="/faca-parte" element={pagina(FacaParte)} />
+          {/* Páginas legais */}
+          <Route path="/privacidade" element={pagina(Privacidade)} />
+          <Route path="/cookies" element={pagina(Cookies)} />
+          <Route path="/termos" element={pagina(Termos)} />
           {/* Rota antiga — o cardápio mudou de endereço */}
           <Route path="/conhecer-a-casa" element={<Navigate to="/cardapio" replace />} />
         </Route>
