@@ -88,82 +88,6 @@ function ControloQuantidade({ qtd, onMais, onMenos }) {
   )
 }
 
-// Imagem ilustrativa (placeholder) por categoria, mostrada enquanto não
-// houver foto real do produto. Ícone de linha na paleta da marca.
-function IconePlaceholder({ categoria, className }) {
-  const c = (categoria || '').toLowerCase()
-  const props = {
-    viewBox: '0 0 48 48',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    className,
-    'aria-hidden': true,
-  }
-  if (c.includes('cerveja'))
-    return (
-      <svg {...props}>
-        <path d="M13 18v18a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4V18" />
-        <path d="M31 22h3a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4h-3" />
-        <path d="M12 18a4 4 0 0 1-1.5-7.2A5 5 0 0 1 16 5.6a5 5 0 0 1 8.3-1.4A5 5 0 0 1 32 8.4a4.2 4.2 0 0 1 0 9.6Z" />
-        <path d="M19 25v8M25 25v8" />
-      </svg>
-    )
-  if (c.includes('petisco'))
-    return (
-      <svg {...props}>
-        <path d="M8 26h32a16 16 0 0 1-32 0Z" />
-        <path d="M19 20c0-2 2-2 2-4s-2-2-2-4" />
-        <path d="M28 20c0-2 2-2 2-4s-2-2-2-4" />
-      </svg>
-    )
-  if (c.includes('vinho'))
-    return (
-      <svg {...props}>
-        <path d="M15 6h18c0 10-4 16-9 16s-9-6-9-16Z" />
-        <path d="M15.8 13h16.4" />
-        <path d="M24 22v13M17 40h14" />
-      </svg>
-    )
-  if (c.includes('espirituosa') || c.includes('caipi'))
-    return (
-      <svg {...props}>
-        <path d="M13 14h22v20a4 4 0 0 1-4 4H17a4 4 0 0 1-4-4Z" />
-        <path d="M18 26l4-4 4 4 4-4" />
-        <circle cx="35" cy="10" r="5" />
-        <path d="M35 5v10M30 10h10" />
-      </svg>
-    )
-  if (c.includes('refri'))
-    return (
-      <svg {...props}>
-        <path d="M14 14h20l-2.5 26h-15Z" />
-        <path d="M27 14l6-9" />
-        <path d="M15.7 21h16.6" />
-      </svg>
-    )
-  // genérico (combos e categorias sem ícone próprio)
-  return (
-    <svg {...props}>
-      <path d="M16 8h16l-2 16a6 6 0 0 1-12 0Z" />
-      <path d="M24 30v10M18 40h12" />
-    </svg>
-  )
-}
-
-function PlaceholderImagem({ categoria }) {
-  return (
-    <div className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-creme-100 via-creme-50 to-creme-200">
-      <IconePlaceholder categoria={categoria} className="h-16 w-16 text-cobre-600/30" />
-      <span className="absolute bottom-2 right-3 font-display text-[0.6rem] font-bold uppercase tracking-[0.2em] text-grafite-900/15">
-        100PRESSÃO
-      </span>
-    </div>
-  )
-}
-
 function Cardapio() {
   const [fase, setFase] = useState('entrada') // entrada | menu | checkout | acompanhar
   const [nome, setNome] = useState('')
@@ -631,15 +555,13 @@ function Cardapio() {
                             key={`combo-${c.id}`}
                             className="overflow-hidden rounded-xl border-2 border-ambar-500/50 bg-white/70"
                           >
-                            {c.imagem_url ? (
+                            {c.imagem_url && (
                               <img
                                 src={c.imagem_url}
                                 alt={c.nome}
                                 loading="lazy"
                                 className="aspect-[16/9] w-full object-cover"
                               />
-                            ) : (
-                              <PlaceholderImagem categoria={nomeGrupo} />
                             )}
                             <div className="p-5">
                               <div className="flex items-start justify-between gap-4">
@@ -681,15 +603,13 @@ function Cardapio() {
                             key={p.id}
                             className="overflow-hidden rounded-xl border border-creme-300 bg-white/70"
                           >
-                            {p.imagem_url ? (
+                            {p.imagem_url && (
                               <img
                                 src={p.imagem_url}
                                 alt={p.nome}
                                 loading="lazy"
                                 className="aspect-[16/9] w-full object-cover"
                               />
-                            ) : (
-                              <PlaceholderImagem categoria={p.categories?.nome} />
                             )}
                             <div className="p-5">
                             <div className="flex items-start justify-between gap-4">
