@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import barril1 from '../assets/barril-1.jpg'
 import barril2 from '../assets/barril-2.jpg'
@@ -16,6 +16,10 @@ const fadeUp = {
 // ficava preso em readyState 0 — o HEAD respondia 200 mas o stream nunca chegava,
 // e o Content-Disposition: attachment deles trava a reprodução nalguns browsers
 const VIDEO_URL = '/quem-somos-banner.mp4'
+// Poster (frame real do vídeo): fica de fundo quando o vídeo não arranca —
+// ex.: iOS em Modo de Poupança de Energia bloqueia o autoplay. Assim o
+// banner mostra uma imagem em vez de um frame preto com o botão de play.
+const POSTER_URL = '/quem-somos-poster.jpg'
 
 const HISTORIA = [
   'Chamo-me Leandro Miranda e o 100PRESSÃO nasceu de uma vida dividida ao meio, e de uma sócia que acreditou nisso antes de mim.',
@@ -88,6 +92,7 @@ function BarrisAnimados() {
 
 function QuemSomos() {
   const videoRef = useRef(null)
+  const [videoAtivo, setVideoAtivo] = useState(false)
 
   // iOS/Android podem ignorar o autoplay declarativo (ex.: modo poupança de
   // bateria); repetir via API dá uma segunda oportunidade sem afetar o desktop
@@ -100,6 +105,16 @@ function QuemSomos() {
       <SEOHead {...SEO_PAGES.quemSomos} />
       {/* a. Banner com vídeo em loop */}
       <section className="relative h-[55vh] min-h-80 overflow-hidden bg-grafite-900 sm:h-[65vh]">
+        {/* Poster de fundo — sempre presente; fica visível se o vídeo não
+            arrancar (autoplay bloqueado pelo iOS) */}
+        <img
+          src={POSTER_URL}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover opacity-80"
+        />
+        {/* Vídeo por cima; só aparece (fade) quando começa mesmo a tocar,
+            para não mostrar o botão de play nativo quando está bloqueado */}
         <video
           ref={videoRef}
           src={VIDEO_URL}
@@ -108,7 +123,11 @@ function QuemSomos() {
           loop
           playsInline
           preload="auto"
-          className="h-full w-full object-cover opacity-80"
+          poster={POSTER_URL}
+          onPlaying={() => setVideoAtivo(true)}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+            videoAtivo ? 'opacity-80' : 'opacity-0'
+          }`}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-grafite-950/85 via-grafite-950/20 to-grafite-950/40" />
         <motion.div
