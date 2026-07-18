@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { useHorario } from '../lib/horario'
+import FormularioFeedback from '../components/FormularioFeedback'
 import SEOHead from '../components/SEOHead'
 import { SEO_PAGES } from '../seo/pages'
 
@@ -161,6 +162,8 @@ function Contato() {
             </a>
           </motion.div>
         </div>
+
+        <FormularioFeedback />
       </div>
     </main>
   )

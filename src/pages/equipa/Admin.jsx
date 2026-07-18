@@ -12,6 +12,7 @@ import Combos from './admin/Combos'
 import Definicoes from './admin/Definicoes'
 import Equipa from './admin/Equipa'
 import Auditoria from './admin/Auditoria'
+import Feedback from './admin/Feedback'
 
 const SECCOES = [
   { id: 'analytics', rotulo: 'Analytics', Componente: Analytics },
@@ -20,6 +21,7 @@ const SECCOES = [
   { id: 'categorias', rotulo: 'Categorias', Componente: Categorias },
   { id: 'combos', rotulo: 'Combos', Componente: Combos },
   { id: 'definicoes', rotulo: 'Avisos & Horário', Componente: Definicoes },
+  { id: 'feedback', rotulo: 'Feedback', Componente: Feedback },
   { id: 'equipa', rotulo: 'Equipa', Componente: Equipa },
   { id: 'auditoria', rotulo: 'Auditoria', Componente: Auditoria },
 ]
