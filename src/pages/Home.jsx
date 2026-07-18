@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
 import { SEO_PAGES } from '../seo/pages'
 
@@ -116,6 +117,7 @@ const CATEGORIAS = [
 
 function CartaoCategoria({ categoria, i }) {
   const { Icone } = categoria
+  const imagem = imagemCategoria(categoria.titulo)
   return (
     <motion.article
       variants={fadeUp}
@@ -123,8 +125,22 @@ function CartaoCategoria({ categoria, i }) {
       whileInView="show"
       viewport={{ once: true, margin: '-40px' }}
       transition={{ delay: i * 0.06 }}
-      className="flex flex-col rounded-2xl border border-creme-300 bg-white/60 p-8"
+      className="flex flex-col overflow-hidden rounded-2xl border border-creme-300 bg-white/60"
     >
+      {imagem && (
+        <div className="relative">
+          <img
+            src={imagem}
+            alt={categoria.titulo}
+            loading="lazy"
+            className="aspect-[16/9] w-full object-cover"
+          />
+          <span className="absolute bottom-1 right-1 rounded bg-grafite-950/55 px-1.5 py-0.5 text-[0.5rem] font-semibold uppercase tracking-wider text-creme-50/85">
+            Imagem ilustrativa
+          </span>
+        </div>
+      )}
+      <div className="flex grow flex-col p-8">
       <div className="flex items-center gap-4">
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ambar-500/15 text-cobre-600">
           <Icone />
@@ -152,6 +168,7 @@ function CartaoCategoria({ categoria, i }) {
           <path d="M2 8h11M9 3.5 13.5 8 9 12.5" />
         </svg>
       </Link>
+      </div>
     </motion.article>
   )
 }

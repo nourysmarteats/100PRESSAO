@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../lib/supabase'
+import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
 import { SEO_PAGES } from '../seo/pages'
 
@@ -555,13 +556,20 @@ function Cardapio() {
                             key={`combo-${c.id}`}
                             className="overflow-hidden rounded-xl border-2 border-ambar-500/50 bg-white/70"
                           >
-                            {c.imagem_url && (
-                              <img
-                                src={c.imagem_url}
-                                alt={c.nome}
-                                loading="lazy"
-                                className="aspect-[16/9] w-full object-cover"
-                              />
+                            {(c.imagem_url || imagemCategoria(nomeGrupo)) && (
+                              <div className="relative">
+                                <img
+                                  src={c.imagem_url || imagemCategoria(nomeGrupo)}
+                                  alt={c.nome}
+                                  loading="lazy"
+                                  className="aspect-[16/9] w-full object-cover"
+                                />
+                                {!c.imagem_url && (
+                                  <span className="absolute bottom-1 right-1 rounded bg-grafite-950/55 px-1.5 py-0.5 text-[0.5rem] font-semibold uppercase tracking-wider text-creme-50/85">
+                                    Imagem ilustrativa
+                                  </span>
+                                )}
+                              </div>
                             )}
                             <div className="p-5">
                               <div className="flex items-start justify-between gap-4">
@@ -603,13 +611,20 @@ function Cardapio() {
                             key={p.id}
                             className="overflow-hidden rounded-xl border border-creme-300 bg-white/70"
                           >
-                            {p.imagem_url && (
-                              <img
-                                src={p.imagem_url}
-                                alt={p.nome}
-                                loading="lazy"
-                                className="aspect-[16/9] w-full object-cover"
-                              />
+                            {(p.imagem_url || imagemCategoria(p.categories?.nome)) && (
+                              <div className="relative">
+                                <img
+                                  src={p.imagem_url || imagemCategoria(p.categories?.nome)}
+                                  alt={p.nome}
+                                  loading="lazy"
+                                  className="aspect-[16/9] w-full object-cover"
+                                />
+                                {!p.imagem_url && (
+                                  <span className="absolute bottom-1 right-1 rounded bg-grafite-950/55 px-1.5 py-0.5 text-[0.5rem] font-semibold uppercase tracking-wider text-creme-50/85">
+                                    Imagem ilustrativa
+                                  </span>
+                                )}
+                              </div>
                             )}
                             <div className="p-5">
                             <div className="flex items-start justify-between gap-4">
