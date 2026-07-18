@@ -17,6 +17,7 @@ const REDES = [
   },
   {
     nome: 'Facebook',
+    url: 'https://www.facebook.com/profile.php?id=61591461314419',
     icone: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
         <path d="M13.5 21v-7h2.4l.4-3h-2.8V9.1c0-.9.3-1.5 1.6-1.5h1.3V4.9c-.2 0-1-.1-1.9-.1-1.9 0-3.2 1.2-3.2 3.3V11H9v3h2.3v7h2.2Z" />
