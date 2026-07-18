@@ -13,10 +13,12 @@ import Definicoes from './admin/Definicoes'
 import Equipa from './admin/Equipa'
 import Auditoria from './admin/Auditoria'
 import Feedback from './admin/Feedback'
+import Faturas from './admin/Faturas'
 
 const SECCOES = [
   { id: 'analytics', rotulo: 'Analytics', Componente: Analytics },
   { id: 'caixa', rotulo: 'Fecho de caixa', Componente: Caixa },
+  { id: 'faturas', rotulo: 'Faturas', Componente: Faturas },
   { id: 'produtos', rotulo: 'Produtos', Componente: Produtos },
   { id: 'categorias', rotulo: 'Categorias', Componente: Categorias },
   { id: 'combos', rotulo: 'Combos', Componente: Combos },

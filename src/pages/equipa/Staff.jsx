@@ -26,6 +26,9 @@ function Kpi({ rotulo, valor, destaque }) {
 function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   const [metodo, setMetodo] = useState(pedido.metodo_pagamento || null)
   const [ocupado, setOcupado] = useState(false)
+  const [querFatura, setQuerFatura] = useState(false)
+  const [nif, setNif] = useState('')
+  const nifValido = !querFatura || nif === '' || /^\d{9}$/.test(nif)
   const pronto = pedido.estado === 'pronto'
 
   return (
@@ -83,12 +86,33 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
               </button>
             ))}
           </div>
+          <label className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-grafite-600">
+            <input
+              type="checkbox"
+              checked={querFatura}
+              onChange={(e) => setQuerFatura(e.target.checked)}
+              className="h-4 w-4 accent-ambar-500"
+            />
+            Cliente quer fatura
+          </label>
+          {querFatura && (
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="NIF (opcional, 9 dígitos)"
+              value={nif}
+              onChange={(e) => setNif(e.target.value.replace(/\D/g, '').slice(0, 9))}
+              className={`mt-2 w-full rounded-lg border px-3 py-2 text-sm text-grafite-900 outline-none ${
+                nifValido ? 'border-creme-300 focus:border-ambar-500' : 'border-red-500'
+              }`}
+            />
+          )}
           <button
             type="button"
-            disabled={!metodo || ocupado}
+            disabled={!metodo || ocupado || !nifValido}
             onClick={async () => {
               setOcupado(true)
-              await aoEntregar(pedido.id, metodo)
+              await aoEntregar(pedido.id, metodo, { querFatura, nif: nif || undefined })
               setOcupado(false)
             }}
             className="mt-3 w-full cursor-pointer rounded-full bg-ambar-500 px-6 py-3 font-semibold uppercase tracking-widest text-grafite-950 transition-colors hover:bg-ambar-400 disabled:opacity-40"
@@ -161,11 +185,23 @@ function Staff() {
     carregar()
   }
 
-  async function entregar(id, metodo) {
+  async function entregar(id, metodo, opcoesFatura) {
     await supabase
       .from('orders')
       .update({ estado: 'entregue', metodo_pagamento: metodo, estado_pagamento: 'pago' })
       .eq('id', id)
+    // Regista o pedido de fatura (colunas da migração de fatura). Feito num
+    // update à parte para não bloquear a entrega se a migração ainda não
+    // estiver aplicada — nesse caso este falha em silêncio.
+    if (opcoesFatura) {
+      await supabase
+        .from('orders')
+        .update({
+          fatura_pedida: !!opcoesFatura.querFatura,
+          fatura_nif: opcoesFatura.querFatura ? opcoesFatura.nif || null : null,
+        })
+        .eq('id', id)
+    }
     carregar()
   }
 
