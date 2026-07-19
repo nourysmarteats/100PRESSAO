@@ -50,6 +50,7 @@ function Faturas() {
 
   const comFatura = pedidos.filter((p) => p.fatura_pedida)
   const semFatura = pedidos.filter((p) => !p.fatura_pedida)
+  const soma = (arr) => arr.reduce((s, p) => s + Number(p.total || 0), 0)
   const lista =
     filtro === 'com' ? comFatura : filtro === 'sem' ? semFatura : pedidos
 
@@ -77,18 +78,21 @@ function Faturas() {
         ))}
       </div>
 
-      {/* KPIs */}
+      {/* Apuração (€) por grupo */}
       <div className="mt-6 grid grid-cols-3 gap-3">
         {[
-          { rotulo: 'Entregues', valor: pedidos.length },
-          { rotulo: 'Pediram fatura', valor: comFatura.length },
-          { rotulo: 'Sem fatura', valor: semFatura.length },
+          { rotulo: 'Total apurado', valor: soma(pedidos), n: pedidos.length },
+          { rotulo: 'Com fatura', valor: soma(comFatura), n: comFatura.length },
+          { rotulo: 'Sem fatura', valor: soma(semFatura), n: semFatura.length },
         ].map((k) => (
           <div key={k.rotulo} className={`${CARTAO} p-4`}>
             <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">
               {k.rotulo}
             </p>
-            <p className="mt-1 font-display text-3xl font-bold text-grafite-900">{k.valor}</p>
+            <p className="mt-1 font-display text-2xl font-bold text-grafite-900">{fmt(k.valor)}</p>
+            <p className="mt-0.5 text-xs text-grafite-600/70">
+              {k.n} {k.n === 1 ? 'pedido' : 'pedidos'}
+            </p>
           </div>
         ))}
       </div>
