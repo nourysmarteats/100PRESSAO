@@ -262,9 +262,10 @@ function Cardapio() {
     try {
       const { data, error } = await comTimeout(
         supabase
-          .from('sessions')
-          .insert({ nome_cliente: nome.trim(), posicao_mesa: mesa })
-          .select()
+          .rpc('criar_sessao', {
+            p_nome: nome.trim(),
+            p_mesa: mesa || null,
+          })
           .single(),
       )
       if (error) {
@@ -284,48 +285,32 @@ function Cardapio() {
     if (!metodo || contagemCarrinho === 0 || ocupado) return
     setOcupado(true)
     try {
+      // Combos entram como linha própria (combo_id); variantes levam
+      // variant_id. Os preços deixaram de ser enviados — são lidos da base
+      // de dados pela função criar_pedido (SECURITY DEFINER): o cliente não
+      // escreve direto nas tabelas nem controla o preço/total.
+      const entradas = Object.entries(carrinho)
+        .map(([chave, qtd]) => ({ r: resolverChave(chave), qtd }))
+        .filter((e) => e.r)
+      const itens = entradas.map(({ r, qtd }) => ({
+        product_id: r.produto?.id ?? null,
+        variant_id: r.variante?.id ?? null,
+        combo_id: r.combo?.id ?? null,
+        quantidade: qtd,
+      }))
+
       const { data: order, error: erroPedido } = await comTimeout(
         supabase
-          .from('orders')
-          .insert({
-            session_id: sessao.id,
-            estado: 'recebido',
-            metodo_pagamento: metodo,
-            estado_pagamento: 'pendente',
-            total: totalCarrinho,
+          .rpc('criar_pedido', {
+            p_session_id: sessao.id,
+            p_metodo: metodo,
+            p_itens: itens,
           })
-          .select()
           .single(),
       )
 
       if (erroPedido) {
         mostrarAviso('Erro ao criar o pedido. Tenta novamente.')
-        return
-      }
-
-      // Combos entram como linha própria (combo_id); variantes levam
-      // variant_id. As colunas novas só vão no insert quando usadas, para
-      // o fluxo antigo continuar a funcionar antes da migração v2.
-      const entradas = Object.entries(carrinho)
-        .map(([chave, qtd]) => ({ r: resolverChave(chave), qtd }))
-        .filter((e) => e.r)
-      const itens = entradas.map(({ r, qtd }) => {
-        const item = {
-          order_id: order.id,
-          product_id: r.produto?.id ?? null,
-          quantidade: qtd,
-          preco_unitario: r.preco,
-        }
-        if (r.variante) item.variant_id = r.variante.id
-        if (r.combo) item.combo_id = r.combo.id
-        return item
-      })
-
-      const { error: erroItens } = await comTimeout(
-        supabase.from('order_items').insert(itens),
-      )
-      if (erroItens) {
-        mostrarAviso('Erro ao registar os itens. Chama alguém da equipa.')
         return
       }
 
@@ -342,7 +327,8 @@ function Cardapio() {
       id: order.id,
       numero: order.numero,
       estado: order.estado,
-      total: totalCarrinho,
+      // Total autoritativo — calculado no servidor pela função criar_pedido.
+      total: order.total ?? totalCarrinho,
       itens: entradas.map(({ r, qtd }) => ({
         nome: r.nome,
         quantidade: qtd,
