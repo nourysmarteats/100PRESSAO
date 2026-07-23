@@ -10,8 +10,31 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
 }
 
-/* Ícones de linha (48×48, stroke) — placeholder uniforme nas 5 categorias
+/* Ícones de linha (48×48, stroke) — placeholder uniforme nas categorias
    até haver fotos reais dos produtos */
+
+function IconePequenoAlmoco() {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
+      <path d="M9 20h21v9a9 9 0 0 1-9 9h-3a9 9 0 0 1-9-9Z" />
+      <path d="M30 22h3a4.5 4.5 0 0 1 0 9h-3" />
+      <path d="M15 8c0 2.5 1.5 2.5 1.5 5S15 15.5 15 18" />
+      <path d="M23 8c0 2.5 1.5 2.5 1.5 5S23 15.5 23 18" />
+    </svg>
+  )
+}
+
+function IconeAlmoco() {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
+      <circle cx="24" cy="24" r="10" />
+      <circle cx="24" cy="24" r="4.5" />
+      <path d="M8 9v7a2.5 2.5 0 0 0 5 0V9" />
+      <path d="M10.5 16v23" />
+      <path d="M40 9c-2.5 0-4 3.5-4 8s1.5 5 4 5v16" />
+    </svg>
+  )
+}
 
 function IconePetiscos() {
   return (
@@ -69,11 +92,21 @@ function IconeVinho() {
 }
 
 /*
- * Refrigerantes, Espirituosas e Vinhos ainda não têm produtos reais no
- * Supabase (só Cervejas/Petiscos) — seguem como "Em breve" até a lista real
- * (nome, descrição, preço, alergénios) ser entregue à Rita Falcão.
+ * Ordem e estado alinhados com a ementa real no Supabase: Pequeno Almoço (21),
+ * Cervejas (3), Petiscos (11) e Almoço PF (2) têm produtos e entram como ativas.
+ * Refrigerantes, Espirituosas e Vinhos ainda não têm produtos reais — seguem
+ * como "Em breve" até a lista real (nome, descrição, preço, alergénios) ser
+ * entregue à Rita Falcão.
  */
 const CATEGORIAS = [
+  {
+    id: 'pequeno-almoco',
+    titulo: 'Pequeno Almoço',
+    descricao:
+      'Para começar o dia como deve ser: torradas, pães, ovos e o café tirado com calma. Servido de manhã, no balcão ou à mesa.',
+    emBreve: false,
+    Icone: IconePequenoAlmoco,
+  },
   {
     id: 'petiscos',
     titulo: 'Petiscos',
@@ -89,6 +122,14 @@ const CATEGORIAS = [
       'Cerveja europeia a sério, tirada à pressão certa, do tanque ao copo, sem atalhos.',
     emBreve: false,
     Icone: IconeCerveja,
+  },
+  {
+    id: 'almoco-pf',
+    titulo: 'Almoço PF',
+    descricao:
+      'O prato feito do dia: comida de casa, honesta e a preço certo, para o almoço sem complicações.',
+    emBreve: false,
+    Icone: IconeAlmoco,
   },
   {
     id: 'refrigerantes',
