@@ -71,6 +71,28 @@ function Equipa() {
     }
   }
 
+  async function excluir(p) {
+    if (
+      !window.confirm(
+        `Eliminar DEFINITIVAMENTE a conta de ${p.nome} (${p.email})?\n\n` +
+          'É irreversível: apaga o acesso e o PIN. O histórico de auditoria é ' +
+          'mantido. Para bloquear de forma reversível, usa antes “Desativar”.',
+      )
+    )
+      return
+    setOcupado(true)
+    try {
+      await chamarApiEquipa({ acao: 'excluir', user_id: p.id })
+      registarAuditoria('conta_eliminada', { email: p.email })
+      mostrarAviso('Conta eliminada ✓')
+      carregar()
+    } catch (erro) {
+      mostrarAviso(erro.message)
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   async function trocarPin(p) {
     const pin = window.prompt(`Novo PIN (4 dígitos) para ${p.nome}:`)
     if (pin == null) return
@@ -223,14 +245,24 @@ function Equipa() {
                     Desativar
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={ocupado}
-                    onClick={() => definirEstado(p, true)}
-                    className={BOTAO_SECUNDARIO}
-                  >
-                    Reativar
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => definirEstado(p, true)}
+                      className={BOTAO_SECUNDARIO}
+                    >
+                      Reativar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={ocupado}
+                      onClick={() => excluir(p)}
+                      className="cursor-pointer rounded-full bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition-colors hover:bg-red-700"
+                    >
+                      Excluir
+                    </button>
+                  </>
                 ))}
             </div>
           </li>

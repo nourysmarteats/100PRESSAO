@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../../lib/supabase'
 import { beep } from '../../lib/pedidos'
@@ -135,6 +136,14 @@ function Ecra() {
       <footer className="mt-6 text-center text-sm uppercase tracking-[0.3em] text-creme-500/60">
         A pressão certa, no seu copo!
       </footer>
+
+      {/* Volta ao painel — discreto para não pesar na TV, mas sempre acessível */}
+      <Link
+        to="/admin"
+        className="fixed bottom-4 right-5 z-40 rounded-full border border-creme-500/20 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-creme-500/40 transition-colors hover:border-creme-500/50 hover:text-creme-300"
+      >
+        ← Painel
+      </Link>
     </div>
   )
 }

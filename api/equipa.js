@@ -93,6 +93,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true })
     }
 
+    // ── eliminar conta em definitivo ──
+    // Apaga o utilizador de auth; o perfil sai em cascata (perfis.id →
+    // auth.users on delete cascade). O histórico de auditoria é preservado
+    // (audit_log.user_id não tem FK, fica como registo histórico).
+    if (acao === 'excluir') {
+      const { user_id } = dados
+      if (!user_id) return res.status(400).json({ erro: 'user_id em falta.' })
+      if (user_id === chamador.user.id)
+        return res.status(400).json({ erro: 'Não podes eliminar a tua própria conta.' })
+
+      const { error } = await admin.auth.admin.deleteUser(user_id)
+      if (error) return res.status(400).json({ erro: `Supabase: ${error.message}` })
+      // Rede de segurança caso a cascata não apague o perfil (ex.: FK ausente)
+      await admin.from('perfis').delete().eq('id', user_id)
+      return res.status(200).json({ ok: true })
+    }
+
     // ── trocar o PIN pessoal de uma conta ──
     if (acao === 'definir_pin') {
       const { user_id, pin } = dados
