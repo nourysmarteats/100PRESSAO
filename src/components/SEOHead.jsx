@@ -3,9 +3,9 @@ import { Helmet } from 'react-helmet-async'
 // Domínio canónico confirmado pelo Leandro (2026-07-12): www.100pressao.pt
 // (resolve hoje para 100pressao.vercel.app via redirect).
 const SITE_URL = 'https://www.100pressao.pt'
-// TODO: substituir por uma imagem OG real (1200x630) assim que existir —
-// usar o ícone por agora só para não deixar o preview de link partido.
-const DEFAULT_OG_IMAGE = '/icon-512.png'
+// Imagem OG de marca (1200×630) — mostrada no preview ao partilhar links
+// (WhatsApp, Facebook, etc.). Gerada em public/og-image.jpg.
+const DEFAULT_OG_IMAGE = '/og-image.jpg'
 
 function SEOHead({ title, description, path, image }) {
   const canonical = `${SITE_URL}${path === '/' ? '' : path}`
@@ -22,6 +22,9 @@ function SEOHead({ title, description, path, image }) {
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonical} />
       <meta property="og:image" content={`${SITE_URL}${ogImage}`} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta property="og:image:alt" content="100PRESSÃO — Cervejaria e petiscos em Carnaxide" />
       <meta property="og:locale" content="pt_PT" />
 
       <meta name="twitter:card" content="summary_large_image" />
