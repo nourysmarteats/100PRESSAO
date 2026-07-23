@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../lib/supabase'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
+import EncomendaWhatsApp from '../components/EncomendaWhatsApp'
 import { SEO_PAGES } from '../seo/pages'
 
 // Promessa com prazo: se a rede/Supabase não responder, rejeita em vez de
@@ -865,6 +866,12 @@ function Cardapio() {
               </motion.div>
             )}
           </AnimatePresence>
+        )}
+
+        {/* Canal remoto (Fase 0): para quem não está na loja. O fluxo de
+            pedido à mesa acima fica inalterado. */}
+        {!indisponivel && fase === 'entrada' && (
+          <EncomendaWhatsApp className="mt-6" />
         )}
 
         {/* Aviso/toast */}
