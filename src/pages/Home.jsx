@@ -8,8 +8,31 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
 }
 
-/* Ícones de linha (48×48, stroke) — placeholder uniforme nas 5 categorias
+/* Ícones de linha (48×48, stroke) — placeholder uniforme nas categorias
    até haver fotos reais dos produtos */
+
+function IconePequenoAlmoco() {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
+      <path d="M9 20h22v11a8 8 0 0 1-8 8h-6a8 8 0 0 1-8-8Z" />
+      <path d="M31 23h3a5 5 0 0 1 0 10h-3" />
+      <path d="M7 43h27" />
+      <path d="M16 14c0-2 2-2.6 2-4.5S16 7 16 5" />
+      <path d="M24 14c0-2 2-2.6 2-4.5S24 7 24 5" />
+    </svg>
+  )
+}
+
+function IconeAlmocoPF() {
+  return (
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
+      <circle cx="22" cy="26" r="14" />
+      <circle cx="22" cy="26" r="7" />
+      <path d="M40 8v32" />
+      <path d="M40 8c-2.5 0-4 2-4 5s1.5 5 4 5" />
+    </svg>
+  )
+}
 
 function IconePetiscos() {
   return (
@@ -67,11 +90,30 @@ function IconeVinho() {
 }
 
 /*
+ * A ordem segue a das categorias reais no Supabase (campo `ordem`):
+ * Pequeno-Almoço, Cervejas, Petiscos, Almoço PF.
+ *
  * Refrigerantes, Espirituosas e Vinhos ainda não têm produtos reais no
- * Supabase (só Cervejas/Petiscos) — seguem como "Em breve" até a lista real
- * (nome, descrição, preço, alergénios) ser entregue à Rita Falcão.
+ * Supabase — seguem como "Em breve" até a lista real (nome, descrição,
+ * preço, alergénios) ser entregue à Rita Falcão.
  */
 const CATEGORIAS = [
+  {
+    id: 'pequeno-almoco',
+    titulo: 'Pequeno-Almoço',
+    descricao:
+      'Começamos cedo, à hora a que o mercado acorda: torradas, sandes, bolos e café tirado como deve ser.',
+    emBreve: false,
+    Icone: IconePequenoAlmoco,
+  },
+  {
+    id: 'cervejas',
+    titulo: 'Cervejas',
+    descricao:
+      'Cerveja europeia a sério, tirada à pressão certa — do tanque ao copo, sem atalhos.',
+    emBreve: false,
+    Icone: IconeCerveja,
+  },
   {
     id: 'petiscos',
     titulo: 'Petiscos',
@@ -81,12 +123,12 @@ const CATEGORIAS = [
     Icone: IconePetiscos,
   },
   {
-    id: 'cervejas',
-    titulo: 'Cervejas',
+    id: 'almoco-pf',
+    titulo: 'Almoço PF',
     descricao:
-      'Cerveja europeia a sério, tirada à pressão certa — do tanque ao copo, sem atalhos.',
+      'O prato feito à moda brasileira, servido à hora de almoço — comida de casa, enquanto durar.',
     emBreve: false,
-    Icone: IconeCerveja,
+    Icone: IconeAlmocoPF,
   },
   {
     id: 'refrigerantes',

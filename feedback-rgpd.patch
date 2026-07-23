@@ -1,0 +1,91 @@
+diff --git a/docs/sql/2026-07-18-feedback.sql b/docs/sql/2026-07-18-feedback.sql
+index 0ce5b7c..568c0af 100644
+--- a/docs/sql/2026-07-18-feedback.sql
++++ b/docs/sql/2026-07-18-feedback.sql
+@@ -1,5 +1,6 @@
+ -- Formulário de feedback (jul 2026). Aplicar no SQL Editor do Supabase.
+ -- Idempotente. O visitante envia (insert público, anónimo); só admins leem.
++-- Aplicado em produção a 18/07/2026 (migração: feedback_formulario_publico).
+ 
+ create table if not exists public.feedback (
+   id bigint generated always as identity primary key,
+@@ -11,6 +12,15 @@ create table if not exists public.feedback (
+   criado_em timestamptz not null default now()
+ );
+ 
++-- Travão de abuso: o maxLength do browser só protege o browser. Quem chame a
++-- API REST directamente com a chave anónima (que é pública) não passa por lá.
++alter table public.feedback drop constraint if exists feedback_tamanhos;
++alter table public.feedback add constraint feedback_tamanhos check (
++  char_length(mensagem) between 1 and 2000
++  and char_length(coalesce(nome, '')) <= 120
++  and char_length(coalesce(contacto, '')) <= 200
++);
++
+ alter table public.feedback enable row level security;
+ 
+ -- Qualquer visitante (anon) pode enviar feedback
+@@ -19,8 +29,8 @@ drop policy if exists "feedback insert publico" on public.feedback;
+ create policy "feedback insert publico" on public.feedback
+   for insert with check (true);
+ 
+--- Leitura e marcação como lido reservadas a admins (como o audit_log)
+-grant select, update on public.feedback to authenticated;
++-- Leitura reservada a admins (mesmo padrão do audit_log)
++grant select on public.feedback to authenticated;
+ drop policy if exists "feedback leitura admin" on public.feedback;
+ create policy "feedback leitura admin" on public.feedback
+   for select to authenticated using (
+@@ -29,6 +39,11 @@ create policy "feedback leitura admin" on public.feedback
+       where p.id = auth.uid() and p.papel = 'admin' and p.ativo
+     )
+   );
++
++-- Update restrito à coluna 'lido': o admin marca como lido mas não pode
++-- reescrever aquilo que o cliente escreveu.
++revoke update on public.feedback from authenticated;
++grant update (lido) on public.feedback to authenticated;
+ drop policy if exists "feedback update admin" on public.feedback;
+ create policy "feedback update admin" on public.feedback
+   for update to authenticated using (
+diff --git a/src/components/FormularioFeedback.jsx b/src/components/FormularioFeedback.jsx
+index 33ccbcd..d670409 100644
+--- a/src/components/FormularioFeedback.jsx
++++ b/src/components/FormularioFeedback.jsx
+@@ -1,4 +1,5 @@
+ import { useState } from 'react'
++import { Link } from 'react-router-dom'
+ import { motion } from 'framer-motion'
+ import { supabasePublico as supabase } from '../lib/supabase'
+ 
+@@ -100,7 +101,7 @@ function FormularioFeedback() {
+               onChange={(e) => setMensagem(e.target.value)}
+               required
+               rows={4}
+-              maxLength={1000}
++              maxLength={2000}
+               placeholder="Escreve aqui…"
+               className={`${CAMPO} resize-none`}
+             />
+@@ -133,6 +134,21 @@ function FormularioFeedback() {
+             </label>
+           </div>
+ 
++          <p className="text-xs leading-relaxed text-grafite-500">
++            Os dados que nos deixares servem apenas para lermos e respondermos ao
++            teu feedback. Só a administração da 100PRESSÃO lhes acede, não são
++            partilhados com terceiros e são apagados ao fim de 12 meses. O nome e
++            o contacto são opcionais — podes enviar de forma anónima. Mais
++            detalhes na{' '}
++            <Link
++              to="/privacidade"
++              className="underline underline-offset-2 transition-colors hover:text-ambar-600"
++            >
++              política de privacidade
++            </Link>
++            .
++          </p>
++
+           {estado === 'erro' && (
+             <p className="text-sm text-red-600" role="alert">
+               Não foi possível enviar. Tenta novamente daqui a pouco.

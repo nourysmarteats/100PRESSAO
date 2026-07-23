@@ -1,6 +1,6 @@
 // Avisos operacionais + horário de funcionamento (itens 6 e 7 da v2).
 // Guardados na tabela definicoes (leitura pública) — o banner aparece em
-// /cardapio em tempo real e o horário alimenta o Footer e o Contato.
+// /cardapio em tempo real e o horário alimenta o Footer e o Contacto.
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { registarAuditoria } from '../../../lib/equipa'
@@ -117,7 +117,7 @@ function Definicoes() {
             Horário de funcionamento
           </h3>
           <p className="mt-1 text-sm text-grafite-600/70">
-            Refletido no rodapé do site e na página Contato. Deixa vazio para
+            Refletido no rodapé do site e na página Contacto. Deixa vazio para
             “encerrado” nesse dia.
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">

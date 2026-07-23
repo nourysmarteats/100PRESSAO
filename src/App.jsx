@@ -6,7 +6,7 @@ import Hero from './components/Hero'
 const Home = lazy(() => import('./pages/Home'))
 const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
-const Contato = lazy(() => import('./pages/Contato'))
+const Contacto = lazy(() => import('./pages/Contacto'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
 const EquipaLayout = lazy(() => import('./pages/equipa/EquipaLayout'))
 const Staff = lazy(() => import('./pages/equipa/Staff'))
@@ -37,10 +37,12 @@ function App() {
           <Route path="/home" element={pagina(Home)} />
           <Route path="/quem-somos" element={pagina(QuemSomos)} />
           <Route path="/cardapio" element={pagina(Cardapio)} />
-          <Route path="/contato" element={pagina(Contato)} />
+          <Route path="/contacto" element={pagina(Contacto)} />
           <Route path="/faca-parte" element={pagina(FacaParte)} />
           {/* Rota antiga — o cardápio mudou de endereço */}
           <Route path="/conhecer-a-casa" element={<Navigate to="/cardapio" replace />} />
+          {/* Rota antiga — grafia brasileira corrigida para PT-PT (2026-07-20) */}
+          <Route path="/contato" element={<Navigate to="/contacto" replace />} />
         </Route>
 
         {/* Ecrã público (TV) — sem auth nem PIN, só mostra números de pedido */}

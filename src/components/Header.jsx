@@ -7,7 +7,7 @@ export const NAV_LINKS = [
   { to: '/', label: 'Início' },
   { to: '/quem-somos', label: 'Quem Somos' },
   { to: '/cardapio', label: 'Ementa' },
-  { to: '/contato', label: 'Contato' },
+  { to: '/contacto', label: 'Contacto' },
   { to: '/faca-parte', label: 'Faça Parte' },
 ]
 

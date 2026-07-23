@@ -19,15 +19,15 @@ function InfoIcon({ children }) {
   )
 }
 
-function Contato() {
+function Contacto() {
   const horario = useHorario()
   return (
     <main className="bg-creme-50 text-grafite-800">
-      <SEOHead {...SEO_PAGES.contato} />
+      <SEOHead {...SEO_PAGES.contacto} />
       <div className="mx-auto max-w-5xl px-6 py-16">
         <motion.div variants={fadeUp} initial="hidden" animate="show">
           <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">
-            Contato
+            Contacto
           </h1>
           <p className="mt-3 max-w-xl text-lg text-grafite-600">
             Aparece, liga ou manda mensagem — por cá não há formalidades.
@@ -151,4 +151,4 @@ function Contato() {
   )
 }
 
-export default Contato
+export default Contacto

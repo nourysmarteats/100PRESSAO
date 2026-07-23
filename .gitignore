@@ -28,3 +28,10 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Documentos e media de trabalho (não são assets do site nem vão para
+# produção). Ficam no disco local, apenas não entram no repositório.
+# Nota: só afeta a raiz — public/ e src/assets/ continuam versionados.
+/*.docx
+/*.pdf
+/*.mp4
