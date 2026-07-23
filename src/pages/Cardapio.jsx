@@ -265,7 +265,7 @@ function Cardapio() {
         supabase
           .rpc('criar_sessao', {
             p_nome: nome.trim(),
-            p_mesa: mesa || null,
+            p_mesa: mesa.trim() || null,
           })
           .single(),
       )

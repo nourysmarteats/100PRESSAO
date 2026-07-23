@@ -1,54 +1,39 @@
+-- =============================================================================
 -- REVERSÃO de 2026-07-23-rls-escrita-admin.sql
--- Volta a escrita das tabelas de gestão ao estado anterior: leitura pública +
--- escrita para qualquer conta autenticada (using true). Restaura o storage e
--- remove o helper e_admin(). Só usar se a restrição a admin causar problemas.
--- Aplicar no SQL Editor do Supabase. Idempotente.
+-- Repõe escrita de ementa e storage para qualquer conta e_equipa().
+-- Só usar se a restrição a admin partir algum fluxo imprevisto.
+-- =============================================================================
 
-begin;
+drop policy "produtos cria admin" on public.products;
+drop policy "produtos edita admin" on public.products;
+create policy "produtos cria equipa" on public.products for insert to authenticated with check ((select e_equipa()));
+create policy "produtos edita equipa" on public.products for update to authenticated using ((select e_equipa())) with check ((select e_equipa()));
 
-do $$
-declare
-  t text;
-  p record;
-begin
-  foreach t in array array[
-    'categories', 'products', 'combos', 'combo_items',
-    'product_variants', 'definicoes'
-  ]
-  loop
-    for p in
-      select policyname from pg_policies
-      where schemaname = 'public' and tablename = t
-    loop
-      execute format('drop policy if exists %I on public.%I;', p.policyname, t);
-    end loop;
+drop policy "categorias cria admin" on public.categories;
+drop policy "categorias edita admin" on public.categories;
+create policy "categorias cria equipa" on public.categories for insert to authenticated with check ((select e_equipa()));
+create policy "categorias edita equipa" on public.categories for update to authenticated using ((select e_equipa())) with check ((select e_equipa()));
 
-    execute format(
-      'create policy %I on public.%I for select using (true);',
-      t || ' leitura publica', t
-    );
-    execute format(
-      'create policy %I on public.%I for all to authenticated ' ||
-      'using (true) with check (true);',
-      t || ' escrita equipa', t
-    );
-  end loop;
-end $$;
+drop policy "combos cria admin" on public.combos;
+drop policy "combos edita admin" on public.combos;
+create policy "combos cria equipa" on public.combos for insert to authenticated with check ((select e_equipa()));
+create policy "combos edita equipa" on public.combos for update to authenticated using ((select e_equipa())) with check ((select e_equipa()));
 
--- Storage de volta a "equipa" (qualquer autenticado)
-drop policy if exists "produtos upload admin" on storage.objects;
-create policy "produtos upload equipa" on storage.objects
-  for insert to authenticated with check (bucket_id = 'produtos');
+drop policy "combo_items cria admin" on public.combo_items;
+drop policy "combo_items edita admin" on public.combo_items;
+drop policy "combo_items apaga admin" on public.combo_items;
+create policy "combo_items cria equipa" on public.combo_items for insert to authenticated with check ((select e_equipa()));
+create policy "combo_items edita equipa" on public.combo_items for update to authenticated using ((select e_equipa())) with check ((select e_equipa()));
+create policy "combo_items apaga equipa" on public.combo_items for delete to authenticated using ((select e_equipa()));
 
-drop policy if exists "produtos gestao admin" on storage.objects;
-create policy "produtos gestao equipa" on storage.objects
-  for update to authenticated using (bucket_id = 'produtos');
+drop policy "variantes cria admin" on public.product_variants;
+drop policy "variantes edita admin" on public.product_variants;
+create policy "variantes cria equipa" on public.product_variants for insert to authenticated with check ((select e_equipa()));
+create policy "variantes edita equipa" on public.product_variants for update to authenticated using ((select e_equipa())) with check ((select e_equipa()));
 
-drop policy if exists "produtos remocao admin" on storage.objects;
-create policy "produtos remocao equipa" on storage.objects
-  for delete to authenticated using (bucket_id = 'produtos');
-
-commit;
-
--- fora da transação: remover o helper (só depois de as políticas deixarem de o usar)
-drop function if exists public.e_admin();
+drop policy "produtos upload admin" on storage.objects;
+drop policy "produtos gestao admin" on storage.objects;
+drop policy "produtos remocao admin" on storage.objects;
+create policy "produtos upload equipa" on storage.objects for insert to authenticated with check (bucket_id = 'produtos');
+create policy "produtos gestao equipa" on storage.objects for update to authenticated using (bucket_id = 'produtos');
+create policy "produtos remocao equipa" on storage.objects for delete to authenticated using (bucket_id = 'produtos');

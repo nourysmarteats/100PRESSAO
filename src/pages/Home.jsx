@@ -116,12 +116,12 @@ const CATEGORIAS = [
     Icone: IconePetiscos,
   },
   {
-    id: 'cervejas',
-    titulo: 'Cervejas',
+    id: 'almoco-pf',
+    titulo: 'Almoço PF',
     descricao:
       'Cerveja europeia a sério, tirada à pressão certa, do tanque ao copo, sem atalhos.',
     emBreve: false,
-    Icone: IconeCerveja,
+    Icone: IconeAlmocoPF,
   },
   {
     id: 'almoco-pf',

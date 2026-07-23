@@ -7,7 +7,7 @@ const Home = lazy(() => import('./pages/Home'))
 const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
 const Restaurante = lazy(() => import('./pages/Restaurante'))
-const Contato = lazy(() => import('./pages/Contato'))
+const Contacto = lazy(() => import('./pages/Contacto'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
 const Privacidade = lazy(() => import('./pages/legal/Privacidade'))
 const Cookies = lazy(() => import('./pages/legal/Cookies'))
@@ -42,7 +42,7 @@ function App() {
           <Route path="/quem-somos" element={pagina(QuemSomos)} />
           <Route path="/cardapio" element={pagina(Cardapio)} />
           <Route path="/restaurante" element={pagina(Restaurante)} />
-          <Route path="/contato" element={pagina(Contato)} />
+          <Route path="/contacto" element={pagina(Contacto)} />
           <Route path="/faca-parte" element={pagina(FacaParte)} />
           {/* Páginas legais */}
           <Route path="/privacidade" element={pagina(Privacidade)} />
@@ -50,6 +50,8 @@ function App() {
           <Route path="/termos" element={pagina(Termos)} />
           {/* Rota antiga — o cardápio mudou de endereço */}
           <Route path="/conhecer-a-casa" element={<Navigate to="/cardapio" replace />} />
+          {/* Rota antiga — grafia brasileira corrigida para PT-PT (2026-07-20) */}
+          <Route path="/contato" element={<Navigate to="/contacto" replace />} />
         </Route>
 
         {/* Ecrã público (TV) — sem auth nem PIN, só mostra números de pedido */}

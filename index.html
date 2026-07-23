@@ -4,7 +4,11 @@
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/site.webmanifest" />
+    <!-- rel="manifest" é injetado por rota via SEOHead (react-helmet-async) —
+         não fixar aqui, para o /cardapio poder usar o seu próprio manifest
+         (start_url/scope isolados) sem ficarem dois links em conflito
+         (o browser só respeita o primeiro em tree order). -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#16181d" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>100PRESSÃO · Draft House</title>
@@ -17,7 +21,7 @@
     <!--
       Dados estruturados (schema.org) — site-wide, por isso ficam estáticos
       aqui em vez de por rota via Helmet. Morada e telefone confirmados em
-      src/pages/Contato.jsx (2026-07-12). Horário usa o fallback de
+      src/pages/Contacto.jsx (2026-07-12). Horário usa o fallback de
       src/lib/horario.js — o horário real é editável no /admin e pode
       divergir deste JSON-LD; atualizar aqui manualmente se mudar de forma
       permanente (não é lido do Supabase em build-time).

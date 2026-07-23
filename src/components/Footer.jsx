@@ -35,7 +35,10 @@ const REDES = [
   },
 ]
 
-const PAGAMENTOS = ['Multibanco', 'MB Way', 'Visa', 'Mastercard'] // TODO: confirmar métodos antes de publicar
+// Confirmado pelo Leandro (2026-07-20): o pagamento é sempre feito no local —
+// o /cardapio regista o pedido, não cobra. Correspondem aos métodos aceites
+// pelo `criar_pedido` no Supabase e mapeados para a Vendus.
+const PAGAMENTOS = ['Dinheiro', 'Multibanco', 'MB Way', 'Visa', 'Mastercard']
 
 function Footer() {
   const horario = useHorario()
@@ -172,7 +175,13 @@ function Footer() {
               Termos
             </Link>
           </nav>
-          <ul className="flex flex-wrap gap-2" aria-label="Métodos de pagamento (a confirmar)">
+          <ul
+            className="flex flex-wrap items-center gap-2"
+            aria-label="Métodos de pagamento aceites no local"
+          >
+            <li className="mr-1 text-xs uppercase tracking-wider text-creme-500/70">
+              Pagamento no local
+            </li>
             {PAGAMENTOS.map((p) => (
               <li
                 key={p}

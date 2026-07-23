@@ -1,97 +1,100 @@
--- Endurecer a escrita nas tabelas de gestão da ementa (jul 2026).
+-- =============================================================================
+-- 2026-07-23 — Escrita na ementa e no storage passa a ser só de admin
+-- Autor: Daniel Cunha (TI). Aplicado em produção como migração
+-- `rls_escrita_ementa_so_admin` via MCP.
 --
--- PROBLEMA: as tabelas de gestão (categories, products, combos, combo_items,
--- product_variants, definicoes) tinham a política de escrita
---   for all to authenticated using (true) with check (true)
--- ou seja, QUALQUER conta autenticada — mesmo staff — podia inserir, alterar
--- ou APAGAR toda a ementa via API PostgREST. A distinção admin/staff só existia
--- no React (guarda de interface, não de segurança).
+-- Contexto: as políticas de 2026-07-20 separaram equipa/admin, mas deixaram
+-- INSERT/UPDATE da ementa (e todo o CRUD do bucket `produtos`) abertos a
+-- qualquer conta `e_equipa()`. Nenhuma página de staff escreve nestas tabelas
+-- (verificado: só src/pages/equipa/admin/* o faz), portanto restringir a
+-- admin não altera nenhum fluxo existente.
 --
--- CORREÇÃO: a leitura mantém-se pública (o site precisa dela); a escrita passa
--- a exigir conta admin ativa, ao nível da base de dados. Não afeta os painéis
--- Staff/Operacional — esses só escrevem em `orders`/`order_items`, não na ementa.
+-- Motivo de fazer isto AGORA: ainda só existem contas admin. Assim que
+-- existirem contas staff para a equipa de sala, esta janela fecha-se.
 --
--- Aplicar no SQL Editor do Supabase. Idempotente. Reversão no ficheiro
--- 2026-07-23-rls-escrita-admin-REVERSAO.sql.
---
--- NOTA: escrito de forma defensiva (remove as políticas de escrita atuais seja
--- qual for o nome) porque a política da tabela `products` foi criada no
--- dashboard e não tem nome versionado. Rever antes de aplicar.
+-- Reversão: 2026-07-23-rls-escrita-admin-REVERSAO.sql
+-- =============================================================================
 
-begin;
+-- ---------- products ----------
+drop policy "produtos cria equipa" on public.products;
+drop policy "produtos edita equipa" on public.products;
 
--- ── Helper: e_admin() — true se a conta autenticada é admin e está ativa ──
--- security definer + search_path fixo: lê `perfis` sem depender do RLS da
--- própria tabela (evita recursão de políticas).
-create or replace function public.e_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public, pg_temp
-as $$
-  select exists (
-    select 1 from public.perfis p
-    where p.id = auth.uid() and p.papel = 'admin' and p.ativo
-  );
-$$;
-revoke all on function public.e_admin() from public;
-grant execute on function public.e_admin() to authenticated;
+create policy "produtos cria admin"
+  on public.products for insert to authenticated
+  with check ((select e_admin()));
 
--- ── Por cada tabela de gestão: leitura pública + escrita só-admin ──
--- Remove TODAS as políticas existentes na tabela (apanha nomes desconhecidos,
--- ex.: a de `products` criada no dashboard) e recria o par correto.
-do $$
-declare
-  t text;
-  p record;
-begin
-  foreach t in array array[
-    'categories', 'products', 'combos', 'combo_items',
-    'product_variants', 'definicoes'
-  ]
-  loop
-    -- garante RLS ligado
-    execute format('alter table public.%I enable row level security;', t);
+create policy "produtos edita admin"
+  on public.products for update to authenticated
+  using ((select e_admin())) with check ((select e_admin()));
 
-    -- remove todas as políticas atuais desta tabela
-    for p in
-      select policyname from pg_policies
-      where schemaname = 'public' and tablename = t
-    loop
-      execute format('drop policy if exists %I on public.%I;', p.policyname, t);
-    end loop;
+-- ---------- categories ----------
+drop policy "categorias cria equipa" on public.categories;
+drop policy "categorias edita equipa" on public.categories;
 
-    -- leitura pública (mantém o cardápio a funcionar para clientes anónimos)
-    execute format(
-      'create policy %I on public.%I for select using (true);',
-      t || ' leitura publica', t
-    );
+create policy "categorias cria admin"
+  on public.categories for insert to authenticated
+  with check ((select e_admin()));
 
-    -- escrita reservada a admin ativo (insert/update/delete)
-    execute format(
-      'create policy %I on public.%I for all to authenticated ' ||
-      'using (public.e_admin()) with check (public.e_admin());',
-      t || ' escrita admin', t
-    );
-  end loop;
-end $$;
+create policy "categorias edita admin"
+  on public.categories for update to authenticated
+  using ((select e_admin())) with check ((select e_admin()));
 
--- ── Imagens de produto (bucket storage 'produtos'): mesma lógica ──
--- Leitura pública mantém-se; upload/alteração/remoção passam a exigir admin.
-drop policy if exists "produtos upload equipa" on storage.objects;
-create policy "produtos upload admin" on storage.objects
-  for insert to authenticated
-  with check (bucket_id = 'produtos' and public.e_admin());
+-- ---------- combos ----------
+drop policy "combos cria equipa" on public.combos;
+drop policy "combos edita equipa" on public.combos;
 
-drop policy if exists "produtos gestao equipa" on storage.objects;
-create policy "produtos gestao admin" on storage.objects
-  for update to authenticated
-  using (bucket_id = 'produtos' and public.e_admin());
+create policy "combos cria admin"
+  on public.combos for insert to authenticated
+  with check ((select e_admin()));
 
-drop policy if exists "produtos remocao equipa" on storage.objects;
-create policy "produtos remocao admin" on storage.objects
-  for delete to authenticated
-  using (bucket_id = 'produtos' and public.e_admin());
+create policy "combos edita admin"
+  on public.combos for update to authenticated
+  using ((select e_admin())) with check ((select e_admin()));
 
-commit;
+-- ---------- combo_items (o DELETE era de equipa; passa também a admin) ----------
+drop policy "combo_items cria equipa" on public.combo_items;
+drop policy "combo_items edita equipa" on public.combo_items;
+drop policy "combo_items apaga equipa" on public.combo_items;
+
+create policy "combo_items cria admin"
+  on public.combo_items for insert to authenticated
+  with check ((select e_admin()));
+
+create policy "combo_items edita admin"
+  on public.combo_items for update to authenticated
+  using ((select e_admin())) with check ((select e_admin()));
+
+create policy "combo_items apaga admin"
+  on public.combo_items for delete to authenticated
+  using ((select e_admin()));
+
+-- ---------- product_variants ----------
+drop policy "variantes cria equipa" on public.product_variants;
+drop policy "variantes edita equipa" on public.product_variants;
+
+create policy "variantes cria admin"
+  on public.product_variants for insert to authenticated
+  with check ((select e_admin()));
+
+create policy "variantes edita admin"
+  on public.product_variants for update to authenticated
+  using ((select e_admin())) with check ((select e_admin()));
+
+-- ---------- storage: bucket produtos ----------
+-- As políticas antigas só validavam o bucket — qualquer autenticado podia
+-- fazer upload/substituir/apagar imagens. Passa a exigir admin.
+drop policy "produtos upload equipa" on storage.objects;
+drop policy "produtos gestao equipa" on storage.objects;
+drop policy "produtos remocao equipa" on storage.objects;
+
+create policy "produtos upload admin"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'produtos' and (select e_admin()));
+
+create policy "produtos gestao admin"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'produtos' and (select e_admin()));
+
+create policy "produtos remocao admin"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'produtos' and (select e_admin()));

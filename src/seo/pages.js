@@ -4,7 +4,7 @@
 //
 // Nota (2026-07-12): a Marta tinha usado "Algés" como localização nas
 // keywords/copy. O Leandro confirmou que a morada oficial é Carnaxide
-// (ver Contato.jsx, endereço legal do NIPC) — todo o texto abaixo já
+// (ver Contacto.jsx, endereço legal do NIPC) — todo o texto abaixo já
 // reflete Carnaxide, não Algés.
 export const SEO_PAGES = {
   inicio: {
@@ -17,7 +17,7 @@ export const SEO_PAGES = {
     path: '/home',
     title: 'A Casa: Petiscos, Cervejas e Muito Mais | 100PRESSÃO',
     description:
-      'Conheça o que servimos no 100PRESSÃO: petiscos portugueses e brasileiros, cervejas artesanais e mais, no Mercado Municipal de Carnaxide.',
+      'Pequeno-almoço desde cedo, almoço PF, petiscos luso-brasileiros e cerveja artesanal no Mercado Municipal de Carnaxide.',
   },
   quemSomos: {
     path: '/quem-somos',
@@ -31,9 +31,9 @@ export const SEO_PAGES = {
     description:
       'Petiscos portugueses e brasileiros para acompanhar cerveja artesanal. Veja a ementa completa.',
   },
-  contato: {
-    path: '/contato',
-    title: 'Contato e Localização | 100PRESSÃO Carnaxide',
+  contacto: {
+    path: '/contacto',
+    title: 'Contacto e Localização | 100PRESSÃO Carnaxide',
     description:
       'Encontre-nos no Mercado Municipal de Carnaxide. Morada, horário e contacto direto.',
   },
