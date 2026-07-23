@@ -94,6 +94,30 @@ function Admin() {
             ))}
           </nav>
         </div>
+
+        <div className="mt-2 border-t border-creme-300 pt-3 lg:mt-6">
+          <p className="px-4 text-[0.65rem] font-semibold uppercase tracking-[0.25em] text-grafite-600/70 lg:px-0">
+            Ligações
+          </p>
+          <nav
+            aria-label="Ligações externas"
+            className="-mx-4 mt-2 flex gap-1 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0"
+          >
+            <a
+              href="https://webmail.amen.pt/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Caixa de email geral@100pressao.pt (abre no webmail da Amen)"
+              className="flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold uppercase tracking-widest text-cobre-600 transition-colors hover:text-cobre-500 lg:rounded-lg"
+            >
+              Webmail
+              {/* ícone de ligação externa (caixa + seta a sair) */}
+              <svg className="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 2h5v5M14 2 7 9M12 9.5V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3.5" />
+              </svg>
+            </a>
+          </nav>
+        </div>
       </aside>
 
       <div className="mt-6 lg:mt-0">
