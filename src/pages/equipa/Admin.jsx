@@ -10,6 +10,7 @@ import Produtos from './admin/Produtos'
 import Categorias from './admin/Categorias'
 import Combos from './admin/Combos'
 import Definicoes from './admin/Definicoes'
+import RestauranteOnline from './admin/RestauranteOnline'
 import Equipa from './admin/Equipa'
 import Auditoria from './admin/Auditoria'
 import Feedback from './admin/Feedback'
@@ -22,6 +23,7 @@ const SECCOES = [
   { id: 'produtos', rotulo: 'Produtos', Componente: Produtos },
   { id: 'categorias', rotulo: 'Categorias', Componente: Categorias },
   { id: 'combos', rotulo: 'Combos', Componente: Combos },
+  { id: 'restaurante-online', rotulo: 'Restaurante Online', Componente: RestauranteOnline },
   { id: 'definicoes', rotulo: 'Avisos & Horário', Componente: Definicoes },
   { id: 'feedback', rotulo: 'Feedback', Componente: Feedback },
   { id: 'equipa', rotulo: 'Equipa', Componente: Equipa },
