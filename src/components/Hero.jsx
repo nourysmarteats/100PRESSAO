@@ -14,6 +14,11 @@ const MotionLink = motion.create(Link)
 
 const EASE_OUT = [0.22, 1, 0.36, 1]
 
+// Mesmo destino do botão "Como chegar" da página Contacto (fonte única de
+// verdade da localização no Google Maps).
+const GOOGLE_MAPS_URL =
+  'https://www.google.com/maps/place//data=!4m2!3m1!1s0xd1ecc607dc2c889:0x1946af38520f51d0?sa=X&ved=1t:8290&ictx=111'
+
 const layers = {
   hidden: {},
   show: {
@@ -109,7 +114,22 @@ function Hero() {
           Do tanque ao copo, sem atalhos.
         </motion.p>
 
-        <motion.div variants={rise} className="mt-12">
+        {/* Localização para quem chega pela primeira vez */}
+        <motion.p
+          variants={rise}
+          className="mx-auto mt-5 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-creme-500"
+        >
+          <svg className="h-4 w-4 text-ambar-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M8 1.8a4.3 4.3 0 0 0-4.3 4.3c0 3.2 4.3 8.1 4.3 8.1s4.3-4.9 4.3-8.1A4.3 4.3 0 0 0 8 1.8Z" />
+            <circle cx="8" cy="6" r="1.5" />
+          </svg>
+          Mercado Municipal de Carnaxide
+        </motion.p>
+
+        <motion.div
+          variants={rise}
+          className="mt-12 flex flex-wrap items-center justify-center gap-4"
+        >
           <MotionLink
             to="/home"
             whileHover="hover"
@@ -148,6 +168,20 @@ function Hero() {
               <path d="M2 8h11M9 3.5 13.5 8 9 12.5" />
             </motion.svg>
           </MotionLink>
+
+          {/* CTA secundário: acesso físico direto (abre o Google Maps) */}
+          <a
+            href={GOOGLE_MAPS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-creme-500/40 px-7 py-4 text-base font-semibold uppercase tracking-widest text-creme-200 transition-colors duration-300 hover:border-ambar-400 hover:text-creme-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ambar-400"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M8 1.8a4.3 4.3 0 0 0-4.3 4.3c0 3.2 4.3 8.1 4.3 8.1s4.3-4.9 4.3-8.1A4.3 4.3 0 0 0 8 1.8Z" />
+              <circle cx="8" cy="6" r="1.5" />
+            </svg>
+            Como chegar
+          </a>
         </motion.div>
       </motion.div>
 
