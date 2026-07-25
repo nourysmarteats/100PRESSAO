@@ -8,6 +8,7 @@ import {
 import { Link } from 'react-router-dom'
 import logoStamp from '../assets/logo-100pressao.png'
 import SEOHead from './SEOHead'
+import ConviteRestaurante from './ConviteRestaurante'
 import { SEO_PAGES } from '../seo/pages'
 
 const MotionLink = motion.create(Link)
@@ -212,6 +213,9 @@ function Hero() {
           Contactos
         </span>
       </motion.button>
+
+      {/* Convite ao restaurante online (dispensável, gatilho no interruptor) */}
+      <ConviteRestaurante />
     </section>
   )
 }

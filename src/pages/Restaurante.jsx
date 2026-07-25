@@ -13,6 +13,11 @@ import { supabasePublico as supabase } from '../lib/supabase'
 import { fmt } from '../lib/pedidos'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
+import FormularioFeedback from '../components/FormularioFeedback'
+
+const WHATSAPP_SUGESTAO =
+  'https://wa.me/351935995011?text=' +
+  encodeURIComponent('Olá 100PRESSÃO! Experimentei o restaurante online e queria deixar uma sugestão: ')
 
 const CONFIG_INICIAL = {
   ativo: false,
@@ -290,6 +295,17 @@ function Restaurante() {
               Nenhum pedido real foi criado.
             </p>
             <button type="button" onClick={() => { setCarrinho({}); setFase('menu') }} className={`${BOTAO} mt-6`}>Nova simulação</button>
+
+            <div className="mt-8 border-t border-creme-300 pt-6 text-left">
+              <p className="text-center text-sm text-grafite-600">
+                Ajuda-nos a acertar antes de abrir: deixa a tua sugestão aqui ou
+                {' '}
+                <a href={WHATSAPP_SUGESTAO} target="_blank" rel="noopener noreferrer" className="font-semibold text-cobre-600 underline-offset-4 hover:underline">
+                  pelo WhatsApp
+                </a>.
+              </p>
+              <FormularioFeedback />
+            </div>
           </div>
         )}
       </div>
