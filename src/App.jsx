@@ -6,6 +6,7 @@ import Hero from './components/Hero'
 const Home = lazy(() => import('./pages/Home'))
 const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
+const Restaurante = lazy(() => import('./pages/Restaurante'))
 const Contato = lazy(() => import('./pages/Contato'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
 const Privacidade = lazy(() => import('./pages/legal/Privacidade'))
@@ -40,6 +41,7 @@ function App() {
           <Route path="/home" element={pagina(Home)} />
           <Route path="/quem-somos" element={pagina(QuemSomos)} />
           <Route path="/cardapio" element={pagina(Cardapio)} />
+          <Route path="/restaurante" element={pagina(Restaurante)} />
           <Route path="/contato" element={pagina(Contato)} />
           <Route path="/faca-parte" element={pagina(FacaParte)} />
           {/* Páginas legais */}
