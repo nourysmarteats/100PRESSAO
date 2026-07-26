@@ -19,6 +19,8 @@ const COMBO_VAZIO = {
   nome: '',
   descricao: '',
   preco: '',
+  preco_online: '',
+  preco_plataforma: '',
   category_id: '',
   imagem_url: '',
   disponivel: true,
@@ -64,6 +66,8 @@ function Combos() {
             nome: c.nome,
             descricao: c.descricao || '',
             preco: c.preco,
+            preco_online: c.preco_online ?? '',
+            preco_plataforma: c.preco_plataforma ?? '',
             category_id: c.category_id || '',
             imagem_url: c.imagem_url || '',
             disponivel: c.disponivel,
@@ -93,6 +97,8 @@ function Combos() {
       nome: form.nome.trim(),
       descricao: form.descricao.trim() || null,
       preco: Number(form.preco),
+      preco_online: form.preco_online === '' ? null : Number(form.preco_online),
+      preco_plataforma: form.preco_plataforma === '' ? null : Number(form.preco_plataforma),
       category_id: form.category_id || null,
       imagem_url: form.imagem_url.trim() || null,
       disponivel: form.disponivel,
@@ -181,7 +187,7 @@ function Combos() {
         >
           <CampoTexto rotulo="Nome *" value={form.nome} onChange={alterar('nome')} required />
           <CampoTexto
-            rotulo="Preço fixo (€) *"
+            rotulo="Preço local (€) *"
             type="number"
             step="0.01"
             min="0"
@@ -189,6 +195,28 @@ function Combos() {
             onChange={alterar('preco')}
             required
           />
+          <CampoTexto
+            rotulo="Preço online (€)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.preco_online}
+            onChange={alterar('preco_online')}
+            placeholder="vazio = usa o local"
+          />
+          <CampoTexto
+            rotulo="Preço plataforma (€)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.preco_plataforma}
+            onChange={alterar('preco_plataforma')}
+            placeholder="ref. Uber/Glovo"
+          />
+          <p className="text-xs leading-relaxed text-grafite-600/70 sm:col-span-2">
+            <strong>Local</strong> = mesa/balcão. <strong>Online</strong> = restaurante online
+            (vazio usa o local). <strong>Plataforma</strong> = só referência para comparação.
+          </p>
           <div className="sm:col-span-2">
             <CampoTexto
               rotulo="Descrição"

@@ -21,6 +21,8 @@ const PRODUTO_VAZIO = {
   category_id: '',
   descricao: '',
   preco: '',
+  preco_online: '',
+  preco_plataforma: '',
   estilo: '',
   abv: '',
   alergenios: '',
@@ -33,7 +35,7 @@ const PRODUTO_VAZIO = {
 // Variantes de tamanho/preço (item 8 da v2) — sub-itens do produto
 function Variantes({ produtoId, aoAvisar }) {
   const [variantes, setVariantes] = useState([])
-  const [nova, setNova] = useState({ nome: '', preco: '' })
+  const [nova, setNova] = useState({ nome: '', preco: '', preco_online: '', preco_plataforma: '' })
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase
@@ -54,6 +56,8 @@ function Variantes({ produtoId, aoAvisar }) {
       product_id: produtoId,
       nome: nova.nome.trim(),
       preco: Number(nova.preco),
+      preco_online: nova.preco_online === '' ? null : Number(nova.preco_online),
+      preco_plataforma: nova.preco_plataforma === '' ? null : Number(nova.preco_plataforma),
       ordem: (variantes.length + 1) * 10,
     })
     if (error) {
@@ -61,7 +65,7 @@ function Variantes({ produtoId, aoAvisar }) {
       return
     }
     registarAuditoria('variante_criada', { produto_id: produtoId, nome: nova.nome, preco: nova.preco })
-    setNova({ nome: '', preco: '' })
+    setNova({ nome: '', preco: '', preco_online: '', preco_plataforma: '' })
     carregar()
   }
 
@@ -99,6 +103,9 @@ function Variantes({ produtoId, aoAvisar }) {
             >
               <span className="text-sm text-grafite-900">
                 {v.nome} · <strong>{fmt(v.preco)}</strong>
+                {v.preco_online != null && (
+                  <span className="text-grafite-600/70"> · online {fmt(v.preco_online)}</span>
+                )}
               </span>
               <span className="flex gap-2">
                 <button type="button" onClick={() => alternar(v)} className={BOTAO_SECUNDARIO}>
@@ -112,31 +119,51 @@ function Variantes({ produtoId, aoAvisar }) {
           ))}
         </ul>
       )}
-      <div className="mt-2 flex items-end gap-2">
+      <div className="mt-2 flex flex-wrap items-end gap-2">
         <input
           value={nova.nome}
           onChange={(e) => setNova((n) => ({ ...n, nome: e.target.value }))}
           placeholder="Nome (ex.: 30cl)"
           aria-label="Nome da variante"
-          className={`${CAMPO} mt-0 flex-1`}
+          className={`${CAMPO} mt-0 min-w-32 flex-1`}
         />
         <input
           value={nova.preco}
           onChange={(e) => setNova((n) => ({ ...n, preco: e.target.value }))}
-          placeholder="Preço €"
+          placeholder="Local €"
           type="number"
           step="0.01"
           min="0"
-          aria-label="Preço da variante"
-          className={`${CAMPO} mt-0 w-28`}
+          aria-label="Preço local da variante"
+          className={`${CAMPO} mt-0 w-24`}
+        />
+        <input
+          value={nova.preco_online}
+          onChange={(e) => setNova((n) => ({ ...n, preco_online: e.target.value }))}
+          placeholder="Online €"
+          type="number"
+          step="0.01"
+          min="0"
+          aria-label="Preço online da variante"
+          className={`${CAMPO} mt-0 w-24`}
+        />
+        <input
+          value={nova.preco_plataforma}
+          onChange={(e) => setNova((n) => ({ ...n, preco_plataforma: e.target.value }))}
+          placeholder="Plat. €"
+          type="number"
+          step="0.01"
+          min="0"
+          aria-label="Preço plataforma da variante"
+          className={`${CAMPO} mt-0 w-24`}
         />
         <button type="button" onClick={adicionar} className={BOTAO_SECUNDARIO}>
           + Variante
         </button>
       </div>
       <p className="mt-1.5 text-xs text-grafite-600/70">
-        Sem variantes, vale o preço base do produto. Com variantes, o cliente
-        escolhe uma na ementa.
+        Sem variantes, vale o preço do produto. Com variantes, o cliente escolhe
+        uma na ementa. Online/plataforma vazios usam o preço local.
       </p>
     </div>
   )
@@ -178,6 +205,8 @@ function Produtos() {
             category_id: p.category_id,
             descricao: p.descricao || '',
             preco: p.preco,
+            preco_online: p.preco_online ?? '',
+            preco_plataforma: p.preco_plataforma ?? '',
             estilo: p.estilo || '',
             abv: p.abv ?? '',
             alergenios: p.alergenios || '',
@@ -197,6 +226,8 @@ function Produtos() {
       category_id: form.category_id,
       descricao: form.descricao.trim() || null,
       preco: Number(form.preco),
+      preco_online: form.preco_online === '' ? null : Number(form.preco_online),
+      preco_plataforma: form.preco_plataforma === '' ? null : Number(form.preco_plataforma),
       estilo: form.estilo.trim() || null,
       abv: form.abv === '' ? null : Number(form.abv),
       alergenios: form.alergenios.trim() || null,
@@ -350,7 +381,7 @@ function Produtos() {
             <CampoTexto rotulo="Descrição" value={form.descricao} onChange={alterar('descricao')} />
           </div>
           <CampoTexto
-            rotulo="Preço base (€) *"
+            rotulo="Preço local (€) *"
             type="number"
             step="0.01"
             min="0"
@@ -358,6 +389,29 @@ function Produtos() {
             onChange={alterar('preco')}
             required
           />
+          <CampoTexto
+            rotulo="Preço online (€)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.preco_online}
+            onChange={alterar('preco_online')}
+            placeholder="vazio = usa o local"
+          />
+          <CampoTexto
+            rotulo="Preço plataforma (€)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.preco_plataforma}
+            onChange={alterar('preco_plataforma')}
+            placeholder="ref. Uber/Glovo"
+          />
+          <p className="text-xs leading-relaxed text-grafite-600/70 sm:col-span-2">
+            <strong>Local</strong> = mesa/balcão (o preço de sempre). <strong>Online</strong> =
+            restaurante online; vazio usa o local. <strong>Plataforma</strong> = só referência
+            para comparar com Uber/Glovo no site (as plataformas cobram do lado delas).
+          </p>
           <CampoTexto rotulo="Ordem" type="number" value={form.ordem} onChange={alterar('ordem')} />
           <CampoTexto
             rotulo="Estilo (cerveja)"
