@@ -10,10 +10,14 @@
 ## 1. Responsável pelo tratamento
 
 - **Entidade:** Sintonia dos Temperos, Lda. (estabelecimento "100PRESSÃO")
-- **NIPC:** `[[NIPC da empresa]]`
+- **NIPC:** 519521463
 - **Morada:** Praceta Eugénio de Castro, Loja 6, Carnaxide
 - **Contacto:** geral@100pressao.pt · +351 935 995 011
-- **Encarregado de Proteção de Dados (EPD/DPO):** `[[existe EPD designado? Se sim, nome e contacto; se não, indicar "não aplicável / não designado"]]`
+- **Encarregado de Proteção de Dados (EPD/DPO):** Não designado. A empresa não
+  se enquadra nos critérios do art. 37.º do RGPD que obrigam à designação
+  (tratamento em pequena escala, sem monitorização regular e sistemática de
+  titulares nem categorias especiais de dados). `[[Dr. Brandão: confirmar
+  enquadramento]]`
 
 ## 2. Natureza da violação
 
@@ -51,7 +55,15 @@
   funcionamento do piloto com dados reais de clientes).
 - **Fim da exposição (correção aplicada):** **2026-07-20, 08:12:09** (confirmado
   no histórico de migrações Supabase).
-- **Data de tomada de conhecimento pela empresa:** `[[data em que a equipa identificou a configuração — provavelmente 2026-07-19/20]]`.
+- **Data de tomada de conhecimento pela empresa:** `[[CONFIRMAR com o Leandro:
+  2026-07-19 ou 2026-07-20. A correção em produção tem selo temporal de
+  2026-07-20 08:12]]`.
+- **Nota para revisão jurídica (não incluir no formulário):** em qualquer das
+  datas, o prazo de 72 horas do art. 33.º, n.º 1, já foi excedido à data de
+  preparação desta notificação (2026-07-26). O art. 33.º prevê notificação
+  tardia acompanhada dos motivos do atraso — `[[Dr. Brandão: aconselhar
+  fundamentação: análise técnica da extensão da exposição e verificação da
+  inexistência de logs concluídas antes da notificação]]`.
 
 ## 6. Consequências prováveis
 
@@ -82,11 +94,11 @@
 
 ## 8. Comunicação aos titulares (art. 34.º)
 
-- **Efetuada?** `[[Não / A decidir]]`. Ponderação em curso: a comunicação
+- **Efetuada?** Não, à data desta notificação. Ponderação em curso: a comunicação
   individual só é obrigatória havendo risco elevado; essa avaliação depende do
   resultado da análise de logs (secção 6). Texto de comunicação já preparado, em
   reserva (`2026-07-aviso-clientes-RASCUNHO.md`).
 
 ## 9. Contacto para esclarecimentos
 
-`[[nome do ponto de contacto]]` · geral@100pressao.pt · +351 935 995 011
+Leandro Noury Miranda (gerência) · geral@100pressao.pt · +351 935 995 011

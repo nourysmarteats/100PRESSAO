@@ -119,11 +119,11 @@ seu risco.
 Para o Dr. Brandão decidir com factos, faltam três coisas que **não estão no
 código** e têm de ser retiradas do painel Supabase (Project → Database / Logs):
 
-1. **Timestamp exato da correção** — Database → Migrations (ou histórico do SQL
-   Editor): a hora a que a migração de fecho foi aplicada. Fecha a janela.
-2. **Contagem exata de afetados** — no SQL Editor, com a chave de serviço:
-   - nº de clientes: `select count(*) from sessions where criado_em >= '2026-07-07';`
-   - nº de NIFs expostos: `select count(*) from orders where fatura_nif is not null and criado_em >= '2026-07-07';`
+1. ~~**Timestamp exato da correção**~~ **FECHADO (2026-07-20):** migração
+   aplicada a **2026-07-20 08:12:09** (histórico de migrações Supabase).
+2. ~~**Contagem exata de afetados**~~ **FECHADO (2026-07-20):** 25 clientes
+   (`sessions`), **2** pedidos com NIF (`orders.fatura_nif`). Confirmado na
+   base de dados de produção.
 3. ~~**Prova de acesso indevido** — Logs → API/Postgres no período 07–20 jul.~~
    **FECHADO (2026-07-20): impossível.** A retenção de logs do plano Free é de 1
    dia; os registos do período de exposição já foram eliminados. Ver secção 6.
@@ -143,8 +143,9 @@ código** e têm de ser retiradas do painel Supabase (Project → Database / Log
 
 ### Resumo para a decisão
 
-Houve uma **janela de ~12–13 dias em que dados pessoais de clientes (nome, mesa,
-valor, e até 5 NIFs) estiveram tecnicamente acessíveis a leitura por qualquer
-pessoa** com a chave pública do site. Está **corrigido**. A decisão de comunicar
-ou não à CNPD depende sobretudo de **(a)** a dimensão exata e **(b)** se os logs
-mostram acesso indevido real — os dois pontos por fechar na secção 7.
+Houve uma **janela de ~13 dias em que dados pessoais de clientes (25 nomes,
+mesas, valores, e 2 NIFs) estiveram tecnicamente acessíveis a leitura por
+qualquer pessoa** com a chave pública do site. Está **corrigido**. A dimensão
+está confirmada (secção 5); a existência de acesso indevido real é
+**inverificável** por limitação de retenção de logs (secção 6) — a avaliação
+jurídica terá de partir desse pressuposto.
