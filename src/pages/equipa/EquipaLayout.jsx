@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import { AuthProvider, useSessaoAuth } from '../../lib/auth'
 import {
   PerfilContext,
-  hashPin,
   definirOperador,
   turnoDesbloqueadoPor,
   definirTurno,
@@ -121,18 +120,32 @@ function Login() {
 // A identidade vem sempre do login: a conta autenticada desbloqueia com o
 // SEU PIN pessoal; antes de haver PINs configurados (pré-migração), vale o
 // PIN partilhado de arranque. O PIN é só um cadeado, não uma identidade.
-function PinGate({ perfilProprio, temPins, aoDesbloquear }) {
+function PinGate({ perfilProprio, usaProprio, temPins, aoDesbloquear }) {
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState(false)
-  const usaProprio = Boolean(perfilProprio?.pin_hash)
+  const [mensagem, setMensagem] = useState('')
 
   async function verificar(valor) {
     setPin(valor)
     setErro(false)
+    setMensagem('')
     if (valor.length < 4) return
 
     if (usaProprio) {
-      if ((await hashPin(perfilProprio.id, valor)) === perfilProprio.pin_hash) {
+      // Verificação no servidor (RPC verificar_pin, SECURITY DEFINER, com
+      // travão de força bruta) — o pin_hash nunca chega ao browser.
+      // Ver docs/pin/PENDENTE-pingate.md.
+      const { data, error } = await supabase.rpc('verificar_pin', { p_pin: valor })
+      if (error) {
+        setMensagem(error.message || 'Erro a verificar o PIN.')
+        setErro(true)
+        setPin('')
+        return
+      }
+      const perfil = Array.isArray(data) ? data[0] : data
+      // Só o PIN da própria conta desbloqueia — o PIN é um cadeado, não
+      // uma identidade (a identidade vem do login).
+      if (perfil?.id && perfil.id === perfilProprio?.id) {
         aoDesbloquear()
         return
       }
@@ -161,7 +174,7 @@ function PinGate({ perfilProprio, temPins, aoDesbloquear }) {
         className="w-40 rounded-xl border border-creme-300 bg-creme-100 px-4 py-4 text-center font-display text-3xl tracking-[0.5em] text-grafite-900 outline-none focus:border-ambar-500"
       />
       <p className="h-5 text-sm text-red-600" role="alert">
-        {erro ? 'PIN incorreto' : ''}
+        {erro ? mensagem || 'PIN incorreto' : ''}
       </p>
     </div>
   )
@@ -172,6 +185,9 @@ function AreaEquipa() {
   const [perfis, setPerfis] = useState(null) // null = a carregar
   const [perfilProprio, setPerfilProprio] = useState(null)
   const [desbloqueado, setDesbloqueado] = useState(false)
+  // Estado dos PINs vem do servidor (RPC pin_estado) — o pin_hash deixou
+  // de ser lido pelo browser. null = a carregar.
+  const [pinEstado, setPinEstado] = useState(null)
 
   // Perfis: papel/PIN de cada conta. Se a tabela não existir (migração v2
   // por aplicar), degrada para o comportamento antigo (todos veem tudo,
@@ -180,8 +196,17 @@ function AreaEquipa() {
     if (!supabase || !sessao) return
     let ativo = true
     async function carregar() {
-      const { data, error } = await supabase.from('perfis').select('*')
+      const [{ data, error }, estadoResp] = await Promise.all([
+        supabase.from('perfis').select('id, email, nome, papel, ativo, criado_em'),
+        supabase.rpc('pin_estado'),
+      ])
       if (!ativo) return
+      const estadoPin = Array.isArray(estadoResp.data) ? estadoResp.data[0] : estadoResp.data
+      setPinEstado(
+        estadoResp.error || !estadoPin
+          ? { tem_pin_proprio: false, existem_pins: false } // degrada para PIN partilhado
+          : estadoPin
+      )
       const lista = error ? [] : data
       setPerfis(lista)
       const proprio = lista.find((p) => p.id === sessao.user.id) || null
@@ -220,18 +245,20 @@ function AreaEquipa() {
 
   if (!sessao) return <Login />
 
-  if (perfis === null) return <div className="min-h-dvh bg-creme-50" />
+  if (perfis === null || pinEstado === null) return <div className="min-h-dvh bg-creme-50" />
 
-  const temPins = perfis.some((p) => p.ativo !== false && p.pin_hash)
+  const temPins = pinEstado.existem_pins
+  const usaProprio = pinEstado.tem_pin_proprio
   // Exige PIN quando a conta tem PIN próprio; ou, em pré-migração (sem
   // perfil e sem PINs), o PIN partilhado. Uma conta autenticada sem PIN
   // não fica trancada — o login já a identifica.
-  const exigePin = perfilProprio ? Boolean(perfilProprio.pin_hash) : !temPins
+  const exigePin = perfilProprio ? usaProprio : !temPins
 
   if (exigePin && !desbloqueado) {
     return (
       <PinGate
         perfilProprio={perfilProprio}
+        usaProprio={usaProprio}
         temPins={temPins}
         aoDesbloquear={() => {
           definirTurno(sessao.user.id)

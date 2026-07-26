@@ -24,14 +24,20 @@ function Equipa() {
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('perfis')
-      .select('id, email, nome, papel, ativo, pin_hash, criado_em')
-      .order('criado_em')
+    // pin_hash deixou de ser lido pelo browser — o estado do PIN vem da
+    // RPC pins_definidos (só responde a admins).
+    const [{ data, error }, pinsResp] = await Promise.all([
+      supabase
+        .from('perfis')
+        .select('id, email, nome, papel, ativo, criado_em')
+        .order('criado_em'),
+      supabase.rpc('pins_definidos'),
+    ])
     if (error) setTabelaEmFalta(true)
     else {
       setTabelaEmFalta(false)
-      setPerfis(data)
+      const comPin = new Set((pinsResp.data || []).filter((p) => p.tem_pin).map((p) => p.id))
+      setPerfis(data.map((p) => ({ ...p, tem_pin: comPin.has(p.id) })))
     }
   }, [])
 
@@ -222,7 +228,7 @@ function Equipa() {
                 )}
               </p>
               <p className="text-sm text-grafite-600/70">
-                {p.email} · PIN {p.pin_hash ? 'definido' : 'por definir'}
+                {p.email} · PIN {p.tem_pin ? 'definido' : 'por definir'}
               </p>
             </div>
             <div className="flex gap-2">

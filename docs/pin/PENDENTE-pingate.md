@@ -1,6 +1,12 @@
 # PENDENTE — Fechar a exposição de `pin_hash` (patch do PinGate)
 
-**Autor:** Daniel Cunha · **Data:** 2026-07-20 · **Estado:** por aplicar
+**Autor:** Daniel Cunha · **Data:** 2026-07-20 · **Estado:** FASE 1 APLICADA (2026-07-26)
+
+> **Seguimento 2026-07-26:** migrações `verificar_pin_fase1`, `pin_estado_helper`
+> e `pins_definidos_admin` aplicadas em produção; patch do frontend commitado
+> (EquipaLayout + Admin/Equipa deixaram de ler `pin_hash`). Falta: deploy,
+> teste dos 2 PINs em produção pelo Leandro, e só depois a SECÇÃO FINAL da
+> migração (fechar leitura de perfis + revogar pin_hash).
 **Migração que acompanha:** `supabase/migrations/PENDENTE_20260721_verificar_pin.sql`
 
 ---
