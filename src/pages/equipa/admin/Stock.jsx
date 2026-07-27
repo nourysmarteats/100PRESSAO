@@ -1,0 +1,333 @@
+// Inventário / controlo de stock — v1. Catálogo de itens (por categoria/
+// subcategoria), com alerta de stock baixo e movimentos manuais (entrada/
+// saída/ajuste) através da função atómica aplicar_movimento_stock.
+// Escrita reservada a admin (RLS). Ver docs/sql/2026-07-27-stock-inventario.sql.
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { supabase } from '../../../lib/supabase'
+import { registarAuditoria } from '../../../lib/equipa'
+import { useAviso, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, BOTAO_PERIGO, CARTAO, CAMPO } from './comuns'
+
+const UNIDADES = ['unidade', 'porção', 'dose', 'fatia', 'garrafa', 'lata', 'litro', 'kg', 'g', 'pacote', 'caixa']
+const ITEM_VAZIO = { nome: '', categoria: '', subcategoria: '', unidade: 'unidade', alerta_minimo: '', custo: '', quantidade: '' }
+const MOVIMENTOS = [
+  { tipo: 'entrada', rotulo: 'Entrada', dica: 'chegou stock (+)' },
+  { tipo: 'saida', rotulo: 'Saída', dica: 'consumo/quebra (−)' },
+  { tipo: 'ajuste', rotulo: 'Ajustar', dica: 'define o total contado' },
+]
+
+const nf = (n) => Number(n ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 2 })
+const abaixoMin = (it) => Number(it.alerta_minimo) > 0 && Number(it.quantidade) <= Number(it.alerta_minimo)
+
+function Stock() {
+  const [itens, setItens] = useState(null)
+  const [tabelaEmFalta, setTabelaEmFalta] = useState(false)
+  const [emEdicao, setEmEdicao] = useState(null) // null | 'novo' | id
+  const [form, setForm] = useState(ITEM_VAZIO)
+  const [mov, setMov] = useState(null) // { id, tipo, quantidade, motivo }
+  const { mostrarAviso, Aviso } = useAviso()
+
+  const carregar = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('stock_items')
+      .select('*')
+      .order('categoria', { nullsFirst: false })
+      .order('subcategoria', { nullsFirst: true })
+      .order('nome')
+    if (error) {
+      setTabelaEmFalta(true)
+      setItens([])
+    } else {
+      setTabelaEmFalta(false)
+      setItens(data)
+    }
+  }, [])
+  useEffect(() => {
+    carregar()
+  }, [carregar])
+
+  const categorias = useMemo(
+    () => [...new Set((itens || []).map((i) => i.categoria).filter(Boolean))].sort(),
+    [itens],
+  )
+  const subcategorias = useMemo(
+    () => [...new Set((itens || []).map((i) => i.subcategoria).filter(Boolean))].sort(),
+    [itens],
+  )
+  const nBaixo = useMemo(() => (itens || []).filter(abaixoMin).length, [itens])
+
+  // Agrupar por categoria › subcategoria
+  const grupos = useMemo(() => {
+    const m = new Map()
+    for (const it of itens || []) {
+      const cat = it.categoria || 'Sem categoria'
+      const sub = it.subcategoria || ''
+      if (!m.has(cat)) m.set(cat, new Map())
+      const sm = m.get(cat)
+      if (!sm.has(sub)) sm.set(sub, [])
+      sm.get(sub).push(it)
+    }
+    return m
+  }, [itens])
+
+  const alterar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
+
+  function abrir(it) {
+    setEmEdicao(it ? it.id : 'novo')
+    setMov(null)
+    setForm(
+      it
+        ? {
+            nome: it.nome,
+            categoria: it.categoria || '',
+            subcategoria: it.subcategoria || '',
+            unidade: it.unidade || 'unidade',
+            alerta_minimo: it.alerta_minimo ?? '',
+            custo: it.custo ?? '',
+            quantidade: '',
+          }
+        : ITEM_VAZIO,
+    )
+  }
+
+  async function guardar(e) {
+    e.preventDefault()
+    const base = {
+      nome: form.nome.trim(),
+      categoria: form.categoria.trim() || null,
+      subcategoria: form.subcategoria.trim() || null,
+      unidade: form.unidade.trim() || 'unidade',
+      alerta_minimo: form.alerta_minimo === '' ? 0 : Number(form.alerta_minimo),
+      custo: form.custo === '' ? null : Number(form.custo),
+    }
+    let error
+    if (emEdicao === 'novo') {
+      ;({ error } = await supabase
+        .from('stock_items')
+        .insert({ ...base, quantidade: form.quantidade === '' ? 0 : Number(form.quantidade) }))
+    } else {
+      ;({ error } = await supabase.from('stock_items').update(base).eq('id', emEdicao))
+    }
+    if (error) {
+      mostrarAviso(emEdicao === 'novo' ? 'Erro ao criar. Migração de stock aplicada?' : 'Erro ao guardar.')
+      return
+    }
+    registarAuditoria(emEdicao === 'novo' ? 'stock_item_criado' : 'stock_item_editado', { nome: base.nome })
+    setEmEdicao(null)
+    carregar()
+    mostrarAviso('Guardado ✓')
+  }
+
+  async function apagar(it) {
+    if (!window.confirm(`Apagar "${it.nome}" do stock? Esta ação não pode ser desfeita.`)) return
+    const { error } = await supabase.from('stock_items').delete().eq('id', it.id)
+    if (error) {
+      mostrarAviso('Não foi possível apagar.')
+      return
+    }
+    registarAuditoria('stock_item_apagado', { nome: it.nome })
+    carregar()
+  }
+
+  async function confirmarMov() {
+    const q = Number(String(mov.quantidade).replace(',', '.'))
+    if (!Number.isFinite(q) || q < 0) {
+      mostrarAviso('Quantidade inválida.')
+      return
+    }
+    const { error } = await supabase.rpc('aplicar_movimento_stock', {
+      p_item: mov.id,
+      p_tipo: mov.tipo,
+      p_quantidade: q,
+      p_motivo: mov.motivo?.trim() || null,
+    })
+    if (error) {
+      mostrarAviso(error.message || 'Erro ao registar o movimento.')
+      return
+    }
+    registarAuditoria('stock_movimento', { tipo: mov.tipo, quantidade: q })
+    setMov(null)
+    carregar()
+    mostrarAviso('Movimento registado ✓')
+  }
+
+  if (itens === null) return <p className="text-grafite-600/70">A carregar…</p>
+  if (tabelaEmFalta) {
+    return (
+      <p className={`${CARTAO} p-6 text-grafite-600`}>
+        As tabelas de stock ainda não existem. Aplica a migração
+        <code className="mx-1 rounded bg-creme-100 px-1.5">docs/sql/2026-07-27-stock-inventario.sql</code>
+        no SQL Editor do Supabase.
+      </p>
+    )
+  }
+
+  return (
+    <div>
+      <datalist id="stk-cats">{categorias.map((c) => <option key={c} value={c} />)}</datalist>
+      <datalist id="stk-subs">{subcategorias.map((s) => <option key={s} value={s} />)}</datalist>
+      <datalist id="stk-uni">{UNIDADES.map((u) => <option key={u} value={u} />)}</datalist>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-grafite-600/70">
+          {itens.length} {itens.length === 1 ? 'item' : 'itens'} em stock
+          {nBaixo > 0 && (
+            <span className="ml-2 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-widest text-red-600">
+              {nBaixo} abaixo do mínimo
+            </span>
+          )}
+        </p>
+        <button type="button" onClick={() => abrir(null)} className={BOTAO_PRIMARIO}>
+          + Novo item
+        </button>
+      </div>
+
+      {emEdicao && (
+        <form
+          onSubmit={guardar}
+          className="mt-6 grid gap-4 rounded-2xl border border-ambar-500/40 bg-white/70 p-6 sm:grid-cols-2"
+        >
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Nome *</span>
+            <input value={form.nome} onChange={alterar('nome')} required className={CAMPO} placeholder="Ex.: Pão saloio" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Unidade</span>
+            <input value={form.unidade} onChange={alterar('unidade')} list="stk-uni" className={CAMPO} />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Categoria</span>
+            <input value={form.categoria} onChange={alterar('categoria')} list="stk-cats" className={CAMPO} placeholder="Ex.: Bebidas" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Subcategoria</span>
+            <input value={form.subcategoria} onChange={alterar('subcategoria')} list="stk-subs" className={CAMPO} placeholder="Ex.: Refrigerantes" />
+          </label>
+          {emEdicao === 'novo' && (
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Quantidade inicial</span>
+              <input value={form.quantidade} onChange={alterar('quantidade')} type="number" step="0.01" min="0" className={CAMPO} placeholder="0" />
+            </label>
+          )}
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Alerta de stock baixo</span>
+            <input value={form.alerta_minimo} onChange={alterar('alerta_minimo')} type="number" step="0.01" min="0" className={CAMPO} placeholder="0 = sem alerta" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Custo por unidade (€)</span>
+            <input value={form.custo} onChange={alterar('custo')} type="number" step="0.01" min="0" className={CAMPO} placeholder="opcional" />
+          </label>
+          {emEdicao !== 'novo' && (
+            <p className="text-xs text-grafite-600/70 sm:col-span-2">
+              A quantidade em stock altera-se pelos botões Entrada/Saída/Ajustar na lista, não aqui.
+            </p>
+          )}
+          <div className="flex justify-end gap-3 sm:col-span-2">
+            <button
+              type="button"
+              onClick={() => setEmEdicao(null)}
+              className="cursor-pointer rounded-full border border-creme-300 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-grafite-600"
+            >
+              Cancelar
+            </button>
+            <button type="submit" className={BOTAO_PRIMARIO}>Guardar</button>
+          </div>
+        </form>
+      )}
+
+      {itens.length === 0 ? (
+        <p className={`${CARTAO} mt-6 p-6 text-grafite-600`}>Ainda não há itens. Cria o primeiro com “+ Novo item”.</p>
+      ) : (
+        <div className="mt-6 space-y-6">
+          {[...grupos.entries()].map(([cat, subs]) => (
+            <section key={cat}>
+              <h3 className="font-display text-lg font-bold uppercase tracking-tight text-grafite-900">{cat}</h3>
+              {[...subs.entries()].map(([sub, lista]) => (
+                <div key={sub || '_'} className="mt-3">
+                  {sub && (
+                    <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-cobre-600">{sub}</p>
+                  )}
+                  <ul className="space-y-2">
+                    {lista.map((it) => (
+                      <li key={it.id} className={`${CARTAO} px-4 py-3`}>
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-grafite-900">
+                              {it.nome}
+                              {abaixoMin(it) && (
+                                <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-widest text-red-600">
+                                  baixo
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-sm text-grafite-600/70">
+                              <strong className={abaixoMin(it) ? 'text-red-600' : 'text-grafite-900'}>
+                                {nf(it.quantidade)} {it.unidade}
+                              </strong>
+                              {Number(it.alerta_minimo) > 0 ? ` · mín. ${nf(it.alerta_minimo)}` : ''}
+                              {it.custo != null ? ` · custo ${nf(it.custo)} €` : ''}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {MOVIMENTOS.map((m) => (
+                              <button
+                                key={m.tipo}
+                                type="button"
+                                title={m.dica}
+                                onClick={() => setMov({ id: it.id, tipo: m.tipo, quantidade: '', motivo: '' })}
+                                className={BOTAO_SECUNDARIO}
+                              >
+                                {m.rotulo}
+                              </button>
+                            ))}
+                            <button type="button" onClick={() => abrir(it)} className={BOTAO_SECUNDARIO}>Editar</button>
+                            <button type="button" onClick={() => apagar(it)} className={BOTAO_PERIGO}>Apagar</button>
+                          </div>
+                        </div>
+
+                        {mov?.id === it.id && (
+                          <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-creme-300 pt-3">
+                            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                              {MOVIMENTOS.find((m) => m.tipo === mov.tipo)?.rotulo}
+                            </span>
+                            <input
+                              autoFocus
+                              value={mov.quantidade}
+                              onChange={(e) => setMov((v) => ({ ...v, quantidade: e.target.value }))}
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder={mov.tipo === 'ajuste' ? 'total contado' : 'quantidade'}
+                              className={`${CAMPO} mt-0 w-32`}
+                            />
+                            <input
+                              value={mov.motivo}
+                              onChange={(e) => setMov((v) => ({ ...v, motivo: e.target.value }))}
+                              placeholder="Motivo (opcional)"
+                              className={`${CAMPO} mt-0 min-w-40 flex-1`}
+                            />
+                            <button type="button" onClick={confirmarMov} className={BOTAO_PRIMARIO}>Confirmar</button>
+                            <button
+                              type="button"
+                              onClick={() => setMov(null)}
+                              className="cursor-pointer px-3 text-xs font-semibold uppercase tracking-widest text-grafite-600/70 hover:text-grafite-900"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </section>
+          ))}
+        </div>
+      )}
+
+      {Aviso}
+    </div>
+  )
+}
+
+export default Stock
