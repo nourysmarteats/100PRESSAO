@@ -14,6 +14,12 @@ const MOVIMENTOS = [
   { tipo: 'saida', rotulo: 'Saída', dica: 'consumo/quebra (−)' },
   { tipo: 'ajuste', rotulo: 'Ajustar', dica: 'define o total contado' },
 ]
+const ROTULO_MOV = {
+  entrada: { rotulo: 'Entrada', sinal: '+', cor: 'text-green-600' },
+  saida: { rotulo: 'Saída', sinal: '−', cor: 'text-red-600' },
+  venda: { rotulo: 'Venda', sinal: '−', cor: 'text-red-600' },
+  ajuste: { rotulo: 'Ajuste', sinal: '=', cor: 'text-grafite-900' },
+}
 
 const nf = (n) => Number(n ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 2 })
 const abaixoMin = (it) => Number(it.alerta_minimo) > 0 && Number(it.quantidade) <= Number(it.alerta_minimo)
@@ -28,6 +34,9 @@ function Stock() {
   const [receitas, setReceitas] = useState([]) // stock_receitas
   const [receitaDe, setReceitaDe] = useState(null) // item cujo painel de receitas está aberto
   const [novaReceita, setNovaReceita] = useState({ chave: '', quantidade: '' })
+  const [soBaixo, setSoBaixo] = useState(false) // filtro: só itens abaixo do mínimo
+  const [movimentos, setMovimentos] = useState(null) // histórico
+  const [verMov, setVerMov] = useState(false)
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
@@ -78,11 +87,21 @@ function Stock() {
     setVendaveis(opts.sort((a, b) => a.label.localeCompare(b.label)))
   }, [])
 
+  const carregarMovimentos = useCallback(async () => {
+    const { data } = await supabase
+      .from('stock_movements')
+      .select('id, tipo, quantidade, motivo, criado_em, stock_items(nome, unidade)')
+      .order('criado_em', { ascending: false })
+      .limit(80)
+    setMovimentos(data || [])
+  }, [])
+
   useEffect(() => {
     carregar()
     carregarReceitas()
     carregarVendaveis()
-  }, [carregar, carregarReceitas, carregarVendaveis])
+    carregarMovimentos()
+  }, [carregar, carregarReceitas, carregarVendaveis, carregarMovimentos])
 
   const categorias = useMemo(
     () => [...new Set((itens || []).map((i) => i.categoria).filter(Boolean))].sort(),
@@ -93,11 +112,15 @@ function Stock() {
     [itens],
   )
   const nBaixo = useMemo(() => (itens || []).filter(abaixoMin).length, [itens])
+  const valorStock = useMemo(
+    () => (itens || []).reduce((s, i) => s + (i.custo != null ? Number(i.quantidade) * Number(i.custo) : 0), 0),
+    [itens],
+  )
 
-  // Agrupar por categoria › subcategoria
+  // Agrupar por categoria › subcategoria (com filtro opcional de stock baixo)
   const grupos = useMemo(() => {
     const m = new Map()
-    for (const it of itens || []) {
+    for (const it of soBaixo ? (itens || []).filter(abaixoMin) : itens || []) {
       const cat = it.categoria || 'Sem categoria'
       const sub = it.subcategoria || ''
       if (!m.has(cat)) m.set(cat, new Map())
@@ -106,7 +129,7 @@ function Stock() {
       sm.get(sub).push(it)
     }
     return m
-  }, [itens])
+  }, [itens, soBaixo])
 
   const alterar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
 
@@ -186,6 +209,7 @@ function Stock() {
     registarAuditoria('stock_movimento', { tipo: mov.tipo, quantidade: q })
     setMov(null)
     carregar()
+    carregarMovimentos()
     mostrarAviso('Movimento registado ✓')
   }
 
@@ -268,6 +292,70 @@ function Stock() {
           + Novo item
         </button>
       </div>
+
+      {/* Resumo / relatório de stock */}
+      <div className="mt-4 grid grid-cols-3 gap-3">
+        {[
+          { rotulo: 'Itens', valor: itens.length },
+          { rotulo: 'Abaixo do mínimo', valor: nBaixo, alerta: nBaixo > 0 },
+          { rotulo: 'Valor em stock', valor: `${nf(valorStock)} €` },
+        ].map((k) => (
+          <div key={k.rotulo} className={`${CARTAO} p-4`}>
+            <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">{k.rotulo}</p>
+            <p className={`mt-1 font-display text-2xl font-bold ${k.alerta ? 'text-red-600' : 'text-grafite-900'}`}>
+              {k.valor}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setSoBaixo((v) => !v)}
+          className={soBaixo ? BOTAO_PRIMARIO : BOTAO_SECUNDARIO}
+        >
+          {soBaixo ? '✓ Só abaixo do mínimo' : 'Só abaixo do mínimo'}
+        </button>
+        <button type="button" onClick={() => setVerMov((v) => !v)} className={BOTAO_SECUNDARIO}>
+          {verMov ? 'Ocultar movimentos' : 'Ver movimentos'}
+        </button>
+      </div>
+
+      {verMov && (
+        <div className="mt-6">
+          <h3 className="font-display text-lg font-bold uppercase text-grafite-600">Movimentos recentes</h3>
+          {movimentos === null ? (
+            <p className="mt-2 text-sm text-grafite-600/70">A carregar…</p>
+          ) : movimentos.length === 0 ? (
+            <p className="mt-2 text-sm text-grafite-600/70">Sem movimentos registados.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-creme-300 rounded-2xl border border-creme-300 bg-white/70">
+              {movimentos.map((mv) => {
+                const r = ROTULO_MOV[mv.tipo] || { rotulo: mv.tipo, sinal: '', cor: 'text-grafite-900' }
+                return (
+                  <li key={mv.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
+                    <span className="text-grafite-900">
+                      <strong className={r.cor}>{r.sinal}{nf(mv.quantidade)}</strong> {mv.stock_items?.unidade || ''} ·{' '}
+                      {mv.stock_items?.nome || '(item removido)'}
+                      <span className="ml-2 text-xs uppercase tracking-widest text-grafite-600/70">{r.rotulo}</span>
+                      {mv.motivo ? <span className="ml-2 text-grafite-600/70">· {mv.motivo}</span> : ''}
+                    </span>
+                    <span className="text-xs text-grafite-600/70">
+                      {new Date(mv.criado_em).toLocaleString('pt-PT', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      )}
 
       {emEdicao && (
         <form
