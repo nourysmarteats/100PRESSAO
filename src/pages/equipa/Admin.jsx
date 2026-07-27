@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { usePerfil } from '../../lib/equipa'
 import Analytics from './admin/Analytics'
+import Relatorios from './admin/Relatorios'
 import Caixa from './admin/Caixa'
 import Produtos from './admin/Produtos'
 import Categorias from './admin/Categorias'
@@ -19,6 +20,7 @@ import Faturas from './admin/Faturas'
 
 const SECCOES = [
   { id: 'analytics', rotulo: 'Analytics', Componente: Analytics },
+  { id: 'relatorios', rotulo: 'Relatórios', Componente: Relatorios },
   { id: 'caixa', rotulo: 'Fecho de caixa', Componente: Caixa },
   { id: 'faturas', rotulo: 'Faturas', Componente: Faturas },
   { id: 'produtos', rotulo: 'Produtos', Componente: Produtos },
@@ -125,7 +127,7 @@ function Admin() {
       </aside>
 
       <div className="mt-6 lg:mt-0">
-        <Componente />
+        <Componente irPara={setAtiva} />
       </div>
     </main>
   )
