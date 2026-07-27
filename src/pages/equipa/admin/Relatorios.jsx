@@ -2,11 +2,19 @@
 // abaixo do mínimo, movimentos) e encaminha para os de VENDAS (Analytics),
 // fecho de caixa e faturas, que vivem nas suas próprias secções. `irPara`
 // vem do Admin e troca a secção ativa.
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
-import { CARTAO } from './comuns'
+import { fmt, nomeItemPedido } from '../../../lib/pedidos'
+import { CARTAO, CAMPO } from './comuns'
 
 const nf = (n) => Number(n ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 2 })
+const iso = (d) => d.toISOString().slice(0, 10)
+const hoje = () => iso(new Date())
+const haDias = (n) => {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return iso(d)
+}
 const abaixoMin = (it) => Number(it.alerta_minimo) > 0 && Number(it.quantidade) <= Number(it.alerta_minimo)
 const ROTULO_MOV = {
   entrada: { rotulo: 'Entrada', sinal: '+', cor: 'text-green-600' },
@@ -25,6 +33,46 @@ function Relatorios({ irPara }) {
   const [itens, setItens] = useState(null)
   const [movs, setMovs] = useState([])
   const [semStock, setSemStock] = useState(false)
+
+  // Vendas por produto (intervalo de datas + pesquisa)
+  const [de, setDe] = useState(haDias(30))
+  const [ate, setAte] = useState(hoje())
+  const [busca, setBusca] = useState('')
+  const [vendas, setVendas] = useState(null)
+
+  const carregarVendas = useCallback(async () => {
+    setVendas(null)
+    const { data, error } = await supabase
+      .from('order_items')
+      .select('quantidade, preco_unitario, products(nome), product_variants(nome), combos(nome), orders!inner(criado_em)')
+      .gte('orders.criado_em', `${de}T00:00:00`)
+      .lte('orders.criado_em', `${ate}T23:59:59`)
+      .limit(5000)
+    if (error) {
+      setVendas([])
+      return
+    }
+    const m = new Map()
+    ;(data || []).forEach((i) => {
+      const nome = nomeItemPedido(i)
+      const a = m.get(nome) || { qtd: 0, receita: 0 }
+      a.qtd += i.quantidade
+      a.receita += i.quantidade * Number(i.preco_unitario)
+      m.set(nome, a)
+    })
+    setVendas([...m.entries()].map(([nome, v]) => ({ nome, ...v })).sort((a, b) => b.qtd - a.qtd))
+  }, [de, ate])
+
+  useEffect(() => {
+    carregarVendas()
+  }, [carregarVendas])
+
+  const vendasFiltradas = useMemo(
+    () => (vendas || []).filter((v) => v.nome.toLowerCase().includes(busca.trim().toLowerCase())),
+    [vendas, busca],
+  )
+  const totalQtd = vendasFiltradas.reduce((s, v) => s + v.qtd, 0)
+  const totalReceita = vendasFiltradas.reduce((s, v) => s + v.receita, 0)
 
   useEffect(() => {
     let ativo = true
@@ -54,6 +102,60 @@ function Relatorios({ irPara }) {
 
   return (
     <div className="space-y-8">
+      {/* Vendas por produto — intervalo de datas + pesquisa */}
+      <section>
+        <h3 className="font-display text-lg font-bold uppercase text-grafite-600">Vendas por produto</h3>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">De</span>
+            <input type="date" value={de} onChange={(e) => setDe(e.target.value)} className={`${CAMPO} mt-1`} />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Até</span>
+            <input type="date" value={ate} onChange={(e) => setAte(e.target.value)} className={`${CAMPO} mt-1`} />
+          </label>
+          <label className="block min-w-48 flex-1">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Procurar item</span>
+            <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="ex.: coca" className={`${CAMPO} mt-1`} />
+          </label>
+        </div>
+
+        {vendas === null ? (
+          <p className="mt-3 text-sm text-grafite-600/70">A carregar…</p>
+        ) : vendasFiltradas.length === 0 ? (
+          <p className={`${CARTAO} mt-3 p-6 text-grafite-600`}>
+            Sem vendas no período{busca ? ' para essa procura' : ''}. As vendas aparecem quando há
+            pedidos reais (mesa em /cardapio; restaurante online quando deixar de ser simulação).
+          </p>
+        ) : (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[24rem] text-sm">
+              <thead>
+                <tr className="border-b border-creme-300 text-left text-xs uppercase tracking-widest text-grafite-600/70">
+                  <th className="py-2">Item</th>
+                  <th className="py-2 text-right">Qtd</th>
+                  <th className="py-2 text-right">Receita</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vendasFiltradas.map((v) => (
+                  <tr key={v.nome} className="border-b border-creme-200">
+                    <td className="py-2 text-grafite-900">{v.nome}</td>
+                    <td className="py-2 text-right font-semibold text-grafite-900">{nf(v.qtd)}</td>
+                    <td className="py-2 text-right text-grafite-600">{fmt(v.receita)}</td>
+                  </tr>
+                ))}
+                <tr className="font-display font-bold text-grafite-900">
+                  <td className="py-2">Total</td>
+                  <td className="py-2 text-right">{nf(totalQtd)}</td>
+                  <td className="py-2 text-right">{fmt(totalReceita)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {/* Encaminhamento para os relatórios de vendas/caixa/faturas */}
       <section>
         <h3 className="font-display text-lg font-bold uppercase text-grafite-600">Vendas & finanças</h3>
