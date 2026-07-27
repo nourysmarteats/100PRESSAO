@@ -24,6 +24,10 @@ function Stock() {
   const [emEdicao, setEmEdicao] = useState(null) // null | 'novo' | id
   const [form, setForm] = useState(ITEM_VAZIO)
   const [mov, setMov] = useState(null) // { id, tipo, quantidade, motivo }
+  const [vendaveis, setVendaveis] = useState([]) // itens vendáveis (p/ receitas)
+  const [receitas, setReceitas] = useState([]) // stock_receitas
+  const [receitaDe, setReceitaDe] = useState(null) // item cujo painel de receitas está aberto
+  const [novaReceita, setNovaReceita] = useState({ chave: '', quantidade: '' })
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
@@ -41,9 +45,44 @@ function Stock() {
       setItens(data)
     }
   }, [])
+  const carregarReceitas = useCallback(async () => {
+    const { data } = await supabase.from('stock_receitas').select('*')
+    setReceitas(data || [])
+  }, [])
+
+  // Itens vendáveis (produtos sem variante, variantes, combos) para ligar receitas
+  const carregarVendaveis = useCallback(async () => {
+    const [rProd, rVar, rCombos] = await Promise.all([
+      supabase.from('products').select('id, nome').order('nome'),
+      supabase.from('product_variants').select('id, product_id, nome'),
+      supabase.from('combos').select('id, nome').order('nome'),
+    ])
+    const varsPorProduto = {}
+    ;(rVar.data || []).forEach((v) => {
+      ;(varsPorProduto[v.product_id] = varsPorProduto[v.product_id] || []).push(v)
+    })
+    const opts = []
+    ;(rProd.data || []).forEach((p) => {
+      const vs = varsPorProduto[p.id] || []
+      if (vs.length) {
+        vs.forEach((v) =>
+          opts.push({ chave: `v:${v.id}`, label: `${p.nome} — ${v.nome}`, product_id: null, variant_id: v.id, combo_id: null }),
+        )
+      } else {
+        opts.push({ chave: `p:${p.id}`, label: p.nome, product_id: p.id, variant_id: null, combo_id: null })
+      }
+    })
+    ;(rCombos.data || []).forEach((c) =>
+      opts.push({ chave: `c:${c.id}`, label: `Combo ${c.nome}`, product_id: null, variant_id: null, combo_id: c.id }),
+    )
+    setVendaveis(opts.sort((a, b) => a.label.localeCompare(b.label)))
+  }, [])
+
   useEffect(() => {
     carregar()
-  }, [carregar])
+    carregarReceitas()
+    carregarVendaveis()
+  }, [carregar, carregarReceitas, carregarVendaveis])
 
   const categorias = useMemo(
     () => [...new Set((itens || []).map((i) => i.categoria).filter(Boolean))].sort(),
@@ -148,6 +187,55 @@ function Stock() {
     setMov(null)
     carregar()
     mostrarAviso('Movimento registado ✓')
+  }
+
+  const receitasPorItem = useMemo(() => {
+    const m = {}
+    for (const r of receitas) (m[r.stock_item_id] = m[r.stock_item_id] || []).push(r)
+    return m
+  }, [receitas])
+
+  const labelVendavel = (r) => {
+    const o = vendaveis.find(
+      (x) =>
+        (r.variant_id && x.variant_id === r.variant_id) ||
+        (r.combo_id && x.combo_id === r.combo_id) ||
+        (r.product_id && x.product_id === r.product_id),
+    )
+    return o?.label || '(item removido)'
+  }
+
+  async function adicionarReceita(stockItemId) {
+    const o = vendaveis.find((x) => x.chave === novaReceita.chave)
+    const q = Number(String(novaReceita.quantidade).replace(',', '.'))
+    if (!o || !Number.isFinite(q) || q <= 0) {
+      mostrarAviso('Escolhe o item vendável e a quantidade consumida.')
+      return
+    }
+    const { error } = await supabase.from('stock_receitas').insert({
+      stock_item_id: stockItemId,
+      product_id: o.product_id,
+      variant_id: o.variant_id,
+      combo_id: o.combo_id,
+      quantidade: q,
+    })
+    if (error) {
+      mostrarAviso('Erro ao ligar a receita. Migração de receitas aplicada?')
+      return
+    }
+    registarAuditoria('stock_receita_ligada', { item: stockItemId, vendavel: o.label, quantidade: q })
+    setNovaReceita({ chave: '', quantidade: '' })
+    carregarReceitas()
+    mostrarAviso('Receita ligada ✓')
+  }
+
+  async function apagarReceita(id) {
+    const { error } = await supabase.from('stock_receitas').delete().eq('id', id)
+    if (error) {
+      mostrarAviso('Não foi possível remover.')
+      return
+    }
+    carregarReceitas()
   }
 
   if (itens === null) return <p className="text-grafite-600/70">A carregar…</p>
@@ -273,12 +361,26 @@ function Stock() {
                                 key={m.tipo}
                                 type="button"
                                 title={m.dica}
-                                onClick={() => setMov({ id: it.id, tipo: m.tipo, quantidade: '', motivo: '' })}
+                                onClick={() => {
+                                  setMov({ id: it.id, tipo: m.tipo, quantidade: '', motivo: '' })
+                                  setReceitaDe(null)
+                                }}
                                 className={BOTAO_SECUNDARIO}
                               >
                                 {m.rotulo}
                               </button>
                             ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReceitaDe(receitaDe === it.id ? null : it.id)
+                                setMov(null)
+                                setNovaReceita({ chave: '', quantidade: '' })
+                              }}
+                              className={BOTAO_SECUNDARIO}
+                            >
+                              Receitas{receitasPorItem[it.id]?.length ? ` (${receitasPorItem[it.id].length})` : ''}
+                            </button>
                             <button type="button" onClick={() => abrir(it)} className={BOTAO_SECUNDARIO}>Editar</button>
                             <button type="button" onClick={() => apagar(it)} className={BOTAO_PERIGO}>Apagar</button>
                           </div>
@@ -313,6 +415,64 @@ function Stock() {
                             >
                               Cancelar
                             </button>
+                          </div>
+                        )}
+
+                        {receitaDe === it.id && (
+                          <div className="mt-3 border-t border-creme-300 pt-3">
+                            <p className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                              Consumido por (receitas)
+                            </p>
+                            {(receitasPorItem[it.id] || []).length === 0 ? (
+                              <p className="mt-1 text-sm text-grafite-600/70">
+                                Sem receitas. Liga um item vendável que gaste “{it.nome}”.
+                              </p>
+                            ) : (
+                              <ul className="mt-2 space-y-1">
+                                {receitasPorItem[it.id].map((r) => (
+                                  <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
+                                    <span className="text-grafite-900">
+                                      {labelVendavel(r)} · <strong>{nf(r.quantidade)} {it.unidade}</strong> por unidade
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => apagarReceita(r.id)}
+                                      className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-red-600 hover:text-red-700"
+                                    >
+                                      Remover
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            <div className="mt-3 flex flex-wrap items-end gap-2">
+                              <select
+                                value={novaReceita.chave}
+                                onChange={(e) => setNovaReceita((v) => ({ ...v, chave: e.target.value }))}
+                                className={`${CAMPO} mt-0 min-w-48 flex-1`}
+                              >
+                                <option value="">Escolhe o item vendável…</option>
+                                {vendaveis.map((o) => (
+                                  <option key={o.chave} value={o.chave}>{o.label}</option>
+                                ))}
+                              </select>
+                              <input
+                                value={novaReceita.quantidade}
+                                onChange={(e) => setNovaReceita((v) => ({ ...v, quantidade: e.target.value }))}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder={`${it.unidade}/unid.`}
+                                className={`${CAMPO} mt-0 w-28`}
+                              />
+                              <button type="button" onClick={() => adicionarReceita(it.id)} className={BOTAO_SECUNDARIO}>
+                                + Ligar
+                              </button>
+                            </div>
+                            <p className="mt-1.5 text-xs text-grafite-600/70">
+                              Quanto deste item se gasta por cada unidade vendida (ex.: 2 fatias de pão por tosta).
+                              Desconta sozinho na venda.
+                            </p>
                           </div>
                         )}
                       </li>
