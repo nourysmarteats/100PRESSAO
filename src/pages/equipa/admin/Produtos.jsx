@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import { registarAuditoria } from '../../../lib/equipa'
@@ -337,6 +337,15 @@ function Produtos() {
     mostrarAviso('Erro ao gravar a ordem.'),
   )
 
+  // Salta para o formulário quando abre a edição (lista longa → senão o
+  // formulário abre no topo, fora de vista, e parece que nada aconteceu).
+  const formRef = useRef(null)
+  useEffect(() => {
+    if (emEdicao && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [emEdicao])
+
   function abrirEdicao(p) {
     setEmEdicao(p ? p.id : 'novo')
     setPrecoOriginal(p ? Number(p.preco) : null)
@@ -498,6 +507,7 @@ function Produtos() {
 
       {emEdicao && (
         <form
+          ref={formRef}
           onSubmit={guardar}
           className="mt-6 grid gap-4 rounded-2xl border border-ambar-500/40 bg-white/70 p-6 sm:grid-cols-2"
         >

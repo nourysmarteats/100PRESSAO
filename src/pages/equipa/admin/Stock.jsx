@@ -2,7 +2,7 @@
 // subcategoria), com alerta de stock baixo e movimentos manuais (entrada/
 // saída/ajuste) através da função atómica aplicar_movimento_stock.
 // Escrita reservada a admin (RLS). Ver docs/sql/2026-07-27-stock-inventario.sql.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { registarAuditoria } from '../../../lib/equipa'
 import { useAviso, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, BOTAO_PERIGO, CARTAO, CAMPO } from './comuns'
@@ -151,6 +151,15 @@ function Stock() {
   }, [itens, soBaixo])
 
   const alterar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }))
+
+  // Faz o formulário de edição saltar para a vista quando abre (a lista pode
+  // ser longa e o formulário fica no topo — senão parece que "não abriu").
+  const formRef = useRef(null)
+  useEffect(() => {
+    if (emEdicao && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [emEdicao])
 
   function abrir(it) {
     setEmEdicao(it ? it.id : 'novo')
@@ -423,6 +432,7 @@ function Stock() {
 
       {emEdicao && (
         <form
+          ref={formRef}
           onSubmit={guardar}
           className="mt-6 grid gap-4 rounded-2xl border border-ambar-500/40 bg-white/70 p-6 sm:grid-cols-2"
         >
