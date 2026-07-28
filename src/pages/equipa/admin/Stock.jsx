@@ -8,7 +8,19 @@ import { registarAuditoria } from '../../../lib/equipa'
 import { useAviso, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, BOTAO_PERIGO, CARTAO, CAMPO } from './comuns'
 
 const UNIDADES = ['unidade', 'porção', 'dose', 'fatia', 'garrafa', 'lata', 'litro', 'kg', 'g', 'pacote', 'caixa']
-const ITEM_VAZIO = { nome: '', categoria: '', subcategoria: '', unidade: 'unidade', alerta_minimo: '', custo: '', quantidade: '' }
+const ITEM_VAZIO = {
+  nome: '',
+  categoria: '',
+  subcategoria: '',
+  unidade: 'unidade',
+  alerta_minimo: '',
+  custo: '',
+  quantidade: '',
+  vender_ementa: false,
+  preco_venda: '',
+  preco_venda_online: '',
+  categoria_ementa: '',
+}
 const MOVIMENTOS = [
   { tipo: 'entrada', rotulo: 'Entrada', dica: 'chegou stock (+)' },
   { tipo: 'saida', rotulo: 'Saída', dica: 'consumo/quebra (−)' },
@@ -37,6 +49,7 @@ function Stock() {
   const [soBaixo, setSoBaixo] = useState(false) // filtro: só itens abaixo do mínimo
   const [movimentos, setMovimentos] = useState(null) // histórico
   const [verMov, setVerMov] = useState(false)
+  const [categoriasEmenta, setCategoriasEmenta] = useState([]) // categorias da ementa (products)
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
@@ -96,12 +109,18 @@ function Stock() {
     setMovimentos(data || [])
   }, [])
 
+  const carregarCategoriasEmenta = useCallback(async () => {
+    const { data } = await supabase.from('categories').select('id, nome').order('ordem')
+    setCategoriasEmenta(data || [])
+  }, [])
+
   useEffect(() => {
     carregar()
     carregarReceitas()
     carregarVendaveis()
     carregarMovimentos()
-  }, [carregar, carregarReceitas, carregarVendaveis, carregarMovimentos])
+    carregarCategoriasEmenta()
+  }, [carregar, carregarReceitas, carregarVendaveis, carregarMovimentos, carregarCategoriasEmenta])
 
   const categorias = useMemo(
     () => [...new Set((itens || []).map((i) => i.categoria).filter(Boolean))].sort(),
@@ -146,6 +165,10 @@ function Stock() {
             alerta_minimo: it.alerta_minimo ?? '',
             custo: it.custo ?? '',
             quantidade: '',
+            vender_ementa: it.vender_ementa ?? false,
+            preco_venda: it.preco_venda ?? '',
+            preco_venda_online: it.preco_venda_online ?? '',
+            categoria_ementa: it.categoria_ementa ?? '',
           }
         : ITEM_VAZIO,
     )
@@ -153,6 +176,10 @@ function Stock() {
 
   async function guardar(e) {
     e.preventDefault()
+    if (form.vender_ementa && (form.categoria_ementa === '' || form.preco_venda === '')) {
+      mostrarAviso('Para vender na ementa, escolhe a categoria e o preço de venda.')
+      return
+    }
     const base = {
       nome: form.nome.trim(),
       categoria: form.categoria.trim() || null,
@@ -161,21 +188,50 @@ function Stock() {
       alerta_minimo: form.alerta_minimo === '' ? 0 : Number(form.alerta_minimo),
       custo: form.custo === '' ? null : Number(form.custo),
     }
+    let itemId = emEdicao
     let error
     if (emEdicao === 'novo') {
-      ;({ error } = await supabase
+      const { data, error: e1 } = await supabase
         .from('stock_items')
-        .insert({ ...base, quantidade: form.quantidade === '' ? 0 : Number(form.quantidade) }))
+        .insert({ ...base, quantidade: form.quantidade === '' ? 0 : Number(form.quantidade) })
+        .select('id')
+        .single()
+      error = e1
+      itemId = data?.id
     } else {
       ;({ error } = await supabase.from('stock_items').update(base).eq('id', emEdicao))
     }
-    if (error) {
+    if (error || !itemId) {
       mostrarAviso(emEdicao === 'novo' ? 'Erro ao criar. Migração de stock aplicada?' : 'Erro ao guardar.')
       return
     }
-    registarAuditoria(emEdicao === 'novo' ? 'stock_item_criado' : 'stock_item_editado', { nome: base.nome })
+
+    // Venda na ementa: só chama a função quando é relevante (a ligar agora ou
+    // já estava ligada, para poder desligar) — cria/atualiza o produto ligado.
+    const original = itens.find((i) => i.id === emEdicao)
+    if (form.vender_ementa || original?.vender_ementa) {
+      const { error: eVenda } = await supabase.rpc('definir_venda_ementa', {
+        p_item: itemId,
+        p_vender: !!form.vender_ementa,
+        p_preco: form.preco_venda === '' ? null : Number(form.preco_venda),
+        p_preco_online: form.preco_venda_online === '' ? null : Number(form.preco_venda_online),
+        p_categoria: form.categoria_ementa || null,
+      })
+      if (eVenda) {
+        mostrarAviso('Item guardado, mas a venda na ementa falhou: ' + (eVenda.message || 'migração aplicada?'))
+        setEmEdicao(null)
+        carregar()
+        return
+      }
+    }
+
+    registarAuditoria(emEdicao === 'novo' ? 'stock_item_criado' : 'stock_item_editado', {
+      nome: base.nome,
+      vender_ementa: !!form.vender_ementa,
+    })
     setEmEdicao(null)
     carregar()
+    carregarVendaveis()
     mostrarAviso('Guardado ✓')
   }
 
@@ -261,6 +317,14 @@ function Stock() {
     }
     carregarReceitas()
   }
+
+  // Margem de lucro do item (custo vs preço de venda)
+  const margem = (() => {
+    const c = Number(form.custo)
+    const v = Number(form.preco_venda)
+    if (form.custo === '' || form.preco_venda === '' || !(v > 0)) return null
+    return { eur: v - c, pct: ((v - c) / v) * 100 }
+  })()
 
   if (itens === null) return <p className="text-grafite-600/70">A carregar…</p>
   if (tabelaEmFalta) {
@@ -392,6 +456,67 @@ function Stock() {
             <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Custo por unidade (€)</span>
             <input value={form.custo} onChange={alterar('custo')} type="number" step="0.01" min="0" className={CAMPO} placeholder="opcional" />
           </label>
+
+          {/* Vender diretamente na ementa / restaurante online */}
+          <div className="rounded-xl border border-creme-300 bg-creme-50/60 p-4 sm:col-span-2">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={!!form.vender_ementa}
+                onChange={(e) => setForm((f) => ({ ...f, vender_ementa: e.target.checked }))}
+                className="mt-1 h-5 w-5 accent-ambar-500"
+              />
+              <span>
+                <span className="font-semibold text-grafite-900">Vender na ementa / restaurante online</span>
+                <span className="mt-0.5 block text-xs text-grafite-600/70">
+                  Cria o item como produto vendável. A venda desconta o stock (1:1) e o item
+                  sai da ementa quando o stock chega a 0 (volta quando repões).
+                </span>
+              </span>
+            </label>
+
+            {form.vender_ementa && (
+              <>
+                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Categoria da ementa *</span>
+                    <select value={form.categoria_ementa} onChange={alterar('categoria_ementa')} className={CAMPO}>
+                      <option value="">Escolhe…</option>
+                      {categoriasEmenta.map((c) => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Preço de venda (€) *</span>
+                    <input value={form.preco_venda} onChange={alterar('preco_venda')} type="number" step="0.01" min="0" className={CAMPO} />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Preço online (€)</span>
+                    <input value={form.preco_venda_online} onChange={alterar('preco_venda_online')} type="number" step="0.01" min="0" className={CAMPO} placeholder="vazio = usa o local" />
+                  </label>
+                </div>
+                {categoriasEmenta.length === 0 && (
+                  <p className="mt-2 text-xs text-grafite-600/70">
+                    Ainda não há categorias na ementa — cria uma em Admin → Categorias primeiro.
+                  </p>
+                )}
+              </>
+            )}
+
+            {margem && (
+              <p className="mt-3 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">Margem: </span>
+                <strong className={margem.eur >= 0 ? 'text-green-600' : 'text-red-600'}>
+                  {nf(margem.eur)} € ({nf(margem.pct)}%)
+                </strong>
+                <span className="text-grafite-600/70">
+                  {' '}· custo {nf(Number(form.custo))} € → venda {nf(Number(form.preco_venda))} €
+                </span>
+              </p>
+            )}
+          </div>
+
           {emEdicao !== 'novo' && (
             <p className="text-xs text-grafite-600/70 sm:col-span-2">
               A quantidade em stock altera-se pelos botões Entrada/Saída/Ajustar na lista, não aqui.
@@ -432,6 +557,11 @@ function Stock() {
                               {abaixoMin(it) && (
                                 <span className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-widest text-red-600">
                                   baixo
+                                </span>
+                              )}
+                              {it.vender_ementa && (
+                                <span className="ml-2 rounded-full bg-ambar-500/15 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-widest text-ambar-600">
+                                  na ementa
                                 </span>
                               )}
                             </p>
