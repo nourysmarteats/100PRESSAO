@@ -1,7 +1,8 @@
 // Janela flutuante na página início: convida a experimentar o restaurante
 // online. Adapta-se ao interruptor (definicoes 'entrega'.ativo): enquanto não
 // está ativo, convida para a pré-visualização/simulação; quando ativar, passa
-// a "encomendar". Dispensável (X), lembra o fecho em localStorage.
+// a "encomendar". Dispensável (X): fica fechada só durante a sessão do
+// browser (sessionStorage), por isso volta a aparecer numa nova visita.
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -15,7 +16,7 @@ function ConviteRestaurante() {
   const [ativo, setAtivo] = useState(false)
 
   useEffect(() => {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem(KEY) === '1') return
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(KEY) === '1') return
     let cancel = false
     supabase
       ?.from('definicoes')
@@ -44,7 +45,7 @@ function ConviteRestaurante() {
 
   const fechar = () => {
     try {
-      localStorage.setItem(KEY, '1')
+      sessionStorage.setItem(KEY, '1')
     } catch {
       /* ignore */
     }
