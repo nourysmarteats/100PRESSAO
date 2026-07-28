@@ -871,7 +871,7 @@ function Cardapio() {
         {/* Canal remoto (Fase 0): para quem não está na loja. O fluxo de
             pedido à mesa acima fica inalterado. */}
         {!indisponivel && fase === 'entrada' && (
-          <EncomendaWhatsApp className="mt-6" />
+          <EncomendaWhatsApp className="mt-6" modo="reserva" />
         )}
 
         {/* Aviso/toast */}

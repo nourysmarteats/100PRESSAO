@@ -11,6 +11,8 @@ const MSG_LEVAR =
   'Olá 100PRESSÃO! 🥡 Quero encomendar *para levar*.\n\nHora a que passo a levantar: \nO meu pedido:\n– '
 const MSG_ENTREGA =
   'Olá 100PRESSÃO! 🛵 Quero encomendar *com entrega*.\n\nMorada de entrega: \nO meu pedido:\n– '
+const MSG_RESERVA =
+  'Olá 100PRESSÃO! 🍽️ Queria *reservar uma mesa*.\n\nDia e hora: \nNº de pessoas: '
 
 function IconeWhatsApp() {
   return (
@@ -23,35 +25,38 @@ function IconeWhatsApp() {
 const BOTAO =
   'inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold uppercase tracking-widest text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#25D366]'
 
-function EncomendaWhatsApp({ className = '' }) {
+// modo:
+//   'encomenda' (default) — dois botões: levar / entrega (Home)
+//   'reserva'             — um botão: reservar mesa (ementa/cardápio)
+function EncomendaWhatsApp({ className = '', modo = 'encomenda' }) {
+  const reserva = modo === 'reserva'
   return (
     <section
       className={`rounded-2xl border border-creme-300 bg-white/70 p-6 sm:p-8 ${className}`}
     >
       <h2 className="font-display text-xl font-bold uppercase tracking-tight text-grafite-900 sm:text-2xl">
-        Levar ou receber em casa
+        {reserva ? 'Reservar mesa' : 'Levar ou receber em casa'}
       </h2>
       <p className="mt-2 text-grafite-600">
-        Faz a tua encomenda pelo WhatsApp — combinamos o pedido, a hora e o
-        pagamento por lá.
+        {reserva
+          ? 'Queres garantir o teu lugar? Reserva connosco pelo WhatsApp.'
+          : 'Faz a tua encomenda pelo WhatsApp — combinamos o pedido, a hora e o pagamento por lá.'}
       </p>
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <a
-          href={linkWhatsApp(MSG_LEVAR)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={BOTAO}
-        >
-          <IconeWhatsApp /> Para levar
-        </a>
-        <a
-          href={linkWhatsApp(MSG_ENTREGA)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={BOTAO}
-        >
-          <IconeWhatsApp /> Entrega
-        </a>
+        {reserva ? (
+          <a href={linkWhatsApp(MSG_RESERVA)} target="_blank" rel="noopener noreferrer" className={BOTAO}>
+            <IconeWhatsApp /> Reservar mesa
+          </a>
+        ) : (
+          <>
+            <a href={linkWhatsApp(MSG_LEVAR)} target="_blank" rel="noopener noreferrer" className={BOTAO}>
+              <IconeWhatsApp /> Para levar
+            </a>
+            <a href={linkWhatsApp(MSG_ENTREGA)} target="_blank" rel="noopener noreferrer" className={BOTAO}>
+              <IconeWhatsApp /> Entrega
+            </a>
+          </>
+        )}
       </div>
     </section>
   )
