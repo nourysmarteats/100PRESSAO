@@ -169,6 +169,148 @@ function Variantes({ produtoId, aoAvisar }) {
   )
 }
 
+const nfq = (n) => Number(n ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 2 })
+
+// Ficha técnica: ingredientes (itens de stock) que compõem o produto e a
+// quantidade de cada um. Descontam do stock a cada venda (tabela stock_receitas
+// + gatilho, já existentes). Mostra o custo do prato e a margem face ao preço.
+function FichaTecnica({ produtoId, preco, aoAvisar }) {
+  const [ingredientes, setIngredientes] = useState([])
+  const [stockItens, setStockItens] = useState([])
+  const [nova, setNova] = useState({ stock_item_id: '', quantidade: '' })
+  const [semStock, setSemStock] = useState(false)
+
+  const carregar = useCallback(async () => {
+    const [rRec, rStock] = await Promise.all([
+      supabase
+        .from('stock_receitas')
+        .select('id, quantidade, stock_items(nome, unidade, custo)')
+        .eq('product_id', produtoId),
+      supabase.from('stock_items').select('id, nome, unidade, custo').eq('ativo', true).order('nome'),
+    ])
+    if (rRec.error || rStock.error) {
+      setSemStock(true)
+      return
+    }
+    setSemStock(false)
+    setIngredientes(rRec.data || [])
+    setStockItens(rStock.data || [])
+  }, [produtoId])
+  useEffect(() => {
+    carregar()
+  }, [carregar])
+
+  async function adicionar() {
+    const q = Number(String(nova.quantidade).replace(',', '.'))
+    if (!nova.stock_item_id || !Number.isFinite(q) || q <= 0) {
+      aoAvisar('Escolhe o ingrediente e a quantidade.')
+      return
+    }
+    const { error } = await supabase
+      .from('stock_receitas')
+      .insert({ product_id: produtoId, stock_item_id: nova.stock_item_id, quantidade: q })
+    if (error) {
+      aoAvisar('Erro ao adicionar o ingrediente.')
+      return
+    }
+    setNova({ stock_item_id: '', quantidade: '' })
+    carregar()
+  }
+
+  async function remover(id) {
+    await supabase.from('stock_receitas').delete().eq('id', id)
+    carregar()
+  }
+
+  if (semStock) {
+    return (
+      <p className="text-xs text-grafite-600/70 sm:col-span-2">
+        Ativa o inventário (Admin → Stock) para definir a ficha técnica deste produto.
+      </p>
+    )
+  }
+
+  const custoPrato = ingredientes.reduce(
+    (s, r) => s + (r.stock_items?.custo != null ? Number(r.stock_items.custo) * Number(r.quantidade) : 0),
+    0,
+  )
+  const precoN = Number(preco)
+  const margem = custoPrato > 0 && precoN > 0 ? { eur: precoN - custoPrato, pct: ((precoN - custoPrato) / precoN) * 100 } : null
+
+  return (
+    <div className="sm:col-span-2">
+      <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+        Ficha técnica — ingredientes que descontam do stock
+      </span>
+      {ingredientes.length > 0 && (
+        <ul className="mt-2 space-y-1.5">
+          {ingredientes.map((r) => (
+            <li
+              key={r.id}
+              className="flex items-center justify-between gap-3 rounded-lg border border-creme-300 bg-creme-50 px-3 py-2 text-sm"
+            >
+              <span className="text-grafite-900">
+                {nfq(r.quantidade)} {r.stock_items?.unidade} ·{' '}
+                <strong>{r.stock_items?.nome || '(removido)'}</strong>
+                {r.stock_items?.custo != null && (
+                  <span className="text-grafite-600/70"> · {fmt(Number(r.stock_items.custo) * Number(r.quantidade))}</span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => remover(r.id)}
+                className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-red-600 hover:text-red-700"
+              >
+                Remover
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <select
+          value={nova.stock_item_id}
+          onChange={(e) => setNova((n) => ({ ...n, stock_item_id: e.target.value }))}
+          className={`${CAMPO} mt-0 min-w-40 flex-1`}
+        >
+          <option value="">Ingrediente…</option>
+          {stockItens.map((s) => (
+            <option key={s.id} value={s.id}>{s.nome} ({s.unidade})</option>
+          ))}
+        </select>
+        <input
+          value={nova.quantidade}
+          onChange={(e) => setNova((n) => ({ ...n, quantidade: e.target.value }))}
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="qtd"
+          className={`${CAMPO} mt-0 w-24`}
+        />
+        <button type="button" onClick={adicionar} className={BOTAO_SECUNDARIO}>+ Ingrediente</button>
+      </div>
+      {custoPrato > 0 && (
+        <p className="mt-2 text-sm">
+          <span className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">Custo do prato: </span>
+          <strong className="text-grafite-900">{fmt(custoPrato)}</strong>
+          {margem && (
+            <>
+              {' '}·{' '}
+              <span className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">Margem: </span>
+              <strong className={margem.eur >= 0 ? 'text-green-600' : 'text-red-600'}>
+                {fmt(margem.eur)} ({nfq(margem.pct)}%)
+              </strong>
+            </>
+          )}
+        </p>
+      )}
+      <p className="mt-1.5 text-xs text-grafite-600/70">
+        Cada ingrediente desconta do stock a cada venda deste produto. Precisa dos itens criados no Stock (com custo, para calcular a margem).
+      </p>
+    </div>
+  )
+}
+
 function Produtos() {
   const [produtos, setProdutos] = useState([])
   const [categorias, setCategorias] = useState([])
@@ -445,11 +587,14 @@ function Produtos() {
           </label>
 
           {emEdicao !== 'novo' ? (
-            <Variantes produtoId={emEdicao} aoAvisar={mostrarAviso} />
+            <>
+              <Variantes produtoId={emEdicao} aoAvisar={mostrarAviso} />
+              <FichaTecnica produtoId={emEdicao} preco={form.preco} aoAvisar={mostrarAviso} />
+            </>
           ) : (
             <p className="text-xs text-grafite-600/70 sm:col-span-2">
-              Guarda o produto primeiro para poderes adicionar variantes de
-              tamanho/preço.
+              Guarda o produto primeiro para poderes adicionar variantes e a
+              ficha técnica (ingredientes).
             </p>
           )}
 
