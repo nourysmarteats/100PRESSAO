@@ -311,7 +311,7 @@ function FichaTecnica({ produtoId, preco, aoAvisar }) {
   )
 }
 
-function Produtos() {
+function Produtos({ alvoEdicao, aoConsumirAlvo }) {
   const [produtos, setProdutos] = useState([])
   const [categorias, setCategorias] = useState([])
   const [emEdicao, setEmEdicao] = useState(null) // null | 'novo' | id
@@ -345,6 +345,18 @@ function Produtos() {
       formRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }, [emEdicao])
+
+  // Deep-link vindo da Ementa: abre logo o editor do produto indicado.
+  useEffect(() => {
+    if (alvoEdicao && produtos.length) {
+      const p = produtos.find((x) => x.id === alvoEdicao)
+      if (p) {
+        abrirEdicao(p)
+        aoConsumirAlvo?.()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alvoEdicao, produtos])
 
   function abrirEdicao(p) {
     setEmEdicao(p ? p.id : 'novo')

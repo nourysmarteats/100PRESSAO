@@ -7,6 +7,7 @@ import { usePerfil } from '../../lib/equipa'
 import Analytics from './admin/Analytics'
 import Relatorios from './admin/Relatorios'
 import Caixa from './admin/Caixa'
+import Ementa from './admin/Ementa'
 import Produtos from './admin/Produtos'
 import Categorias from './admin/Categorias'
 import Combos from './admin/Combos'
@@ -23,6 +24,7 @@ const SECCOES = [
   { id: 'relatorios', rotulo: 'Relatórios', Componente: Relatorios },
   { id: 'caixa', rotulo: 'Fecho de caixa', Componente: Caixa },
   { id: 'faturas', rotulo: 'Faturas', Componente: Faturas },
+  { id: 'ementa', rotulo: 'Ementa', Componente: Ementa },
   { id: 'produtos', rotulo: 'Produtos', Componente: Produtos },
   { id: 'categorias', rotulo: 'Categorias', Componente: Categorias },
   { id: 'combos', rotulo: 'Combos', Componente: Combos },
@@ -45,6 +47,12 @@ const PAINEIS = [
 function Admin() {
   const perfil = usePerfil()
   const [ativa, setAtiva] = useState('analytics')
+  // Navegação entre secções, com alvo opcional (ex.: Ementa → editar produto X)
+  const [alvoEdicao, setAlvoEdicao] = useState(null)
+  const irPara = (secao, alvo = null) => {
+    setAtiva(secao)
+    setAlvoEdicao(alvo)
+  }
 
   // Guard por papel: uma conta staff não entra no admin nem por URL direto
   if (perfil?.papel && perfil.papel !== 'admin') {
@@ -127,7 +135,11 @@ function Admin() {
       </aside>
 
       <div className="mt-6 lg:mt-0">
-        <Componente irPara={setAtiva} />
+        <Componente
+          irPara={irPara}
+          alvoEdicao={ativa === 'produtos' ? alvoEdicao : null}
+          aoConsumirAlvo={() => setAlvoEdicao(null)}
+        />
       </div>
     </main>
   )
