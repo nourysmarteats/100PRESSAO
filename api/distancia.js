@@ -33,6 +33,7 @@ export default async function handler(req, res) {
       return res.status(400).json({
         erro: 'Não foi possível calcular a distância para essa morada.',
         detalhe: el?.status || data.status,
+        google: data.error_message || null,
       })
     }
     const km = Math.round((el.distance.value / 1000) * 100) / 100
