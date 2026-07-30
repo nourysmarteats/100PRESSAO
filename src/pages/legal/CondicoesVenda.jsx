@@ -44,8 +44,7 @@ function CondicoesVenda() {
         </p>
         <p className="mt-2">
           NIPC e matrícula n.º 519521463 na Conservatória do Registo Comercial de{' '}
-          <Falta>conservatória</Falta>. Capital social: <Falta>valor</Falta> €, integralmente
-          realizado.
+          <Falta>conservatória</Falta>. Capital social: 5000 €, integralmente realizado.
         </p>
         <p className="mt-2">
           Telefone: +351 935 995 011 · E-mail:{' '}
@@ -97,8 +96,8 @@ function CondicoesVenda() {
         </p>
         <p className="mt-2">
           As refeições são preparadas na hora e entregues ou levantadas no próprio dia, no
-          prazo máximo de <Falta>X</Falta> minutos a contar da confirmação da encomenda, salvo
-          indicação diferente comunicada no momento do pedido.
+          prazo máximo de 20 minutos a contar da confirmação da encomenda, salvo indicação
+          diferente comunicada no momento do pedido.
         </p>
         <p className="mt-2">
           Se não cumprirmos esse prazo, podes fixar-nos um prazo suplementar adequado; se

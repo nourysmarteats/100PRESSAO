@@ -202,8 +202,8 @@ function Footer() {
         </div>
         {/* Identificação (DL 7/2004 / DL 24/2014) — falta conservatória e capital social */}
         <div className="mx-auto max-w-6xl px-6 pb-6 text-center text-[0.7rem] leading-relaxed text-creme-500/60 sm:text-left">
-          Sintonia dos Temperos, Lda. · NIPC 519521463 · Praceta Eugénio de Castro, Loja 6,
-          2790-072 Carnaxide
+          Sintonia dos Temperos, Lda. · NIPC 519521463 · Capital social 5000 € · Praceta
+          Eugénio de Castro, Loja 6, 2790-072 Carnaxide
         </div>
       </div>
     </footer>
