@@ -56,7 +56,9 @@ function Restaurante() {
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
   const [morada, setMorada] = useState('')
-  const [distSim, setDistSim] = useState('') // distância simulada (km) — será automática com o mapa
+  const [distSim, setDistSim] = useState('') // distância (km): calculada pelo mapa ou escrita
+  const [calculando, setCalculando] = useState(false)
+  const [erroDist, setErroDist] = useState('')
   const [quando, setQuando] = useState('online') // online | na_entrega
   const [metodo, setMetodo] = useState('mbway')
 
@@ -136,6 +138,32 @@ function Restaurante() {
   const total = subtotal + portes
   const abaixoMinimo = tipo === 'entrega' && subtotal < Number(cfg.min_encomenda || 0)
   const foraDoRaio = tipo === 'entrega' && distancia > Number(cfg.raio_max || 0)
+
+  async function calcularDistancia() {
+    if (!morada.trim()) {
+      setErroDist('Escreve a morada primeiro.')
+      return
+    }
+    setCalculando(true)
+    setErroDist('')
+    try {
+      const resp = await fetch('/api/distancia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origem: { lat: cfg.loja_lat, lng: cfg.loja_lng }, morada }),
+      })
+      const json = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        setErroDist(json.erro || 'Não foi possível calcular a distância.')
+        return
+      }
+      setDistSim(String(json.km))
+    } catch {
+      setErroDist('Erro ao calcular a distância.')
+    } finally {
+      setCalculando(false)
+    }
+  }
 
   const mudar = (chave, delta) =>
     setCarrinho((c) => {
@@ -255,9 +283,16 @@ function Restaurante() {
                   <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Morada de entrega
                     <input value={morada} onChange={(e) => setMorada(e.target.value)} className={CAMPO} placeholder="Rua, número, andar, código postal" />
                   </label>
-                  <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Distância (km) — simulação
-                    <input value={distSim} onChange={(e) => setDistSim(e.target.value)} inputMode="decimal" className={CAMPO} placeholder="ex.: 3.5 (será automático com o mapa)" />
-                  </label>
+                  <div className="mt-3">
+                    <span className="block text-sm font-semibold uppercase tracking-widest text-ambar-600">Distância (km)</span>
+                    <div className="mt-1 flex gap-2">
+                      <input value={distSim} onChange={(e) => setDistSim(e.target.value)} inputMode="decimal" aria-label="Distância em km" className={`${CAMPO} mt-0 flex-1`} placeholder="calcula pela morada ou escreve" />
+                      <button type="button" onClick={calcularDistancia} disabled={calculando} className={BOTAO_SEC}>
+                        {calculando ? 'A calcular…' : 'Calcular'}
+                      </button>
+                    </div>
+                    {erroDist && <p className="mt-1 text-sm text-red-600">{erroDist}</p>}
+                  </div>
                 </>
               )}
             </div>
