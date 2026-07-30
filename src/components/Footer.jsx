@@ -174,6 +174,14 @@ function Footer() {
             <Link to="/termos" className="transition-colors hover:text-creme-50">
               Termos
             </Link>
+            <a
+              href="https://www.livroreclamacoes.pt/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-creme-50"
+            >
+              Livro de Reclamações
+            </a>
           </nav>
           <ul
             className="flex flex-wrap items-center gap-2"
