@@ -23,7 +23,9 @@ const CONFIG_INICIAL = {
   ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
-  preco_km: 0.8,
+  taxa_base: 1.6,
+  preco_km: 0.9,
+  raio_max: 12,
 }
 
 // Preço do canal online: usa preco_online quando definido; senão o preço local.
@@ -125,13 +127,15 @@ function Restaurante() {
   const nItens = Object.values(carrinho).reduce((s, q) => s + q, 0)
 
   const cfg = config || CONFIG_INICIAL
+  const distancia = Number(String(distSim).replace(',', '.')) || 0
+  // Portes: grátis até km_gratis; acima, taxa_base + preco_km × (km − km_gratis).
   const portes = useMemo(() => {
-    if (tipo !== 'entrega') return 0
-    const d = Number(String(distSim).replace(',', '.')) || 0
-    return Math.max(0, d - Number(cfg.km_gratis || 0)) * Number(cfg.preco_km || 0)
-  }, [tipo, distSim, cfg])
+    if (tipo !== 'entrega' || distancia <= Number(cfg.km_gratis || 0)) return 0
+    return Number(cfg.taxa_base || 0) + (distancia - Number(cfg.km_gratis || 0)) * Number(cfg.preco_km || 0)
+  }, [tipo, distancia, cfg])
   const total = subtotal + portes
   const abaixoMinimo = tipo === 'entrega' && subtotal < Number(cfg.min_encomenda || 0)
+  const foraDoRaio = tipo === 'entrega' && distancia > Number(cfg.raio_max || 0)
 
   const mudar = (chave, delta) =>
     setCarrinho((c) => {
@@ -162,6 +166,7 @@ function Restaurante() {
   const podeFinalizar =
     nItens > 0 &&
     !abaixoMinimo &&
+    !foraDoRaio &&
     nome.trim() &&
     (tipo === 'levar' || morada.trim()) &&
     (quando === 'na_entrega' || metodo)
@@ -231,7 +236,7 @@ function Restaurante() {
               </div>
               {tipo === 'entrega' && (
                 <p className="mt-3 text-xs text-grafite-600/70">
-                  Grátis até {cfg.km_gratis} km, depois {fmt(cfg.preco_km)}/km. Encomenda mínima {fmt(cfg.min_encomenda)}.
+                  Grátis até {cfg.km_gratis} km; acima, {fmt(cfg.taxa_base)} + {fmt(cfg.preco_km)}/km, até {cfg.raio_max} km. Encomenda mínima {fmt(cfg.min_encomenda)}.
                 </p>
               )}
             </div>
@@ -280,6 +285,7 @@ function Restaurante() {
               {tipo === 'entrega' && <div className="mt-1 flex justify-between text-sm text-grafite-600"><span>Portes {portes === 0 ? '(grátis)' : ''}</span><span>{fmt(portes)}</span></div>}
               <div className="mt-2 flex justify-between border-t border-creme-300 pt-2 font-display text-lg font-bold text-grafite-900"><span>Total</span><span>{fmt(total)}</span></div>
               {abaixoMinimo && <p className="mt-2 text-sm text-red-600">Encomenda mínima de {fmt(cfg.min_encomenda)} para entrega. Faltam {fmt(cfg.min_encomenda - subtotal)}.</p>}
+              {foraDoRaio && <p className="mt-2 text-sm text-red-600">Fora da área de entrega (máx. {cfg.raio_max} km). Escolhe levantamento ou uma morada mais próxima.</p>}
               <button type="button" disabled={!podeFinalizar} onClick={() => setFase('confirmado')} className={`${BOTAO} mt-4 w-full`}>Finalizar (simulação)</button>
             </div>
           </div>

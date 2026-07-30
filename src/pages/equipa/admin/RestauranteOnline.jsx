@@ -14,7 +14,9 @@ const CONFIG_INICIAL = {
   ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
-  preco_km: 0.8,
+  taxa_base: 1.6,
+  preco_km: 0.9,
+  raio_max: 12,
   loja_lat: 38.7262329,
   loja_lng: -9.2369446,
 }
@@ -75,7 +77,9 @@ function RestauranteOnline() {
       ativo: !!cfg.ativo,
       min_encomenda: num(cfg.min_encomenda, 0),
       km_gratis: num(cfg.km_gratis, 0),
+      taxa_base: num(cfg.taxa_base, 0),
       preco_km: num(cfg.preco_km, 0),
+      raio_max: num(cfg.raio_max, 0),
       loja_lat: num(cfg.loja_lat, CONFIG_INICIAL.loja_lat),
       loja_lng: num(cfg.loja_lng, CONFIG_INICIAL.loja_lng),
     }
@@ -132,8 +136,8 @@ function RestauranteOnline() {
       <div className={`${CARTAO} p-6`}>
         <h3 className="font-display text-lg font-bold uppercase text-grafite-600">Entrega</h3>
         <p className="mt-1 text-sm text-grafite-600/70">
-          Grátis até aos km indicados; acima disso, cobra-se por km (distância de
-          condução até à loja).
+          Grátis até aos km indicados; acima disso, uma taxa base + preço por km adicional,
+          até ao raio máximo (distância de condução até à loja).
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <Campo
@@ -151,7 +155,21 @@ function RestauranteOnline() {
             onChange={alterar('km_gratis')}
           />
           <Campo
-            rotulo="Depois, por km"
+            rotulo="Raio máximo"
+            sufixo="km"
+            inputMode="decimal"
+            value={cfg.raio_max}
+            onChange={alterar('raio_max')}
+          />
+          <Campo
+            rotulo="Taxa base (acima do grátis)"
+            sufixo="€"
+            inputMode="decimal"
+            value={cfg.taxa_base}
+            onChange={alterar('taxa_base')}
+          />
+          <Campo
+            rotulo="Por km adicional"
             sufixo="€/km"
             inputMode="decimal"
             value={cfg.preco_km}

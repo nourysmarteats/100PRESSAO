@@ -43,8 +43,8 @@ function CondicoesVenda() {
           Draft House".
         </p>
         <p className="mt-2">
-          NIPC e matrícula n.º 519521463 na Conservatória do Registo Comercial de{' '}
-          <Falta>conservatória</Falta>. Capital social: 5000 €, integralmente realizado.
+          NIPC e matrícula n.º 519521463 na Conservatória do Registo Comercial de Oeiras.
+          Capital social: 5000 €, integralmente realizado.
         </p>
         <p className="mt-2">
           Telefone: +351 935 995 011 · E-mail:{' '}
@@ -85,14 +85,15 @@ function CondicoesVenda() {
 
       <Seccao titulo="4. Entrega e levantamento">
         <p>
-          Entregamos em Carnaxide e na área envolvente, num raio máximo de <Falta>X</Falta> km
-          a partir da loja. Se a tua morada estiver fora desta área, informamos-te antes de
-          concluíres o pedido.
+          Entregamos em Carnaxide e na área envolvente, num raio máximo de 12 km a partir da
+          loja. Se a tua morada estiver fora desta área, informamos-te antes de concluíres o
+          pedido.
         </p>
         <p className="mt-2">
-          A entrega é gratuita até 2 km. Acima disso, aplica-se 0,80 € por quilómetro,
-          calculado pela distância até à morada indicada. O valor exato é-te mostrado no
-          carrinho antes do pagamento. A encomenda mínima para entrega é de 20 €.
+          A entrega é gratuita até 2 km. Acima disso, aplica-se uma taxa base de 1,60 € mais
+          0,90 € por cada quilómetro adicional (calculado pela distância até à morada indicada),
+          até ao raio máximo de 12 km. O valor exato é-te mostrado no carrinho antes do
+          pagamento. A encomenda mínima para entrega é de 20 €.
         </p>
         <p className="mt-2">
           As refeições são preparadas na hora e entregues ou levantadas no próprio dia, no
