@@ -9,6 +9,8 @@ import {
   nomeItemPedido,
   obterPedidosAtivos,
 } from '../../lib/pedidos'
+import { chamarApiFaturar } from '../../lib/equipa'
+import { useAviso } from './admin/comuns'
 
 function Kpi({ rotulo, valor, destaque }) {
   return (
@@ -142,6 +144,7 @@ function Staff() {
   const [pedidos, setPedidos] = useState([])
   const [entreguesHoje, setEntreguesHoje] = useState({ n: 0, receita: 0 })
   const [, forcarTick] = useState(0)
+  const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
     const hoje = new Date()
@@ -203,6 +206,24 @@ function Staff() {
         .eq('id', id)
     }
     carregar()
+
+    // Emissão da fatura via Vendus (sob pedido). Falha em silêncio para não
+    // bloquear a entrega — o pedido de fatura já ficou registado na BD acima.
+    if (opcoesFatura?.querFatura) {
+      try {
+        const r = await chamarApiFaturar({ pedido_id: id, nif: opcoesFatura.nif })
+        if (r.url) window.open(r.url, '_blank', 'noopener')
+        mostrarAviso(
+          r.modo_teste
+            ? 'Fatura emitida em modo de teste (Vendus) ✓'
+            : r.ja_existia
+              ? 'Fatura já tinha sido emitida ✓'
+              : 'Fatura emitida ✓',
+        )
+      } catch (erro) {
+        mostrarAviso(`Erro a emitir fatura: ${erro.message}`)
+      }
+    }
   }
 
   const prontos = pedidos.filter((p) => p.estado === 'pronto')
@@ -244,6 +265,7 @@ function Staff() {
           </div>
         )}
       </section>
+      {Aviso}
     </main>
   )
 }
