@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../../lib/supabase'
-import { beep } from '../../lib/pedidos'
+import { beep, FILTRO_ONLINE_PAGO } from '../../lib/pedidos'
 import logoStamp from '../../assets/logo-100pressao.png'
 
 /*
@@ -29,11 +29,11 @@ function Ecra() {
 
   const carregar = useCallback(async () => {
     if (!supabase) return
-    const { data, error } = await supabase
-      .from('orders')
-      .select('id, numero, estado')
-      .neq('estado', 'entregue')
-      .order('criado_em')
+    const base = () => supabase.from('orders').select('id, numero, estado').neq('estado', 'entregue')
+    // Filtra encomendas online não pagas; degrada se a coluna 'canal' ainda
+    // não existir (antes da migração 2026-08-01).
+    let { data, error } = await base().or(FILTRO_ONLINE_PAGO).order('criado_em')
+    if (error) ({ data, error } = await base().order('criado_em'))
     if (error) return
 
     // Flash + beep quando um pedido novo entra em "pronto"

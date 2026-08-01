@@ -63,19 +63,25 @@ export const SELECT_PEDIDO_LEGADO = `
   order_items ( *, products ( nome, category_id ) )
 `
 
+// Encomendas online só entram na cozinha depois de pagas. Este filtro deixa
+// passar tudo o que não é online (mesa/balcão), e do online só o que já está
+// pago — assim uma encomenda online por pagar (ou abandonada no checkout)
+// nunca aparece no Staff/Operacional/Ecrã.
+export const FILTRO_ONLINE_PAGO = 'canal.neq.online,estado_pagamento.eq.pago'
+
 export async function obterPedidosAtivos(supabase) {
-  let r = await supabase
-    .from('orders')
-    .select(SELECT_PEDIDO_COMPLETO)
-    .neq('estado', 'entregue')
-    .order('criado_em')
-  if (r.error) {
-    r = await supabase
-      .from('orders')
-      .select(SELECT_PEDIDO_LEGADO)
-      .neq('estado', 'entregue')
-      .order('criado_em')
+  // Tenta na ordem: (completo+filtro) → (legado+filtro) → (completo) → (legado).
+  // O filtro precisa da coluna 'canal' (migração 2026-08-01); antes dela, as
+  // duas primeiras falham e degrada para o comportamento antigo — sem partir.
+  const tenta = (sel, comFiltro) => {
+    let q = supabase.from('orders').select(sel).neq('estado', 'entregue')
+    if (comFiltro) q = q.or(FILTRO_ONLINE_PAGO)
+    return q.order('criado_em')
   }
+  let r = await tenta(SELECT_PEDIDO_COMPLETO, true)
+  if (r.error) r = await tenta(SELECT_PEDIDO_LEGADO, true)
+  if (r.error) r = await tenta(SELECT_PEDIDO_COMPLETO, false)
+  if (r.error) r = await tenta(SELECT_PEDIDO_LEGADO, false)
   return r
 }
 

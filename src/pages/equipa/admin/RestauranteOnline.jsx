@@ -17,6 +17,7 @@ const CONFIG_INICIAL = {
   taxa_base: 1.6,
   preco_km: 0.9,
   raio_max: 12,
+  prazo_preparacao: 20,
   loja_lat: 38.7262329,
   loja_lng: -9.2369446,
 }
@@ -80,6 +81,7 @@ function RestauranteOnline() {
       taxa_base: num(cfg.taxa_base, 0),
       preco_km: num(cfg.preco_km, 0),
       raio_max: num(cfg.raio_max, 0),
+      prazo_preparacao: num(cfg.prazo_preparacao, 20),
       loja_lat: num(cfg.loja_lat, CONFIG_INICIAL.loja_lat),
       loja_lng: num(cfg.loja_lng, CONFIG_INICIAL.loja_lng),
     }
@@ -174,6 +176,14 @@ function RestauranteOnline() {
             inputMode="decimal"
             value={cfg.preco_km}
             onChange={alterar('preco_km')}
+          />
+          <Campo
+            rotulo="Prazo de preparação"
+            sufixo="min"
+            inputMode="numeric"
+            value={cfg.prazo_preparacao}
+            onChange={alterar('prazo_preparacao')}
+            dica="Mostrado ao cliente no checkout (requisito legal)."
           />
         </div>
       </div>

@@ -2,12 +2,12 @@
 // entrega), distinto do atendimento à mesa (/cardapio). Partilha os itens da
 // ementa mas usa o PREÇO ONLINE (preco_online, com fallback ao preço local).
 //
-// ESTADO: SIMULAÇÃO. O fluxo (menu → carrinho → checkout → confirmação) já
-// funciona, mas ainda não cria pedidos reais nem cobra: falta o cálculo de
-// distância (Google Maps) e o pagamento (IfThenPay). Marcado como simulação no
-// ecrã. A configuração (mínimo, portes, interruptor) vem do painel Admin
+// Checkout REAL: cria encomenda via RPC criar_pedido_online (o servidor
+// calcula preço e portes) e cobra por IfThenPay (MB Way / Multibanco) através
+// das funções /api/pagamento e /api/pagamento-estado. Só pagamento online.
+// A configuração (mínimo, portes, prazo, interruptor) vem do painel Admin
 // "Restaurante Online" (definicoes → chave 'entrega').
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabasePublico as supabase } from '../lib/supabase'
 import { fmt } from '../lib/pedidos'
@@ -26,6 +26,7 @@ const CONFIG_INICIAL = {
   taxa_base: 1.6,
   preco_km: 0.9,
   raio_max: 12,
+  prazo_preparacao: 20,
 }
 
 // Preço do canal online: usa preco_online quando definido; senão o preço local.
@@ -49,20 +50,28 @@ function Restaurante() {
   const [combos, setCombos] = useState([])
   const [variantes, setVariantes] = useState({})
   const [carrinho, setCarrinho] = useState({})
-  const [fase, setFase] = useState('menu') // menu | checkout | confirmado
+  const [fase, setFase] = useState('menu') // menu | checkout | pagamento | confirmado
 
-  // Checkout (simulação)
+  // Checkout
   const [tipo, setTipo] = useState('entrega') // entrega | levar
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
+  const [email, setEmail] = useState('')
   const [morada, setMorada] = useState('')
   const [distSim, setDistSim] = useState('') // distância (km): calculada pelo mapa ou escrita
   const [calculando, setCalculando] = useState(false)
   const [erroDist, setErroDist] = useState('')
-  const [quando, setQuando] = useState('online') // online | na_entrega
   const [metodo, setMetodo] = useState('mbway')
+  const [idade, setIdade] = useState(false) // 18+ (Brandão E)
+  const [aceito, setAceito] = useState(false) // Condições de Venda (Brandão J)
 
-  // Configuração do canal (mínimo, portes, interruptor)
+  // Pagamento
+  const [pedido, setPedido] = useState(null) // { id, numero, total, portes }
+  const [refMB, setRefMB] = useState(null) // { entidade, referencia, valor }
+  const [aFinalizar, setAFinalizar] = useState(false)
+  const [erroPag, setErroPag] = useState('')
+
+  // Configuração do canal (mínimo, portes, prazo, interruptor)
   useEffect(() => {
     supabase
       .from('definicoes')
@@ -106,26 +115,31 @@ function Restaurante() {
       const partes = chave.split(':')
       if (partes[0] === 'c') {
         const combo = combos.find((c) => String(c.id) === partes[1])
-        return combo ? { nome: `Combo ${combo.nome}`, preco: precoOnline(combo) } : null
+        return combo ? { nome: `Combo ${combo.nome}`, preco: precoOnline(combo), alergenios: null } : null
       }
       const p = produtos.find((x) => String(x.id) === partes[1])
       if (!p) return null
       const v = partes[2] === 'v' ? (variantes[p.id] || []).find((x) => String(x.id) === partes[3]) : null
       if (partes[2] === 'v' && !v) return null
-      return { nome: v ? `${p.nome} ${v.nome}` : p.nome, preco: precoOnline(v || p) }
+      return {
+        nome: v ? `${p.nome} ${v.nome}` : p.nome,
+        preco: precoOnline(v || p),
+        alergenios: p.alergenios || null,
+      }
     },
     [produtos, combos, variantes],
   )
 
-  const subtotal = useMemo(
+  // Linhas do carrinho já resolvidas (nome, preço, alergénios, quantidade)
+  const linhas = useMemo(
     () =>
-      Object.entries(carrinho).reduce((s, [chave, qtd]) => {
-        const r = resolverChave(chave)
-        return s + (r ? r.preco * qtd : 0)
-      }, 0),
+      Object.entries(carrinho)
+        .map(([chave, qtd]) => ({ chave, qtd, ...(resolverChave(chave) || {}) }))
+        .filter((l) => l.nome),
     [carrinho, resolverChave],
   )
 
+  const subtotal = useMemo(() => linhas.reduce((s, l) => s + l.preco * l.qtd, 0), [linhas])
   const nItens = Object.values(carrinho).reduce((s, q) => s + q, 0)
 
   const cfg = config || CONFIG_INICIAL
@@ -174,6 +188,104 @@ function Restaurante() {
       return novo
     })
 
+  const emailValido = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
+  const telValido = /^\d{9}$/.test(telefone)
+
+  const podeFinalizar =
+    nItens > 0 &&
+    !abaixoMinimo &&
+    !foraDoRaio &&
+    nome.trim() &&
+    telValido &&
+    emailValido &&
+    (tipo === 'levar' || morada.trim()) &&
+    metodo &&
+    idade &&
+    aceito
+
+  // ── Criar encomenda + iniciar pagamento ──
+  async function finalizar() {
+    if (!podeFinalizar || aFinalizar) return
+    setAFinalizar(true)
+    setErroPag('')
+    try {
+      const itens = Object.entries(carrinho).map(([chave, qtd]) => {
+        const partes = chave.split(':')
+        if (partes[0] === 'c') return { combo_id: partes[1], quantidade: qtd }
+        return {
+          product_id: partes[1],
+          variant_id: partes[2] === 'v' ? partes[3] : null,
+          quantidade: qtd,
+        }
+      })
+
+      const { data, error } = await supabase
+        .rpc('criar_pedido_online', {
+          p_nome: nome.trim(),
+          p_telefone: telefone,
+          p_email: email.trim(),
+          p_tipo: tipo,
+          p_morada: tipo === 'entrega' ? morada.trim() : null,
+          p_distancia: tipo === 'entrega' ? distancia : 0,
+          p_metodo: metodo,
+          p_idade_ok: idade,
+          p_aceitou: aceito,
+          p_itens: itens,
+        })
+        .single()
+
+      if (error || !data) {
+        setErroPag('Não foi possível criar a encomenda. Confirma os dados e tenta de novo.')
+        setAFinalizar(false)
+        return
+      }
+
+      setPedido(data)
+      setFase('pagamento')
+
+      // Inicia o pagamento no servidor (chave IfThenPay nunca vem ao browser).
+      const resp = await fetch('/api/pagamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pedido_id: data.id, telefone }),
+      })
+      const j = await resp.json().catch(() => ({}))
+      if (!resp.ok) {
+        setErroPag(j.erro || 'Não foi possível iniciar o pagamento.')
+        return
+      }
+      if (j.metodo === 'multibanco') setRefMB({ entidade: j.entidade, referencia: j.referencia, valor: j.valor })
+    } catch {
+      setErroPag('Erro de ligação. Tenta novamente.')
+    } finally {
+      setAFinalizar(false)
+    }
+  }
+
+  // ── Polling do estado do pagamento (fase 'pagamento') ──
+  const intervaloRef = useRef(null)
+  useEffect(() => {
+    if (fase !== 'pagamento' || !pedido) return
+    let vivo = true
+    async function verificar() {
+      try {
+        const r = await fetch(`/api/pagamento-estado?pedido_id=${pedido.id}`)
+        const j = await r.json().catch(() => ({}))
+        if (vivo && j.pago) {
+          setFase('confirmado')
+        }
+      } catch {
+        /* tenta na próxima */
+      }
+    }
+    verificar()
+    intervaloRef.current = setInterval(verificar, 4000)
+    return () => {
+      vivo = false
+      clearInterval(intervaloRef.current)
+    }
+  }, [fase, pedido])
+
   // ── Gate: só visível com o interruptor ligado (ou ?preview) ──
   if (config && !cfg.ativo && !preview) {
     return (
@@ -191,14 +303,6 @@ function Restaurante() {
     )
   }
 
-  const podeFinalizar =
-    nItens > 0 &&
-    !abaixoMinimo &&
-    !foraDoRaio &&
-    nome.trim() &&
-    (tipo === 'levar' || morada.trim()) &&
-    (quando === 'na_entrega' || metodo)
-
   return (
     <main className="bg-creme-50 text-grafite-800">
       <SEOHead title="Restaurante Online | 100PRESSÃO" description="Encomende do 100PRESSÃO para entrega ou levantamento." path="/restaurante" />
@@ -211,11 +315,12 @@ function Restaurante() {
           <p className="text-sm text-grafite-600/70">Entrega e levantamento · sem taxas de plataforma</p>
         </header>
 
-        {/* Faixa de simulação — honestidade enquanto pagamento/mapa não ligam */}
-        <div className="mt-5 rounded-xl border border-ambar-500/50 bg-ambar-500/10 px-4 py-3 text-sm text-grafite-800">
-          <strong>Pré-visualização.</strong> Este canal ainda é uma simulação: o pedido
-          não é criado nem cobrado. Falta ligar o cálculo de distância e o pagamento.
-        </div>
+        {preview && !cfg.ativo && (
+          <div className="mt-5 rounded-xl border border-ambar-500/50 bg-ambar-500/10 px-4 py-3 text-sm text-grafite-800">
+            <strong>Pré-visualização.</strong> O canal ainda está desligado para o público, mas
+            o checkout é real: encomendas criadas aqui são reais e cobradas.
+          </div>
+        )}
 
         {/* ── MENU ── */}
         {fase === 'menu' && (
@@ -267,6 +372,9 @@ function Restaurante() {
                   Grátis até {cfg.km_gratis} km; acima, {fmt(cfg.taxa_base)} + {fmt(cfg.preco_km)}/km, até {cfg.raio_max} km. Encomenda mínima {fmt(cfg.min_encomenda)}.
                 </p>
               )}
+              <p className="mt-2 text-xs text-grafite-600/70">
+                Preparação em cerca de {cfg.prazo_preparacao} min{tipo === 'entrega' ? ', mais o tempo de entrega conforme a distância.' : ' (avisamos quando estiver pronto para levantar).'}
+              </p>
             </div>
 
             {/* Dados */}
@@ -277,6 +385,9 @@ function Restaurante() {
               </label>
               <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Telemóvel
                 <input value={telefone} onChange={(e) => setTelefone(e.target.value.replace(/\D/g, '').slice(0, 9))} inputMode="numeric" className={CAMPO} placeholder="9xx xxx xxx" />
+              </label>
+              <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Email
+                <input value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" className={CAMPO} placeholder="para a confirmação da encomenda" />
               </label>
               {tipo === 'entrega' && (
                 <>
@@ -299,47 +410,121 @@ function Restaurante() {
 
             {/* Pagamento */}
             <div className="rounded-2xl border border-creme-300 bg-white/70 p-6">
-              <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Pagamento</h2>
-              <div className="mt-3 flex gap-3">
-                {[{ id: 'online', r: 'Pagar online' }, { id: 'na_entrega', r: tipo === 'entrega' ? 'Pagar na entrega' : 'Pagar ao levantar' }].map((o) => (
-                  <button key={o.id} type="button" onClick={() => setQuando(o.id)} className={quando === o.id ? BOTAO : BOTAO_SEC}>{o.r}</button>
+              <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Pagamento online</h2>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {[{ id: 'mbway', r: 'MB Way' }, { id: 'multibanco', r: 'Multibanco' }].map((m) => (
+                  <button key={m.id} type="button" onClick={() => setMetodo(m.id)} className={`rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest ${metodo === m.id ? 'border-ambar-500 bg-ambar-500/15 text-grafite-900' : 'border-creme-300 text-grafite-600/70'}`}>{m.r}</button>
                 ))}
               </div>
-              {quando === 'online' && (
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  {[{ id: 'mbway', r: 'MB Way' }, { id: 'multibanco', r: 'Multibanco' }, { id: 'cartao', r: 'Cartão' }].map((m) => (
-                    <button key={m.id} type="button" onClick={() => setMetodo(m.id)} className={`rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest ${metodo === m.id ? 'border-ambar-500 bg-ambar-500/15 text-grafite-900' : 'border-creme-300 text-grafite-600/70'}`}>{m.r}</button>
-                  ))}
-                </div>
-              )}
+              <p className="mt-2 text-xs text-grafite-600/70">
+                {metodo === 'mbway'
+                  ? 'Recebes um pedido de pagamento na app MB WAY, no número acima.'
+                  : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}
+              </p>
             </div>
 
-            {/* Resumo */}
+            {/* Resumo + alergénios (Brandão C) */}
             <div className="rounded-2xl border border-creme-300 bg-white/70 p-6">
-              <div className="flex justify-between text-sm text-grafite-600"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+              <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Resumo</h2>
+              <ul className="mt-3 space-y-2 text-sm">
+                {linhas.map((l) => (
+                  <li key={l.chave} className="border-b border-creme-200 pb-2 last:border-0">
+                    <div className="flex justify-between text-grafite-800">
+                      <span>{l.qtd}× {l.nome}</span>
+                      <span>{fmt(l.preco * l.qtd)}</span>
+                    </div>
+                    {l.alergenios && (
+                      <p className="mt-0.5 text-xs text-grafite-600/70">Alergénios: {l.alergenios}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex justify-between text-sm text-grafite-600"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
               {tipo === 'entrega' && <div className="mt-1 flex justify-between text-sm text-grafite-600"><span>Portes {portes === 0 ? '(grátis)' : ''}</span><span>{fmt(portes)}</span></div>}
               <div className="mt-2 flex justify-between border-t border-creme-300 pt-2 font-display text-lg font-bold text-grafite-900"><span>Total</span><span>{fmt(total)}</span></div>
               {abaixoMinimo && <p className="mt-2 text-sm text-red-600">Encomenda mínima de {fmt(cfg.min_encomenda)} para entrega. Faltam {fmt(cfg.min_encomenda - subtotal)}.</p>}
               {foraDoRaio && <p className="mt-2 text-sm text-red-600">Fora da área de entrega (máx. {cfg.raio_max} km). Escolhe levantamento ou uma morada mais próxima.</p>}
-              <button type="button" disabled={!podeFinalizar} onClick={() => setFase('confirmado')} className={`${BOTAO} mt-4 w-full`}>Finalizar (simulação)</button>
+              <p className="mt-3 text-xs text-grafite-600/70">
+                Informação de alergénios por petisco acima; para dúvidas específicas, fala connosco antes de encomendar.
+              </p>
             </div>
+
+            {/* Confirmações legais (Brandão E + J) */}
+            <div className="rounded-2xl border border-creme-300 bg-white/70 p-6 space-y-3">
+              <label className="flex items-start gap-3 text-sm text-grafite-700">
+                <input type="checkbox" checked={idade} onChange={(e) => setIdade(e.target.checked)} className="mt-1 h-4 w-4 accent-ambar-500" />
+                <span>Confirmo que tenho <strong>18 anos ou mais</strong> (a encomenda pode incluir bebidas alcoólicas).</span>
+              </label>
+              <label className="flex items-start gap-3 text-sm text-grafite-700">
+                <input type="checkbox" checked={aceito} onChange={(e) => setAceito(e.target.checked)} className="mt-1 h-4 w-4 accent-ambar-500" />
+                <span>Li e aceito as <Link to="/condicoes-venda" target="_blank" className="font-semibold text-cobre-600 underline-offset-4 hover:underline">Condições de Venda</Link>.</span>
+              </label>
+            </div>
+
+            {erroPag && <p className="text-sm text-red-600">{erroPag}</p>}
+
+            <button type="button" disabled={!podeFinalizar || aFinalizar} onClick={finalizar} className={`${BOTAO} w-full`}>
+              {aFinalizar ? 'A processar…' : `Encomenda com obrigação de pagar · ${fmt(total)}`}
+            </button>
           </div>
         )}
 
-        {/* ── CONFIRMADO (simulação) ── */}
-        {fase === 'confirmado' && (
+        {/* ── PAGAMENTO ── */}
+        {fase === 'pagamento' && pedido && (
           <div className="mt-10 rounded-2xl border border-creme-300 bg-white/70 p-8 text-center">
-            <p className="font-display text-2xl font-bold uppercase text-ambar-600">Simulação concluída ✓</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-cobre-600">Encomenda nº {pedido.numero}</p>
+            {metodo === 'mbway' ? (
+              <>
+                <p className="mt-3 font-display text-2xl font-bold uppercase text-ambar-600">Confirma na app MB WAY</p>
+                <p className="mt-3 text-grafite-600">
+                  Enviámos um pedido de <strong>{fmt(pedido.total)}</strong> para o telemóvel <strong>{telefone}</strong>.
+                  Abre a app MB WAY e confirma. Esta página avança sozinha quando o pagamento for aceite.
+                </p>
+                <div className="mt-6 flex items-center justify-center gap-2 text-sm text-grafite-600/70">
+                  <span className="h-3 w-3 animate-pulse rounded-full bg-ambar-500" /> À espera da confirmação…
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mt-3 font-display text-2xl font-bold uppercase text-ambar-600">Referência Multibanco</p>
+                {refMB ? (
+                  <div className="mx-auto mt-4 max-w-xs rounded-xl border border-creme-300 bg-creme-50 p-5 text-left">
+                    <p className="flex justify-between"><span className="text-grafite-600/70">Entidade</span><strong className="tracking-widest">{refMB.entidade}</strong></p>
+                    <p className="mt-2 flex justify-between"><span className="text-grafite-600/70">Referência</span><strong className="tracking-widest">{refMB.referencia}</strong></p>
+                    <p className="mt-2 flex justify-between"><span className="text-grafite-600/70">Valor</span><strong>{fmt(pedido.total)}</strong></p>
+                  </div>
+                ) : (
+                  <p className="mt-4 text-grafite-600/70">A gerar referência…</p>
+                )}
+                <p className="mt-4 text-grafite-600">
+                  Paga por Multibanco ou homebanking. Assim que o pagamento entrar, recebes um email de
+                  confirmação e a encomenda vai para a cozinha. Podes fechar esta página.
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-2 text-sm text-grafite-600/70">
+                  <span className="h-3 w-3 animate-pulse rounded-full bg-ambar-500" /> A aguardar pagamento…
+                </div>
+              </>
+            )}
+            {erroPag && <p className="mt-4 text-sm text-red-600">{erroPag}</p>}
+          </div>
+        )}
+
+        {/* ── CONFIRMADO ── */}
+        {fase === 'confirmado' && pedido && (
+          <div className="mt-10 rounded-2xl border border-creme-300 bg-white/70 p-8 text-center">
+            <p className="font-display text-2xl font-bold uppercase text-ambar-600">Encomenda nº {pedido.numero} confirmada ✓</p>
             <p className="mt-3 text-grafite-600">
-              Obrigado, {nome || 'cliente'}! Numa versão real, o teu pedido ({tipo === 'entrega' ? 'entrega' : 'levantamento'}) de
-              {' '}{fmt(total)} seria {quando === 'online' ? `pago online por ${metodo}` : 'pago na entrega'} e criado na cozinha.
-              Nenhum pedido real foi criado.
+              Obrigado, {nome || 'cliente'}! Recebemos o pagamento de {fmt(pedido.total)} e já estamos a preparar.
+              Enviámos a confirmação para {email}.
+              {tipo === 'entrega'
+                ? ' Vamos a caminho assim que estiver pronto.'
+                : ` Podes levantar no restaurante em cerca de ${cfg.prazo_preparacao} min.`}
             </p>
-            <button type="button" onClick={() => { setCarrinho({}); setFase('menu') }} className={`${BOTAO} mt-6`}>Nova simulação</button>
+            <button type="button" onClick={() => { setCarrinho({}); setPedido(null); setRefMB(null); setFase('menu') }} className={`${BOTAO} mt-6`}>Nova encomenda</button>
 
             <div className="mt-8 border-t border-creme-300 pt-6 text-left">
               <p className="text-center text-sm text-grafite-600">
-                Ajuda-nos a acertar antes de abrir: deixa a tua sugestão aqui ou
+                Deixa a tua sugestão aqui ou
                 {' '}
                 <a href={WHATSAPP_SUGESTAO} target="_blank" rel="noopener noreferrer" className="font-semibold text-cobre-600 underline-offset-4 hover:underline">
                   pelo WhatsApp
