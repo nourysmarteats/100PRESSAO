@@ -16,6 +16,14 @@ const haDias = (n) => {
   return iso(d)
 }
 const abaixoMin = (it) => Number(it.alerta_minimo) > 0 && Number(it.quantidade) <= Number(it.alerta_minimo)
+
+// Alvo de reposição: a quantidade ideal definida no Stock; se ainda não estiver
+// preenchida, sugere-se o dobro do alerta para a lista ser útil desde o início.
+const alvoReposicao = (it) =>
+  it.quantidade_ideal != null && it.quantidade_ideal !== ''
+    ? Number(it.quantidade_ideal)
+    : Number(it.alerta_minimo) * 2
+const alvoSugerido = (it) => it.quantidade_ideal == null || it.quantidade_ideal === ''
 const ROTULO_MOV = {
   entrada: { rotulo: 'Entrada', sinal: '+', cor: 'text-green-600' },
   saida: { rotulo: 'Saída', sinal: '−', cor: 'text-red-600' },
@@ -78,7 +86,9 @@ function Relatorios({ irPara }) {
     let ativo = true
     ;(async () => {
       const [ri, rm] = await Promise.all([
-        supabase.from('stock_items').select('nome, unidade, quantidade, alerta_minimo, custo'),
+        supabase
+          .from('stock_items')
+          .select('id, nome, categoria, unidade, quantidade, alerta_minimo, quantidade_ideal, custo'),
         supabase
           .from('stock_movements')
           .select('id, tipo, quantidade, motivo, criado_em, stock_items(nome, unidade)')
@@ -99,6 +109,68 @@ function Relatorios({ irPara }) {
 
   const baixos = (itens || []).filter(abaixoMin)
   const valor = (itens || []).reduce((s, i) => s + (i.custo != null ? Number(i.quantidade) * Number(i.custo) : 0), 0)
+
+  // ── Lista de compras ──
+  // Parte dos itens que atingiram o ponto de encomenda (no mínimo ou abaixo) e
+  // calcula quanto falta comprar para chegar ao alvo. Agrupada por categoria,
+  // que é como se anda numa loja de fornecedores.
+  const listaCompras = useMemo(() => {
+    const linhas = baixos
+      .map((it) => {
+        const comprar = alvoReposicao(it) - Number(it.quantidade)
+        return {
+          ...it,
+          comprar,
+          alvo: alvoReposicao(it),
+          sugerido: alvoSugerido(it),
+          custoLinha: it.custo != null ? comprar * Number(it.custo) : null,
+        }
+      })
+      .filter((l) => l.comprar > 0)
+
+    const grupos = new Map()
+    linhas.forEach((l) => {
+      const cat = l.categoria || 'Sem categoria'
+      if (!grupos.has(cat)) grupos.set(cat, [])
+      grupos.get(cat).push(l)
+    })
+    return {
+      grupos: [...grupos.entries()]
+        .map(([categoria, itens]) => ({
+          categoria,
+          itens: itens.sort((a, b) => a.nome.localeCompare(b.nome, 'pt')),
+        }))
+        .sort((a, b) => a.categoria.localeCompare(b.categoria, 'pt')),
+      total: linhas.reduce((s, l) => s + (l.custoLinha || 0), 0),
+      nLinhas: linhas.length,
+      semCusto: linhas.some((l) => l.custoLinha == null),
+    }
+  }, [baixos])
+
+  const [copiado, setCopiado] = useState(false)
+  async function copiarLista() {
+    const texto = [
+      `Lista de compras — 100PRESSÃO (${new Date().toLocaleDateString('pt-PT')})`,
+      '',
+      ...listaCompras.grupos.flatMap((g) => [
+        g.categoria.toUpperCase(),
+        ...g.itens.map(
+          (l) => `- ${l.nome}: ${nf(l.comprar)} ${l.unidade} (tenho ${nf(l.quantidade)}, alvo ${nf(l.alvo)})`,
+        ),
+        '',
+      ]),
+      listaCompras.total > 0 ? `Total estimado: ${nf(listaCompras.total)} €` : '',
+    ]
+      .join('\n')
+      .trim()
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2500)
+    } catch {
+      setCopiado(false)
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -205,21 +277,73 @@ function Relatorios({ irPara }) {
               ))}
             </div>
 
-            {baixos.length > 0 && (
-              <div className="mt-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-600">A repor (abaixo do mínimo)</p>
-                <ul className="mt-2 space-y-1">
-                  {baixos.map((it) => (
-                    <li key={it.nome} className={`${CARTAO} flex items-center justify-between px-4 py-2 text-sm`}>
-                      <span className="text-grafite-900">{it.nome}</span>
-                      <span className="text-red-600">
-                        <strong>{nf(it.quantidade)} {it.unidade}</strong> · mín. {nf(it.alerta_minimo)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+            {/* Lista de compras — os itens no ponto de encomenda, já com a
+                quantidade a comprar e o custo estimado, agrupados por categoria */}
+            <div className="mt-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-600">
+                  Lista de compras
+                </p>
+                {listaCompras.nLinhas > 0 && (
+                  <button
+                    type="button"
+                    onClick={copiarLista}
+                    className="cursor-pointer rounded-full border border-creme-300 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-600 transition-colors hover:border-grafite-600"
+                  >
+                    {copiado ? 'Copiada ✓' : 'Copiar lista'}
+                  </button>
+                )}
               </div>
-            )}
+
+              {listaCompras.nLinhas === 0 ? (
+                <p className="mt-2 text-sm text-grafite-600/70">
+                  Nada a repor — nenhum item chegou ao mínimo.
+                </p>
+              ) : (
+                <>
+                  {listaCompras.grupos.map((g) => (
+                    <div key={g.categoria} className="mt-3">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">
+                        {g.categoria}
+                      </p>
+                      <ul className="mt-1.5 space-y-1">
+                        {g.itens.map((l) => (
+                          <li key={l.id} className={`${CARTAO} flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-2 text-sm`}>
+                            <span className="text-grafite-900">
+                              {l.nome}
+                              <span className="ml-2 text-xs text-grafite-600/70">
+                                tenho {nf(l.quantidade)} · alvo {nf(l.alvo)}
+                                {l.sugerido && <span title="Define a quantidade ideal no painel Stock"> (sugerido)</span>}
+                              </span>
+                            </span>
+                            <span className="whitespace-nowrap">
+                              <strong className="font-display text-base text-grafite-900">
+                                {nf(l.comprar)} {l.unidade}
+                              </strong>
+                              {l.custoLinha != null && (
+                                <span className="ml-2 text-grafite-600/70">≈ {nf(l.custoLinha)} €</span>
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+
+                  <div className="mt-3 flex items-baseline justify-between border-t border-creme-300 pt-3">
+                    <span className="text-sm text-grafite-600">
+                      {listaCompras.nLinhas} {listaCompras.nLinhas === 1 ? 'item' : 'itens'} a comprar
+                      {listaCompras.semCusto && (
+                        <span className="text-grafite-600/70"> · alguns sem custo definido</span>
+                      )}
+                    </span>
+                    <span className="font-display text-lg font-bold text-grafite-900">
+                      ≈ {nf(listaCompras.total)} €
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
 
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-grafite-600/70">Movimentos recentes</p>

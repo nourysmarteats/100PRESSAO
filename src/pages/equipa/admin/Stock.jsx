@@ -14,6 +14,7 @@ const ITEM_VAZIO = {
   subcategoria: '',
   unidade: 'unidade',
   alerta_minimo: '',
+  quantidade_ideal: '',
   custo: '',
   quantidade: '',
   vender_ementa: false,
@@ -172,6 +173,7 @@ function Stock() {
             subcategoria: it.subcategoria || '',
             unidade: it.unidade || 'unidade',
             alerta_minimo: it.alerta_minimo ?? '',
+            quantidade_ideal: it.quantidade_ideal ?? '',
             custo: it.custo ?? '',
             quantidade: '',
             vender_ementa: it.vender_ementa ?? false,
@@ -195,6 +197,7 @@ function Stock() {
       subcategoria: form.subcategoria.trim() || null,
       unidade: form.unidade.trim() || 'unidade',
       alerta_minimo: form.alerta_minimo === '' ? 0 : Number(form.alerta_minimo),
+      quantidade_ideal: form.quantidade_ideal === '' ? null : Number(form.quantidade_ideal),
       custo: form.custo === '' ? null : Number(form.custo),
     }
     let itemId = emEdicao
@@ -461,6 +464,13 @@ function Stock() {
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Alerta de stock baixo</span>
             <input value={form.alerta_minimo} onChange={alterar('alerta_minimo')} type="number" step="0.01" min="0" className={CAMPO} placeholder="0 = sem alerta" />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Quantidade ideal</span>
+            <input value={form.quantidade_ideal} onChange={alterar('quantidade_ideal')} type="number" step="0.01" min="0" className={CAMPO} placeholder="quanto queres ter depois de repor" />
+            <span className="mt-1 block text-xs text-grafite-600/70">
+              Alvo da lista de compras nos Relatórios. Em branco, sugere o dobro do alerta.
+            </span>
           </label>
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Custo por unidade (€)</span>

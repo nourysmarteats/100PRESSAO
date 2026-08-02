@@ -184,23 +184,39 @@ function Cardapio() {
     }
   }, [])
 
-  // Realtime: acompanhar o estado do pedido submetido
+  // Acompanhar o estado do pedido submetido.
+  //
+  // Isto era uma subscrição Realtime a public.orders, que deixou de funcionar
+  // quando a leitura da tabela passou a exigir conta de equipa (correção da
+  // exposição de dados, 2026-07-20): o Realtime aplica RLS, por isso o cliente
+  // anónimo nunca recebia os UPDATE e ficava preso em "Recebido". Reabrir a
+  // leitura de orders recriaria a exposição, pelo que se consulta a RPC
+  // estado_pedido — devolve só o estado, e o UUID do pedido serve de credencial.
   useEffect(() => {
     if (!supabase || !pedido?.id) return
-    const canal = supabase
-      .channel(`pedido-${pedido.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${pedido.id}` },
-        (payload) => {
-          setPedido((p) => (p ? { ...p, estado: payload.new.estado } : p))
-        },
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(canal)
+    if (pedido.estado === 'entregue') return // estado final: não vale a pena continuar
+
+    let ativo = true
+    async function sincronizar() {
+      const { data, error } = await supabase.rpc('estado_pedido', { p_id: pedido.id })
+      if (!ativo || error || !data) return
+      setPedido((p) => (p && p.estado !== data ? { ...p, estado: data } : p))
     }
-  }, [pedido?.id])
+
+    sincronizar()
+    const relogio = setInterval(sincronizar, 10000)
+    // Ao voltar ao separador (o cliente sai da app enquanto espera), atualiza já
+    const aoVoltar = () => {
+      if (document.visibilityState === 'visible') sincronizar()
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+
+    return () => {
+      ativo = false
+      clearInterval(relogio)
+      document.removeEventListener('visibilitychange', aoVoltar)
+    }
+  }, [pedido?.id, pedido?.estado])
 
   function mostrarAviso(msg) {
     setAviso(msg)

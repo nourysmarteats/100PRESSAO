@@ -13,7 +13,9 @@
 //
 // Registado em src/main.jsx, só em produção.
 
-const CACHE_VERSION = 'v1'
+// Subir a versão faz o activate apagar as caches antigas — necessário aqui
+// para descartar as entradas de menu guardadas pela estratégia anterior.
+const CACHE_VERSION = 'v2'
 const SHELL_CACHE = `100p-shell-${CACHE_VERSION}`
 const MENU_CACHE = `100p-menu-${CACHE_VERSION}`
 
@@ -77,18 +79,25 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Leituras do cardápio (Supabase) — stale-while-revalidate.
+  // Leituras do cardápio (Supabase) — rede primeiro, cache só como rede de
+  // segurança.
+  //
+  // Era stale-while-revalidate, que devolvia sempre a cópia guardada e só
+  // atualizava a cache depois. Isso fazia com que, no admin, gravar um produto
+  // e voltar a ler mostrasse a versão antiga — era preciso recarregar a página
+  // para ver a alteração. O objetivo do cache é aguentar uma quebra do Wi-Fi do
+  // mercado, não poupar milissegundos, e network-first cumpre-o na mesma:
+  // online lê-se sempre o que está na base de dados; offline cai na cache.
   if (isMenuRead(url)) {
     event.respondWith(
       caches.open(MENU_CACHE).then(async (cache) => {
-        const cached = await cache.match(request)
-        const emRede = fetch(request)
-          .then((resp) => {
-            if (resp.ok) cache.put(request, resp.clone())
-            return resp
-          })
-          .catch(() => null)
-        return cached || (await emRede) || Response.error()
+        try {
+          const resp = await fetch(request)
+          if (resp.ok) cache.put(request, resp.clone())
+          return resp
+        } catch {
+          return (await cache.match(request)) || Response.error()
+        }
       }),
     )
     return
