@@ -20,7 +20,10 @@ const WHATSAPP_SUGESTAO =
   'https://wa.me/351935995011?text=' +
   encodeURIComponent('Olá 100PRESSÃO! Experimentei o restaurante online e queria deixar uma sugestão: ')
 
-// Frame real do balcão (o mesmo poster do vídeo do Quem Somos) como capa da loja.
+// Capa da loja: o vídeo do balcão, com o poster por baixo. O poster fica
+// visível se o autoplay for bloqueado (iOS em poupança de energia) ou enquanto
+// o vídeo não arranca — nunca se vê um retângulo preto.
+const CAPA_VIDEO = '/quem-somos-banner.mp4'
 const CAPA_URL = '/quem-somos-poster.jpg'
 const ETIQUETAS = ['Cervejaria', 'Petiscos', 'Luso-brasileiro']
 
@@ -815,6 +818,15 @@ function Restaurante() {
 
 // ── Cabeçalho da loja: capa, carimbo e barra de info ──
 function CabecalhoLoja({ tipo, cfg }) {
+  const videoRef = useRef(null)
+  const [videoAtivo, setVideoAtivo] = useState(false)
+
+  // iOS/Android podem ignorar o autoplay declarativo (ex.: modo poupança de
+  // bateria); repetir via API dá uma segunda oportunidade sem afetar o desktop.
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {})
+  }, [])
+
   const informacoes = [
     {
       rotulo: 'Preparação',
@@ -833,17 +845,35 @@ function CabecalhoLoja({ tipo, cfg }) {
   return (
     <header>
       <div className="relative h-44 overflow-hidden bg-grafite-900 sm:h-60">
-        <img src={CAPA_URL} alt="" aria-hidden="true" className="h-full w-full object-cover opacity-70" />
+        {/* Poster sempre presente por baixo; o vídeo aparece em fade quando toca */}
+        <img src={CAPA_URL} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-70" />
+        <video
+          ref={videoRef}
+          src={CAPA_VIDEO}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          poster={CAPA_URL}
+          aria-hidden="true"
+          onPlaying={() => setVideoAtivo(true)}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
+            videoAtivo ? 'opacity-70' : 'opacity-0'
+          }`}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-grafite-950/90 via-grafite-950/30 to-grafite-950/50" />
       </div>
       <div className="mx-auto max-w-6xl px-6">
-        {/* Carimbo a cavalo na capa, como o avatar da loja nas plataformas */}
+        {/* Carimbo a cavalo na capa, como o avatar da loja nas plataformas.
+            `relative` é obrigatório: a capa é posicionada e, sem isto, pintava
+            por cima da metade superior do carimbo. */}
         <img
           src={logoStamp}
           alt="Logótipo 100PRESSÃO"
           width="640"
           height="640"
-          className="-mt-14 h-24 w-24 rounded-full border-4 border-creme-50 bg-grafite-900 sm:h-28 sm:w-28"
+          className="relative -mt-14 h-24 w-24 rounded-full border-4 border-creme-50 bg-grafite-900 sm:h-28 sm:w-28"
         />
         <p className="mt-3 text-xs font-semibold uppercase tracking-[0.25em] text-cobre-600">
           Restaurante Online
