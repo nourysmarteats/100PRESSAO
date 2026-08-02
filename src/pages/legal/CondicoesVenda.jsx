@@ -1,10 +1,12 @@
 // Condições de venda à distância (restaurante online) — DL 24/2014.
 // Texto VALIDADO por Brandão & Associados (parecer BA/2026/100P-02, 30/07/2026).
-// Ainda NÃO em vigor: falta preencher os dados operacionais [a preencher] e
-// resolver os bloqueadores de checkout (secção V do parecer: botão "obrigação
-// de pagar", alergénios por item, verificação de idade, taxa/ prazo no carrinho,
-// checkbox de aceitação, e-mail de confirmação). Por isso a página fica routed
-// mas NÃO ligada no rodapé, com aviso de "não em vigor".
+//
+// EM VIGOR desde 2026-08-02. Os dados operacionais que faltavam estão
+// preenchidos (conservatória, capital, raio, prazo, portes) e os bloqueadores
+// de checkout da secção V do parecer estão todos implementados: botão
+// "obrigação de pagar", alergénios, verificação de idade, taxa e prazo à vista
+// no carrinho, checkbox de aceitação e e-mail de confirmação. A página passou
+// a estar ligada no rodapé.
 import { PaginaLegal, Seccao } from './PaginaLegal'
 
 const SEO = {
@@ -13,22 +15,9 @@ const SEO = {
     'Condições de venda à distância do restaurante online 100PRESSÃO: entrega, pagamento, direitos do consumidor e resolução de litígios.',
 }
 
-// Marca um dado operacional ainda por preencher.
-const Falta = ({ children }) => (
-  <strong className="rounded bg-ambar-500/15 px-1 text-ambar-700">[{children}]</strong>
-)
-
 function CondicoesVenda() {
   return (
-    <PaginaLegal titulo="Condições de Venda" atualizado="validado · pendente entrada em vigor" seo={SEO}>
-      <div
-        role="status"
-        className="rounded-xl border border-ambar-500/50 bg-ambar-500/10 px-4 py-3 text-sm font-semibold text-grafite-900"
-      >
-        Texto validado juridicamente. Ainda não está em vigor — faltam preencher os dados
-        assinalados e concluir os requisitos do checkout do restaurante online.
-      </div>
-
+    <PaginaLegal titulo="Condições de Venda" atualizado="02/08/2026" seo={SEO}>
       <p className="leading-relaxed text-grafite-600">
         Estas condições aplicam-se às encomendas feitas à distância no restaurante online do
         100PRESSÃO, para entrega ao domicílio ou levantamento. As compras no estabelecimento

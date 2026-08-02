@@ -174,6 +174,11 @@ function Footer() {
             <Link to="/termos" className="transition-colors hover:text-creme-50">
               Termos
             </Link>
+            {/* Exigido pelo DL 24/2014 para a venda à distância; tem de estar
+                acessível de qualquer página, não só a partir do checkout. */}
+            <Link to="/condicoes-venda" className="transition-colors hover:text-creme-50">
+              Condições de Venda
+            </Link>
             <a
               href="https://www.livroreclamacoes.pt/"
               target="_blank"
