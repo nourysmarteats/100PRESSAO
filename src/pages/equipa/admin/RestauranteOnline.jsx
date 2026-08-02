@@ -12,6 +12,7 @@ import { useAviso, BOTAO_PRIMARIO, CARTAO, CAMPO } from './comuns'
 // loja iguais às do mapa da página Contacto (Carnaxide).
 const CONFIG_INICIAL = {
   ativo: false,
+  cartao_ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
   taxa_base: 1.6,
@@ -76,6 +77,7 @@ function RestauranteOnline() {
     setOcupado(true)
     const valor = {
       ativo: !!cfg.ativo,
+      cartao_ativo: !!cfg.cartao_ativo,
       min_encomenda: num(cfg.min_encomenda, 0),
       km_gratis: num(cfg.km_gratis, 0),
       taxa_base: num(cfg.taxa_base, 0),
@@ -129,6 +131,30 @@ function RestauranteOnline() {
               levantamento no site. Mantém desligado até tudo estar pronto
               (preços online, pagamento e chave de mapas). O atendimento à mesa
               não é afetado por isto.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      {/* Pagamento por cartão — só depois de contratado no IfThenPay */}
+      <div className={`${CARTAO} p-6`}>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={!!cfg.cartao_ativo}
+            onChange={(e) => setCfg((c) => ({ ...c, cartao_ativo: e.target.checked }))}
+            className="mt-1 h-5 w-5 accent-ambar-500"
+          />
+          <span>
+            <span className="font-display text-lg font-bold uppercase text-grafite-900">
+              Aceitar cartão de crédito/débito
+            </span>
+            <span className="mt-1 block text-sm text-grafite-600/70">
+              Acrescenta "Cartão" aos métodos de pagamento do checkout. Só ligar
+              depois de o cartão estar contratado no IfThenPay <em>e</em> da chave
+              IFTHENPAY_CCARD_KEY estar no Vercel — caso contrário o cliente
+              escolhe cartão e o pagamento falha. MB Way e Multibanco não
+              dependem disto.
             </span>
           </span>
         </label>

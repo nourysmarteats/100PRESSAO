@@ -31,8 +31,12 @@ const ETIQUETAS = ['Cervejaria', 'Petiscos', 'Luso-brasileiro']
 // para o sticky dos chips e para o destino do scroll ao saltar de categoria.
 const ALTURA_HEADER = { movel: 88, grande: 104 }
 
+// Guarda a encomenda enquanto o cliente está na página de cartão do IfThenPay.
+const CHAVE_PAGAMENTO = '100p:pagamento-cartao'
+
 const CONFIG_INICIAL = {
   ativo: false,
+  cartao_ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
   taxa_base: 1.6,
@@ -393,6 +397,22 @@ function Restaurante() {
         return
       }
       if (j.metodo === 'multibanco') setRefMB({ entidade: j.entidade, referencia: j.referencia, valor: j.valor })
+
+      // Cartão: o cliente sai do site para a página do IfThenPay. Guarda-se o
+      // essencial da encomenda para o ecrã de regresso conseguir mostrá-la
+      // (o estado do React não sobrevive à navegação).
+      if (j.metodo === 'cartao' && j.paymentUrl) {
+        try {
+          sessionStorage.setItem(
+            CHAVE_PAGAMENTO,
+            JSON.stringify({ id: data.id, numero: data.numero, total: data.total, tipo, email: email.trim() }),
+          )
+        } catch {
+          /* sessionStorage indisponível: o regresso usa só o ?pedido= */
+        }
+        window.location.href = j.paymentUrl
+        return
+      }
     } catch {
       setErroPag('Erro de ligação. Tenta novamente.')
     } finally {
@@ -409,9 +429,12 @@ function Restaurante() {
       try {
         const r = await fetch(`/api/pagamento-estado?pedido_id=${pedido.id}`)
         const j = await r.json().catch(() => ({}))
-        if (vivo && j.pago) {
-          setFase('confirmado')
+        if (!vivo) return
+        // Quem volta da página de cartão pode não ter o número/total em memória.
+        if (j.numero != null && pedido.numero == null) {
+          setPedido((p) => (p ? { ...p, numero: j.numero, total: j.total } : p))
         }
+        if (j.pago) setFase('confirmado')
       } catch {
         /* tenta na próxima */
       }
@@ -423,6 +446,43 @@ function Restaurante() {
       clearInterval(intervaloRef.current)
     }
   }, [fase, pedido])
+
+  // ── Regresso da página de cartão do IfThenPay ──
+  // O cliente volta a /restaurante?pedido=<id>&pag=ok|erro|cancelado. O "ok"
+  // não é prova de pagamento (o URL é acessível à mão): serve só para retomar
+  // o ecrã de espera. Quem confirma é o callback, e o polling acima é que
+  // deteta a confirmação na nossa base de dados.
+  useEffect(() => {
+    const idPedido = params.get('pedido')
+    const resultado = params.get('pag')
+    if (!idPedido || !resultado) return
+
+    let guardado = null
+    try {
+      guardado = JSON.parse(sessionStorage.getItem(CHAVE_PAGAMENTO) || 'null')
+    } catch {
+      guardado = null
+    }
+    sessionStorage.removeItem?.(CHAVE_PAGAMENTO)
+
+    setMetodo('cartao')
+    setPedido(guardado?.id === idPedido ? guardado : { id: idPedido, numero: null, total: null })
+    if (guardado?.tipo) setTipo(guardado.tipo)
+    if (guardado?.email) setEmail(guardado.email)
+
+    if (resultado === 'ok') {
+      setFase('pagamento')
+    } else {
+      setFase('pagamento')
+      setErroPag(
+        resultado === 'cancelado'
+          ? 'Cancelaste o pagamento. A encomenda fica por pagar — podes tentar de novo.'
+          : 'O pagamento por cartão não foi concluído. Não te foi cobrado nada.',
+      )
+    }
+    // Só à chegada; a partir daqui o fluxo normal assume.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Gate: só visível com o interruptor ligado (ou ?preview) ──
   if (config && !cfg.ativo && !preview) {
@@ -661,15 +721,23 @@ function Restaurante() {
             {/* Pagamento */}
             <div className="rounded-2xl border border-creme-300 bg-white/70 p-6">
               <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Pagamento online</h2>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                {[{ id: 'mbway', r: 'MB Way' }, { id: 'multibanco', r: 'Multibanco' }].map((m) => (
+              <div className={`mt-3 grid gap-2 ${cfg.cartao_ativo ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                {[
+                  { id: 'mbway', r: 'MB Way' },
+                  { id: 'multibanco', r: 'Multibanco' },
+                  // Só depois de o cartão estar contratado no IfThenPay e a
+                  // chave configurada no Vercel (interruptor no painel Admin).
+                  ...(cfg.cartao_ativo ? [{ id: 'cartao', r: 'Cartão' }] : []),
+                ].map((m) => (
                   <button key={m.id} type="button" onClick={() => setMetodo(m.id)} className={`rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest ${metodo === m.id ? 'border-ambar-500 bg-ambar-500/15 text-grafite-900' : 'border-creme-300 text-grafite-600/70'}`}>{m.r}</button>
                 ))}
               </div>
               <p className="mt-2 text-xs text-grafite-600/70">
                 {metodo === 'mbway'
                   ? 'Recebes um pedido de pagamento na app MB WAY, no número acima.'
-                  : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}
+                  : metodo === 'cartao'
+                    ? 'Vais para a página segura do IfThenPay para introduzir o cartão, e voltas aqui no fim. Aceita Visa e Mastercard, de crédito ou débito.'
+                    : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}
               </p>
             </div>
 
@@ -722,8 +790,32 @@ function Restaurante() {
         {/* ── PAGAMENTO ── */}
         {fase === 'pagamento' && pedido && (
           <div className="mt-10 rounded-2xl border border-creme-300 bg-white/70 p-8 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-cobre-600">Encomenda nº {pedido.numero}</p>
-            {metodo === 'mbway' ? (
+            <p className="text-xs font-semibold uppercase tracking-widest text-cobre-600">
+              {pedido.numero ? `Encomenda nº ${pedido.numero}` : 'A tua encomenda'}
+            </p>
+            {metodo === 'cartao' ? (
+              <>
+                <p className="mt-3 font-display text-2xl font-bold uppercase text-ambar-600">
+                  {erroPag ? 'Pagamento não concluído' : 'A confirmar o pagamento'}
+                </p>
+                {!erroPag && (
+                  <>
+                    <p className="mt-3 text-grafite-600">
+                      Obrigado! Estamos a confirmar o pagamento com o banco. Assim que entrar,
+                      recebes um email de confirmação e a encomenda vai para a cozinha.
+                    </p>
+                    <div className="mt-6 flex items-center justify-center gap-2 text-sm text-grafite-600/70">
+                      <span className="h-3 w-3 animate-pulse rounded-full bg-ambar-500" /> À espera da confirmação…
+                    </div>
+                  </>
+                )}
+                {erroPag && (
+                  <button type="button" onClick={() => { setErroPag(''); setPedido(null); setRefMB(null); setFase('checkout') }} className={`${BOTAO} mt-6`}>
+                    Voltar ao pagamento
+                  </button>
+                )}
+              </>
+            ) : metodo === 'mbway' ? (
               <>
                 <p className="mt-3 font-display text-2xl font-bold uppercase text-ambar-600">Confirma na app MB WAY</p>
                 <p className="mt-3 text-grafite-600">

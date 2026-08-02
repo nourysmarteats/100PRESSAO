@@ -22,12 +22,17 @@ export default async function handler(req, res) {
 
   const { data: pedido } = await admin
     .from('orders')
-    .select('id, estado_pagamento, metodo_pagamento, pagamento_id')
+    .select('id, numero, total, estado_pagamento, metodo_pagamento, pagamento_id')
     .eq('id', pedido_id)
     .single()
   if (!pedido) return res.status(404).json({ erro: 'Encomenda não encontrada.' })
 
-  if (pedido.estado_pagamento === 'pago') return res.status(200).json({ pago: true })
+  // Número e total acompanham a resposta: quem volta da página de cartão do
+  // IfThenPay perdeu o estado do React e precisa deles para o ecrã final.
+  // Não são dados sensíveis e só saem para quem já tem o UUID da encomenda.
+  const dados = { numero: pedido.numero, total: pedido.total }
+
+  if (pedido.estado_pagamento === 'pago') return res.status(200).json({ pago: true, ...dados })
 
   // Salvaguarda MB Way: pergunta diretamente ao IfThenPay.
   if (pedido.metodo_pagamento === 'mbway' && pedido.pagamento_id) {
@@ -43,7 +48,7 @@ export default async function handler(req, res) {
         // No endpoint de STATUS do MB Way, Status "000" = pago.
         if (j.Status === '000') {
           await marcarPago(admin, pedido.id)
-          return res.status(200).json({ pago: true })
+          return res.status(200).json({ pago: true, ...dados })
         }
       } catch {
         /* mantém pendente */
@@ -51,5 +56,5 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).json({ pago: false })
+  return res.status(200).json({ pago: false, ...dados })
 }

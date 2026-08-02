@@ -5,6 +5,9 @@
 //   VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (já existem)
 //   IFTHENPAY_MBWAY_KEY        — chave MB WAY do backoffice IfThenPay
 //   IFTHENPAY_MULTIBANCO_KEY   — chave Multibanco (MB) do backoffice IfThenPay
+//   IFTHENPAY_CCARD_KEY        — chave Cartão de Crédito (só depois de contratado)
+//   SITE_URL (opcional)        — base dos URLs de retorno do cartão; por
+//                                omissão usa o domínio do próprio pedido
 import { createClient } from '@supabase/supabase-js'
 
 const IFT = 'https://api.ifthenpay.com'
@@ -92,6 +95,58 @@ export default async function handler(req, res) {
       .update({ pagamento_ref: ref, pagamento_id: j.RequestId || null })
       .eq('id', pedido.id)
     return res.status(200).json({ metodo: 'multibanco', ...ref })
+  }
+
+  // ── Cartão de crédito/débito: página alojada do IfThenPay ──
+  //
+  // Ao contrário do MB Way e do Multibanco, o cartão é um fluxo de
+  // REDIRECIONAMENTO: devolvemos um PaymentUrl, o cliente vai introduzir os
+  // dados do cartão na página do IfThenPay e volta ao site. Os dados do cartão
+  // nunca passam por este servidor nem pelo browser do nosso site — é o
+  // IfThenPay que os recolhe, no domínio deles.
+  //
+  // O successUrl NÃO confirma o pagamento: é só para onde o cliente é enviado
+  // de volta e qualquer pessoa lhe pode aceder à mão. Quem marca a encomenda
+  // como paga continua a ser o callback servidor-a-servidor
+  // (api/ifthenpay-callback.js), que é a fonte de verdade. O ecrã de retorno
+  // limita-se a fazer polling até o callback ter chegado.
+  if (metodo === 'cartao') {
+    const key = process.env.IFTHENPAY_CCARD_KEY
+    if (!key) {
+      return res.status(500).json({ erro: 'IFTHENPAY_CCARD_KEY não configurada no Vercel.' })
+    }
+
+    // Base do site a partir do pedido: é o domínio onde o cliente está.
+    const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0]
+    const host = req.headers['x-forwarded-host'] || req.headers.host
+    const base = process.env.SITE_URL || `${proto}://${host}`
+    const volta = (estado) =>
+      `${base}/restaurante?pedido=${encodeURIComponent(pedido.id)}&pag=${estado}`
+
+    const r = await fetch(`https://ifthenpay.com/api/creditcard/init/${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId, // numero da encomenda (máx. 15 alfanuméricos)
+        amount,
+        successUrl: volta('ok'),
+        errorUrl: volta('erro'),
+        cancelUrl: volta('cancelado'),
+        language: 'pt',
+      }),
+    })
+    const j = await r.json().catch(() => ({}))
+    const paymentUrl = j.PaymentUrl || j.paymentUrl
+    // Neste endpoint, Status "0" = pedido aceite (difere do MB Way, que usa "000").
+    if (!r.ok || String(j.Status ?? '') !== '0' || !paymentUrl) {
+      console.error('IfThenPay cartão init', r.status, JSON.stringify(j))
+      return res.status(502).json({ erro: j.Message || 'Não foi possível iniciar o pagamento por cartão.' })
+    }
+    await admin
+      .from('orders')
+      .update({ pagamento_id: j.RequestId || null })
+      .eq('id', pedido.id)
+    return res.status(200).json({ metodo: 'cartao', paymentUrl })
   }
 
   return res.status(400).json({ erro: 'Método de pagamento não suportado nesta fase.' })
