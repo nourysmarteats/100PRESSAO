@@ -2,7 +2,6 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
-import EncomendaWhatsApp from '../components/EncomendaWhatsApp'
 import { SEO_PAGES } from '../seo/pages'
 
 const fadeUp = {
@@ -255,9 +254,6 @@ function Home() {
             </Link>
           </motion.div>
         </div>
-
-        {/* Canal remoto (Fase 0): take-away e entrega por WhatsApp */}
-        <EncomendaWhatsApp className="mt-8" />
       </div>
     </main>
   )
