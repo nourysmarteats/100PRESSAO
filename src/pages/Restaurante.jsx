@@ -14,10 +14,19 @@ import { fmt } from '../lib/pedidos'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
 import FormularioFeedback from '../components/FormularioFeedback'
+import logoStamp from '../assets/logo-100pressao.png'
 
 const WHATSAPP_SUGESTAO =
   'https://wa.me/351935995011?text=' +
   encodeURIComponent('Olá 100PRESSÃO! Experimentei o restaurante online e queria deixar uma sugestão: ')
+
+// Frame real do balcão (o mesmo poster do vídeo do Quem Somos) como capa da loja.
+const CAPA_URL = '/quem-somos-poster.jpg'
+const ETIQUETAS = ['Cervejaria', 'Petiscos', 'Luso-brasileiro']
+
+// Alturas do cabeçalho global (Header.jsx: logo h-16/h-20 + py-3), precisas
+// para o sticky dos chips e para o destino do scroll ao saltar de categoria.
+const ALTURA_HEADER = { movel: 88, grande: 104 }
 
 const CONFIG_INICIAL = {
   ativo: false,
@@ -39,6 +48,16 @@ const BOTAO_SEC =
   'inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-creme-300 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-grafite-600 transition-colors hover:border-grafite-600'
 const CAMPO =
   'mt-2 w-full rounded-xl border border-creme-300 bg-creme-50 px-4 py-3 text-grafite-900 outline-none focus:border-ambar-500'
+const CARTAO = 'rounded-2xl border border-creme-300 bg-white/70'
+
+// Há combos gravados já com "Combo" no nome ("Combo Português") e outros sem.
+// Prefixar às cegas dava "Combo Combo Português".
+const nomeCombo = (c) =>
+  /^combo\b/i.test((c?.nome || '').trim()) ? c.nome : `Combo ${c?.nome || ''}`
+
+// Pesquisa tolerante a acentos: "almoco" encontra "Almoço", "pao" encontra "Pão".
+const semAcentos = (s) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 
 function Restaurante() {
   const [params] = useSearchParams()
@@ -51,6 +70,13 @@ function Restaurante() {
   const [variantes, setVariantes] = useState({})
   const [carrinho, setCarrinho] = useState({})
   const [fase, setFase] = useState('menu') // menu | checkout | pagamento | confirmado
+
+  // Navegação da loja (ementa)
+  const [busca, setBusca] = useState('')
+  const [catAtiva, setCatAtiva] = useState(null)
+  const [itemAberto, setItemAberto] = useState(null)
+  const refsSecoes = useRef({})
+  const navRef = useRef(null)
 
   // Checkout
   const [tipo, setTipo] = useState('entrega') // entrega | levar
@@ -115,7 +141,7 @@ function Restaurante() {
       const partes = chave.split(':')
       if (partes[0] === 'c') {
         const combo = combos.find((c) => String(c.id) === partes[1])
-        return combo ? { nome: `Combo ${combo.nome}`, preco: precoOnline(combo), alergenios: null } : null
+        return combo ? { nome: nomeCombo(combo), preco: precoOnline(combo), alergenios: null } : null
       }
       const p = produtos.find((x) => String(x.id) === partes[1])
       if (!p) return null
@@ -129,6 +155,62 @@ function Restaurante() {
     },
     [produtos, combos, variantes],
   )
+
+  // Ementa normalizada: um item por produto (as variantes passam a ser opções
+  // dentro da folha, como nas plataformas, em vez de uma linha cada).
+  const seccoes = useMemo(() => {
+    return categorias
+      .map((cat) => {
+        const itens = []
+        combos
+          .filter((c) => c.category_id === cat.id)
+          .forEach((c) =>
+            itens.push({
+              ref: `c:${c.id}`,
+              chave: `c:${c.id}`,
+              nome: nomeCombo(c),
+              descricao: c.descricao,
+              imagem: c.imagem_url || imagemCategoria(cat.nome),
+              preco: precoOnline(c),
+              opcoes: [],
+            }),
+          )
+        produtos
+          .filter((p) => p.category_id === cat.id)
+          .forEach((p) => {
+            const opcoes = (variantes[p.id] || []).map((v) => ({
+              id: v.id,
+              nome: v.nome,
+              preco: precoOnline(v),
+              chave: `p:${p.id}:v:${v.id}`,
+            }))
+            itens.push({
+              ref: `p:${p.id}`,
+              chave: opcoes.length ? null : `p:${p.id}`,
+              nome: p.nome,
+              descricao: p.descricao,
+              imagem: p.imagem_url || imagemCategoria(cat.nome),
+              preco: opcoes.length ? Math.min(...opcoes.map((o) => o.preco)) : precoOnline(p),
+              opcoes,
+            })
+          })
+        return { id: cat.id, nome: cat.nome, itens }
+      })
+      .filter((s) => s.itens.length > 0)
+  }, [categorias, produtos, combos, variantes])
+
+  const seccoesVisiveis = useMemo(() => {
+    const termo = semAcentos(busca).trim()
+    if (!termo) return seccoes
+    return seccoes
+      .map((s) => ({
+        ...s,
+        itens: s.itens.filter(
+          (i) => semAcentos(i.nome).includes(termo) || semAcentos(i.descricao).includes(termo),
+        ),
+      }))
+      .filter((s) => s.itens.length > 0)
+  }, [seccoes, busca])
 
   // Linhas do carrinho já resolvidas (nome, preço, alergénios, quantidade)
   const linhas = useMemo(
@@ -179,14 +261,67 @@ function Restaurante() {
     }
   }
 
-  const mudar = (chave, delta) =>
-    setCarrinho((c) => {
-      const q = (c[chave] || 0) + delta
-      const novo = { ...c }
-      if (q <= 0) delete novo[chave]
-      else novo[chave] = q
-      return novo
+  const mudar = useCallback(
+    (chave, delta) =>
+      setCarrinho((c) => {
+        const q = (c[chave] || 0) + delta
+        const novo = { ...c }
+        if (q <= 0) delete novo[chave]
+        else novo[chave] = q
+        return novo
+      }),
+    [],
+  )
+
+  // Quantidade já no carrinho para um item da lista (soma as variantes).
+  const qtdDoItem = useCallback(
+    (item) =>
+      item.opcoes.length
+        ? item.opcoes.reduce((s, o) => s + (carrinho[o.chave] || 0), 0)
+        : carrinho[item.chave] || 0,
+    [carrinho],
+  )
+
+  // ── Scroll-spy dos chips de categoria ──
+  useEffect(() => {
+    if (fase !== 'menu' || seccoesVisiveis.length === 0) return
+    const alturaChips = navRef.current?.getBoundingClientRect().height || 56
+    const topo = (window.innerWidth >= 640 ? ALTURA_HEADER.grande : ALTURA_HEADER.movel) + alturaChips
+    const observador = new IntersectionObserver(
+      (entradas) => {
+        const visiveis = entradas
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visiveis[0]) setCatAtiva(visiveis[0].target.dataset.cat)
+      },
+      { rootMargin: `-${topo + 8}px 0px -65% 0px`, threshold: 0 },
+    )
+    seccoesVisiveis.forEach((s) => {
+      const el = refsSecoes.current[s.id]
+      if (el) observador.observe(el)
     })
+    return () => observador.disconnect()
+  }, [fase, seccoesVisiveis])
+
+  // O chip ativo acompanha o scroll dentro da própria barra.
+  useEffect(() => {
+    if (!catAtiva || !navRef.current) return
+    navRef.current
+      .querySelector(`[data-chip="${catAtiva}"]`)
+      ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+  }, [catAtiva])
+
+  function irParaCategoria(id) {
+    const el = refsSecoes.current[id]
+    if (!el) return
+    const alturaChips = navRef.current?.getBoundingClientRect().height || 56
+    const topo = (window.innerWidth >= 640 ? ALTURA_HEADER.grande : ALTURA_HEADER.movel) + alturaChips
+    window.scrollTo({
+      top: el.getBoundingClientRect().top + window.scrollY - topo - 12,
+      behavior: 'smooth',
+    })
+    setCatAtiva(String(id))
+  }
 
   const emailValido = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
   const telValido = /^\d{9}$/.test(telefone)
@@ -306,54 +441,166 @@ function Restaurante() {
   return (
     <main className="bg-creme-50 text-grafite-800">
       <SEOHead title="Restaurante Online | 100PRESSÃO" description="Encomende do 100PRESSÃO para entrega ou levantamento." path="/restaurante" />
-      <div className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cobre-600">Restaurante Online</p>
-            <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">Encomendar</h1>
+      <CabecalhoLoja tipo={tipo} cfg={cfg} />
+
+      <div className="mx-auto max-w-6xl px-6">
+        {/* Canal: entrega ou levantamento. No topo (e não só no checkout) porque
+            é o que decide portes e mínimo — o cliente tem de o ver antes de escolher.
+            Fora da ementa fica escondido: o checkout tem o seu próprio seletor. */}
+        <div className={`${CARTAO} mt-5 flex-wrap items-center gap-3 p-4 shadow-sm sm:gap-4 ${fase === 'menu' ? 'flex' : 'hidden'}`}>
+          <div className="flex rounded-full bg-creme-100 p-1">
+            {[
+              { id: 'entrega', r: 'Entrega' },
+              { id: 'levar', r: 'Levantar' },
+            ].map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => setTipo(o.id)}
+                aria-pressed={tipo === o.id}
+                className={`cursor-pointer rounded-full px-5 py-2 text-sm font-semibold uppercase tracking-widest transition-colors ${
+                  tipo === o.id ? 'bg-ambar-500 text-grafite-950' : 'text-grafite-600 hover:text-grafite-900'
+                }`}
+              >
+                {o.r}
+              </button>
+            ))}
           </div>
-          <p className="text-sm text-grafite-600/70">Entrega e levantamento · sem taxas de plataforma</p>
-        </header>
+          <p className="text-sm text-grafite-600/80">
+            {tipo === 'entrega' ? (
+              <>
+                Portes grátis até <strong className="text-grafite-900">{cfg.km_gratis} km</strong>; acima,{' '}
+                {fmt(cfg.taxa_base)} + {fmt(cfg.preco_km)}/km · mínimo{' '}
+                <strong className="text-grafite-900">{fmt(cfg.min_encomenda)}</strong> · entregamos até {cfg.raio_max} km
+              </>
+            ) : (
+              <>
+                Levantamento no Mercado Municipal de Carnaxide ·{' '}
+                <strong className="text-grafite-900">sem mínimo</strong>
+              </>
+            )}
+          </p>
+        </div>
 
         {preview && !cfg.ativo && (
-          <div className="mt-5 rounded-xl border border-ambar-500/50 bg-ambar-500/10 px-4 py-3 text-sm text-grafite-800">
+          <div className="mt-4 rounded-xl border border-ambar-500/50 bg-ambar-500/10 px-4 py-3 text-sm text-grafite-800">
             <strong>Pré-visualização.</strong> O canal ainda está desligado para o público, mas
             o checkout é real: encomendas criadas aqui são reais e cobradas.
           </div>
         )}
+      </div>
 
-        {/* ── MENU ── */}
-        {fase === 'menu' && (
-          <div className="mt-8 space-y-8">
-            {categorias.map((cat) => {
-              const prods = produtos.filter((p) => p.category_id === cat.id)
-              const cbs = combos.filter((c) => c.category_id === cat.id)
-              if (prods.length === 0 && cbs.length === 0) return null
-              return (
-                <section key={cat.id}>
-                  <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-grafite-900">{cat.nome}</h2>
-                  <div className="mt-4 space-y-3">
-                    {cbs.map((c) => (
-                      <ItemLinha key={`c:${c.id}`} nome={`Combo ${c.nome}`} descricao={c.descricao} preco={precoOnline(c)} imagem={c.imagem_url || imagemCategoria(cat.nome)} qtd={carrinho[`c:${c.id}`] || 0} onAdd={() => mudar(`c:${c.id}`, 1)} onSub={() => mudar(`c:${c.id}`, -1)} />
-                    ))}
-                    {prods.map((p) => {
-                      const vs = variantes[p.id] || []
-                      if (vs.length > 0) {
-                        return vs.map((v) => (
-                          <ItemLinha key={`p:${p.id}:v:${v.id}`} nome={`${p.nome} ${v.nome}`} descricao={p.descricao} preco={precoOnline(v)} imagem={p.imagem_url || imagemCategoria(cat.nome)} qtd={carrinho[`p:${p.id}:v:${v.id}`] || 0} onAdd={() => mudar(`p:${p.id}:v:${v.id}`, 1)} onSub={() => mudar(`p:${p.id}:v:${v.id}`, -1)} />
-                        ))
-                      }
-                      return (
-                        <ItemLinha key={`p:${p.id}`} nome={p.nome} descricao={p.descricao} preco={precoOnline(p)} imagem={p.imagem_url || imagemCategoria(cat.nome)} qtd={carrinho[`p:${p.id}`] || 0} onAdd={() => mudar(`p:${p.id}`, 1)} onSub={() => mudar(`p:${p.id}`, -1)} />
-                      )
-                    })}
-                  </div>
-                </section>
-              )
-            })}
+      {/* ── MENU ── */}
+      {fase === 'menu' && (
+        <>
+          {/* Chips de categoria — sticky por baixo do cabeçalho global */}
+          <div
+            ref={navRef}
+            className="sticky top-[5.5rem] z-30 mt-6 border-y border-creme-300 bg-creme-50/95 backdrop-blur sm:top-[6.5rem]"
+          >
+            <div className="mx-auto max-w-6xl px-6">
+              <div className="flex gap-2 overflow-x-auto py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {seccoesVisiveis.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    data-chip={String(s.id)}
+                    onClick={() => irParaCategoria(s.id)}
+                    className={`shrink-0 cursor-pointer rounded-full border px-4 py-2 font-display text-sm font-bold uppercase tracking-wide transition-colors ${
+                      String(s.id) === catAtiva
+                        ? 'border-ambar-500 bg-ambar-500 text-grafite-950'
+                        : 'border-creme-300 text-grafite-600 hover:border-grafite-600'
+                    }`}
+                  >
+                    {s.nome}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        )}
 
+          <div className="mx-auto max-w-6xl gap-10 px-6 pb-32 lg:grid lg:grid-cols-[1fr_22rem] lg:pb-16">
+            <div className="min-w-0">
+              {/* Pesquisa dentro da loja */}
+              <div className="relative mt-6">
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-grafite-600/50"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+                </svg>
+                <input
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  type="search"
+                  aria-label="Pesquisar na ementa"
+                  placeholder="Pesquisar na ementa"
+                  className="w-full rounded-full border border-creme-300 bg-white/70 py-3 pl-12 pr-4 text-grafite-900 outline-none placeholder:text-grafite-600/50 focus:border-ambar-500"
+                />
+              </div>
+
+              {/* Ementa vazia por pesquisa é diferente de ementa ainda a chegar */}
+              {seccoesVisiveis.length === 0 &&
+                (busca.trim() ? (
+                  <p className="mt-10 text-center text-grafite-600">
+                    Sem resultados para <strong className="text-grafite-900">“{busca}”</strong>.
+                  </p>
+                ) : (
+                  <p className="mt-10 text-center text-grafite-600/70">A carregar a ementa…</p>
+                ))}
+
+              <div className="mt-8 space-y-10">
+                {seccoesVisiveis.map((s) => (
+                  <section
+                    key={s.id}
+                    data-cat={String(s.id)}
+                    ref={(el) => {
+                      refsSecoes.current[s.id] = el
+                    }}
+                  >
+                    <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-grafite-900">
+                      {s.nome}
+                    </h2>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                      {s.itens.map((item) => (
+                        <CartaoItem
+                          key={item.ref}
+                          item={item}
+                          qtd={qtdDoItem(item)}
+                          onAbrir={() => setItemAberto(item)}
+                          onAdicionar={() => (item.opcoes.length ? setItemAberto(item) : mudar(item.chave, 1))}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </div>
+
+            {/* Carrinho fixo no desktop — abaixo do cabeçalho (6.5rem) + chips (~3.5rem) */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-[11rem] mt-6">
+                <ResumoCarrinho
+                  linhas={linhas}
+                  mudar={mudar}
+                  subtotal={subtotal}
+                  minimo={Number(cfg.min_encomenda || 0)}
+                  tipo={tipo}
+                  abaixoMinimo={abaixoMinimo}
+                  onAvancar={() => setFase('checkout')}
+                />
+              </div>
+            </aside>
+          </div>
+        </>
+      )}
+
+      <div className="mx-auto max-w-3xl px-6 pb-12 sm:pb-16">
         {/* ── CHECKOUT ── */}
         {fase === 'checkout' && (
           <div className="mt-8 space-y-6">
@@ -536,12 +783,29 @@ function Restaurante() {
         )}
       </div>
 
-      {/* Barra do carrinho */}
+      {/* Folha do produto (bottom sheet no telemóvel, caixa centrada no desktop) */}
+      {itemAberto && (
+        <FolhaItem
+          key={itemAberto.ref}
+          item={itemAberto}
+          carrinho={carrinho}
+          onFechar={() => setItemAberto(null)}
+          onConfirmar={(chave, qtd) => {
+            mudar(chave, qtd)
+            setItemAberto(null)
+          }}
+        />
+      )}
+
+      {/* Barra do carrinho — telemóvel/tablet (no desktop há o painel lateral) */}
       {fase === 'menu' && nItens > 0 && (
-        <div className="sticky bottom-0 border-t border-creme-300 bg-creme-50/95 backdrop-blur">
-          <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-6 py-4">
-            <span className="text-sm text-grafite-600">{nItens} {nItens === 1 ? 'item' : 'itens'} · <strong className="text-grafite-900">{fmt(subtotal)}</strong></span>
-            <button type="button" onClick={() => setFase('checkout')} className={BOTAO}>Rever pedido →</button>
+        <div className="sticky bottom-0 z-30 border-t border-creme-300 bg-creme-50/95 backdrop-blur lg:hidden">
+          <div className="mx-auto max-w-6xl px-6 py-3">
+            {abaixoMinimo && <BarraProgresso subtotal={subtotal} minimo={Number(cfg.min_encomenda || 0)} />}
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <span className="text-sm text-grafite-600">{nItens} {nItens === 1 ? 'item' : 'itens'} · <strong className="text-grafite-900">{fmt(subtotal)}</strong></span>
+              <button type="button" onClick={() => setFase('checkout')} className={BOTAO}>Rever pedido →</button>
+            </div>
           </div>
         </div>
       )}
@@ -549,24 +813,293 @@ function Restaurante() {
   )
 }
 
-function ItemLinha({ nome, descricao, preco, imagem, qtd, onAdd, onSub }) {
+// ── Cabeçalho da loja: capa, carimbo e barra de info ──
+function CabecalhoLoja({ tipo, cfg }) {
+  const informacoes = [
+    {
+      rotulo: 'Preparação',
+      valor: `~${cfg.prazo_preparacao} min`,
+    },
+    {
+      rotulo: tipo === 'entrega' ? 'Portes' : 'Levantamento',
+      valor: tipo === 'entrega' ? `Grátis até ${cfg.km_gratis} km` : 'Sem custo',
+    },
+    {
+      rotulo: 'Mínimo',
+      valor: tipo === 'entrega' ? fmt(cfg.min_encomenda) : 'Sem mínimo',
+    },
+  ]
+
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-creme-300 bg-white/70 p-3">
-      {imagem && <img src={imagem} alt="" loading="lazy" className="h-16 w-16 shrink-0 rounded-xl object-cover" />}
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-grafite-900">{nome}</p>
-        {descricao && <p className="truncate text-sm text-grafite-600/70">{descricao}</p>}
-        <p className="mt-0.5 font-display font-bold text-cobre-600">{fmt(preco)}</p>
+    <header>
+      <div className="relative h-44 overflow-hidden bg-grafite-900 sm:h-60">
+        <img src={CAPA_URL} alt="" aria-hidden="true" className="h-full w-full object-cover opacity-70" />
+        <div className="absolute inset-0 bg-gradient-to-t from-grafite-950/90 via-grafite-950/30 to-grafite-950/50" />
       </div>
-      <div className="flex items-center gap-2">
-        {qtd > 0 && (
-          <>
-            <button type="button" aria-label="Remover um" onClick={onSub} className="h-8 w-8 rounded-full border border-creme-300 text-grafite-600">−</button>
-            <span className="w-5 text-center font-semibold">{qtd}</span>
-          </>
+      <div className="mx-auto max-w-6xl px-6">
+        {/* Carimbo a cavalo na capa, como o avatar da loja nas plataformas */}
+        <img
+          src={logoStamp}
+          alt="Logótipo 100PRESSÃO"
+          width="640"
+          height="640"
+          className="-mt-14 h-24 w-24 rounded-full border-4 border-creme-50 bg-grafite-900 sm:h-28 sm:w-28"
+        />
+        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.25em] text-cobre-600">
+          Restaurante Online
+        </p>
+        <h1 className="font-display text-3xl font-bold uppercase leading-tight tracking-tight text-grafite-900 sm:text-4xl">
+          100PRESSÃO Draft House
+        </h1>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-grafite-600/80">
+          {ETIQUETAS.map((e, i) => (
+            <span key={e}>
+              {i > 0 && <span className="mr-2 text-creme-500">·</span>}
+              {e}
+            </span>
+          ))}
+        </div>
+        <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-3">
+          {informacoes.map((i) => (
+            <div key={i.rotulo}>
+              <dt className="text-xs font-semibold uppercase tracking-[0.2em] text-cobre-600">{i.rotulo}</dt>
+              <dd className="font-display text-lg font-bold text-grafite-900">{i.valor}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </header>
+  )
+}
+
+// ── Card do item: texto à esquerda, foto à direita, botão + sobre a foto ──
+function CartaoItem({ item, qtd, onAbrir, onAdicionar }) {
+  return (
+    <div
+      className={`${CARTAO} relative flex cursor-pointer items-stretch gap-4 p-3 transition-colors hover:border-ambar-500`}
+      onClick={onAbrir}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onAbrir()
+        }
+      }}
+    >
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <p className="font-semibold leading-tight text-grafite-900">{item.nome}</p>
+        {item.descricao && (
+          <p className="mt-1 line-clamp-2 text-sm text-grafite-600/70">{item.descricao}</p>
         )}
-        <button type="button" aria-label="Adicionar um" onClick={onAdd} className="h-8 w-8 rounded-full bg-ambar-500 font-bold text-grafite-950">+</button>
+        <p className="mt-1.5 font-display font-bold text-cobre-600">
+          {item.opcoes.length > 0 && (
+            <span className="text-xs uppercase tracking-widest text-grafite-600/60">desde </span>
+          )}
+          {fmt(item.preco)}
+        </p>
       </div>
+      <div className="relative shrink-0">
+        {item.imagem && (
+          <img src={item.imagem} alt="" loading="lazy" className="h-24 w-24 rounded-xl object-cover" />
+        )}
+        <button
+          type="button"
+          aria-label={`Adicionar ${item.nome}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onAdicionar()
+          }}
+          className="absolute -bottom-1.5 -right-1.5 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-ambar-500 font-display text-xl font-bold text-grafite-950 shadow-md transition-colors hover:bg-ambar-400"
+        >
+          +
+        </button>
+        {qtd > 0 && (
+          <span className="absolute -left-1.5 -top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full bg-grafite-900 px-1.5 text-xs font-bold text-creme-50">
+            {qtd}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Folha do produto: foto grande, opções (variantes) e quantidade ──
+function FolhaItem({ item, carrinho, onFechar, onConfirmar }) {
+  const [opcao, setOpcao] = useState(item.opcoes[0] || null)
+  const [qtd, setQtd] = useState(1)
+
+  useEffect(() => {
+    const aoTeclar = (e) => {
+      if (e.key === 'Escape') onFechar()
+    }
+    const anterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', aoTeclar)
+    return () => {
+      document.body.style.overflow = anterior
+      window.removeEventListener('keydown', aoTeclar)
+    }
+  }, [onFechar])
+
+  const chave = item.opcoes.length ? opcao?.chave : item.chave
+  const preco = item.opcoes.length ? opcao?.preco || 0 : item.preco
+  const jaNoCarrinho = chave ? carrinho[chave] || 0 : 0
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-grafite-950/60 backdrop-blur-sm sm:items-center"
+      onClick={onFechar}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={item.nome}
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-creme-50 sm:max-w-lg sm:rounded-3xl"
+      >
+        <div className="relative">
+          {item.imagem ? (
+            <img src={item.imagem} alt="" className="h-48 w-full object-cover sm:rounded-t-3xl" />
+          ) : (
+            <div className="h-16" />
+          )}
+          <button
+            type="button"
+            onClick={onFechar}
+            aria-label="Fechar"
+            className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-creme-50/90 text-lg font-bold text-grafite-900 shadow"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="p-6">
+          <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-grafite-900">{item.nome}</h2>
+          {item.descricao && <p className="mt-2 text-grafite-600">{item.descricao}</p>}
+
+          {item.opcoes.length > 0 && (
+            <fieldset className="mt-5">
+              <legend className="text-xs font-semibold uppercase tracking-[0.2em] text-cobre-600">Escolhe uma opção</legend>
+              <div className="mt-3 space-y-2">
+                {item.opcoes.map((o) => (
+                  <label
+                    key={o.id}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${
+                      opcao?.id === o.id ? 'border-ambar-500 bg-ambar-500/10' : 'border-creme-300 bg-white/70'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="opcao"
+                      checked={opcao?.id === o.id}
+                      onChange={() => setOpcao(o)}
+                      className="h-4 w-4 accent-ambar-500"
+                    />
+                    <span className="flex-1 text-grafite-900">{o.nome}</span>
+                    <span className="font-display font-bold text-cobre-600">{fmt(o.preco)}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          {jaNoCarrinho > 0 && (
+            <p className="mt-4 text-sm text-grafite-600/70">Já tens {jaNoCarrinho} no carrinho.</p>
+          )}
+
+          {/* Ação colada ao fundo da folha: com descrições longas ou muitas
+              opções, o botão tem de continuar alcançável sem rolar até ao fim. */}
+          <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 flex items-center gap-4 border-t border-creme-300 bg-creme-50 px-6 py-4">
+            <Contador qtd={qtd} onSub={() => setQtd((q) => Math.max(1, q - 1))} onAdd={() => setQtd((q) => q + 1)} />
+            <button
+              type="button"
+              disabled={!chave}
+              onClick={() => onConfirmar(chave, qtd)}
+              className={`${BOTAO} flex-1`}
+            >
+              Adicionar · {fmt(preco * qtd)}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Carrinho do desktop ──
+function ResumoCarrinho({ linhas, mudar, subtotal, minimo, tipo, abaixoMinimo, onAvancar }) {
+  return (
+    <div className={`${CARTAO} p-5`}>
+      <h2 className="font-display text-lg font-bold uppercase tracking-tight text-grafite-900">O teu pedido</h2>
+      {linhas.length === 0 ? (
+        <p className="mt-3 text-sm text-grafite-600/70">O carrinho está vazio. Escolhe da ementa ao lado.</p>
+      ) : (
+        <>
+          <ul className="mt-3 divide-y divide-creme-300">
+            {linhas.map((l) => (
+              <li key={l.chave} className="flex items-center gap-2 py-3">
+                <Contador pequeno qtd={l.qtd} onSub={() => mudar(l.chave, -1)} onAdd={() => mudar(l.chave, 1)} />
+                <span className="min-w-0 flex-1 truncate text-sm text-grafite-900">{l.nome}</span>
+                <span className="text-sm font-semibold text-grafite-900">{fmt(l.preco * l.qtd)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-3 flex justify-between border-t border-creme-300 pt-3 font-display text-lg font-bold text-grafite-900">
+            <span>Subtotal</span>
+            <span>{fmt(subtotal)}</span>
+          </div>
+          {tipo === 'entrega' && abaixoMinimo && (
+            <div className="mt-3">
+              <BarraProgresso subtotal={subtotal} minimo={minimo} />
+            </div>
+          )}
+          <button type="button" onClick={onAvancar} className={`${BOTAO} mt-4 w-full`}>
+            Rever pedido →
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Progresso até ao mínimo de encomenda ──
+function BarraProgresso({ subtotal, minimo }) {
+  const pct = minimo > 0 ? Math.min(100, (subtotal / minimo) * 100) : 100
+  return (
+    <div>
+      <p className="text-xs text-grafite-600">
+        Faltam <strong className="text-grafite-900">{fmt(minimo - subtotal)}</strong> para o mínimo de entrega.
+      </p>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-creme-300">
+        <div className="h-full rounded-full bg-ambar-500 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ── Contador de quantidade reutilizável ──
+function Contador({ qtd, onSub, onAdd, pequeno }) {
+  const tamanho = pequeno ? 'h-7 w-7 text-sm' : 'h-9 w-9'
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      <button
+        type="button"
+        aria-label="Remover um"
+        onClick={onSub}
+        className={`${tamanho} cursor-pointer rounded-full border border-creme-300 text-grafite-600 transition-colors hover:border-grafite-600`}
+      >
+        −
+      </button>
+      <span className={`text-center font-semibold ${pequeno ? 'w-4 text-sm' : 'w-5'}`}>{qtd}</span>
+      <button
+        type="button"
+        aria-label="Adicionar um"
+        onClick={onAdd}
+        className={`${tamanho} cursor-pointer rounded-full bg-ambar-500 font-bold text-grafite-950 transition-colors hover:bg-ambar-400`}
+      >
+        +
+      </button>
     </div>
   )
 }
