@@ -156,16 +156,23 @@ export default async function handler(req, res) {
         amount,
         description: `100PRESSAO #${orderId}`,
         accounts: contas,
-        successUrl: volta('ok'),
-        errorUrl: volta('erro'),
-        cancelUrl: volta('cancelado'),
+        // Nomes em snake_case — é o que a API espera. Em camelCase são
+        // silenciosamente ignorados e o cliente nunca regressa ao site.
+        success_url: volta('ok'),
+        error_url: volta('erro'),
+        cancel_url: volta('cancelado'),
         // Link de uso único: evita que a mesma ligação possa ser paga duas vezes.
         otp: 'true',
-        language: 'pt',
+        lang: 'pt',
       }),
     })
     const j = await r.json().catch(() => ({}))
-    const paymentUrl = j.PinpayUrl || j.pinpayUrl || j.PaymentUrl
+    // A resposta traz três campos: RedirectUrl (a página de pagamento online),
+    // PinpayUrl (o serviço PINPAY, por código PIN, para vendas ao telefone) e
+    // PinCode. Para o cliente pagar no site é o RedirectUrl — o PinpayUrl leva
+    // a uma página que não sabe resolver o pagamento e mostra "dados não
+    // encontrados".
+    const paymentUrl = j.RedirectUrl || j.redirectUrl
     if (!r.ok || !paymentUrl) {
       console.error('IfThenPay gateway init', r.status, JSON.stringify(j))
       return res.status(502).json({ erro: j.Message || 'Não foi possível iniciar o pagamento.' })
