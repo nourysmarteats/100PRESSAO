@@ -10,6 +10,7 @@
 //   IFTHENPAY_CCARD_KEY        — chave Cartão de Crédito   (formato ITP-000000)
 //   IFTHENPAY_GOOGLE_KEY       — chave Google Pay          (formato ITP-000000)
 //   IFTHENPAY_APPLE_KEY        — chave Apple Pay           (formato ITP-000000)
+//   IFTHENPAY_PIX_KEY          — chave Pix                (formato ITP-000000)
 //   SITE_URL (opcional)        — base dos URLs de retorno; por omissão usa o
 //                                domínio do próprio pedido
 import { createClient } from '@supabase/supabase-js'
@@ -27,7 +28,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ erro: 'Configuração do Supabase em falta no Vercel.' })
   }
 
-  const { pedido_id, telefone } = req.body || {}
+  const { pedido_id, telefone, cpf } = req.body || {}
   if (!pedido_id) return res.status(400).json({ erro: 'pedido_id em falta.' })
 
   const admin = createClient(url, serviceKey, {
@@ -174,6 +175,62 @@ export default async function handler(req, res) {
       .update({ pagamento_id: j.RequestId || j.PinCode || null })
       .eq('id', pedido.id)
     return res.status(200).json({ metodo: 'cartao', paymentUrl })
+  }
+
+  // ── Pix: pagamento instantâneo brasileiro ──
+  //
+  // Serve a comunidade brasileira que a casa já atrai. Tem exigências que os
+  // métodos portugueses não têm: o IfThenPay obriga a CPF, nome, email e
+  // telemóvel do cliente, e o telemóvel vai no formato indicativo#numero.
+  //
+  // ATENÇÃO À MOEDA: o Pix liquida em reais. Enquanto não estiver confirmado
+  // com o IfThenPay se o `amount` vai em euros (convertido por eles) ou já em
+  // BRL, este método não deve ser ligado — enviar euros num campo esperado em
+  // reais cobraria cerca de um sexto do preço.
+  if (metodo === 'pix') {
+    const key = process.env.IFTHENPAY_PIX_KEY
+    if (!key) return res.status(500).json({ erro: 'IFTHENPAY_PIX_KEY não configurada no Vercel.' })
+
+    const cpfLimpo = String(cpf || '').replace(/\D/g, '')
+    if (cpfLimpo.length !== 11) {
+      return res.status(400).json({ erro: 'CPF inválido. São 11 dígitos.' })
+    }
+    const cpfFormatado = `${cpfLimpo.slice(0, 3)}.${cpfLimpo.slice(3, 6)}.${cpfLimpo.slice(6, 9)}-${cpfLimpo.slice(9)}`
+
+    const tel = String(telefone || pedido.cliente_telefone || '').replace(/\D/g, '').slice(-9)
+    if (!/^\d{9}$/.test(tel)) return res.status(400).json({ erro: 'Telemóvel inválido.' })
+
+    const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0]
+    const host = req.headers['x-forwarded-host'] || req.headers.host
+    const base = process.env.SITE_URL || `${proto}://${host}`
+
+    const r = await fetch(`${IFT}/pix/init/${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderId,
+        amount,
+        customerCPF: cpfFormatado,
+        customerName: (pedido.cliente_nome || 'Cliente').slice(0, 150),
+        customerEmail: pedido.cliente_email || '',
+        customerPhone: `351#${tel}`,
+        redirectUrl: `${base}/restaurante?pedido=${encodeURIComponent(pedido.id)}&pag=ok`,
+        description: `100PRESSAO #${orderId}`,
+      }),
+    })
+    const j = await r.json().catch(() => ({}))
+    // Neste endpoint a chave do estado vem em minúsculas ("status"), ao
+    // contrário do MB Way e do Multibanco.
+    const paymentUrl = j.paymentUrl || j.PaymentUrl
+    if (!r.ok || String(j.status ?? j.Status ?? '') !== '0' || !paymentUrl) {
+      console.error('IfThenPay Pix init', r.status, JSON.stringify(j))
+      return res.status(502).json({ erro: j.message || j.Message || 'Não foi possível iniciar o Pix.' })
+    }
+    await admin
+      .from('orders')
+      .update({ pagamento_id: j.requestId || j.RequestId || null })
+      .eq('id', pedido.id)
+    return res.status(200).json({ metodo: 'pix', paymentUrl })
   }
 
   return res.status(400).json({ erro: 'Método de pagamento não suportado nesta fase.' })

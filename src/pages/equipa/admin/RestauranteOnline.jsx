@@ -13,6 +13,7 @@ import { useAviso, BOTAO_PRIMARIO, CARTAO, CAMPO } from './comuns'
 const CONFIG_INICIAL = {
   ativo: false,
   cartao_ativo: false,
+  pix_ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
   taxa_base: 1.6,
@@ -78,6 +79,7 @@ function RestauranteOnline() {
     const valor = {
       ativo: !!cfg.ativo,
       cartao_ativo: !!cfg.cartao_ativo,
+      pix_ativo: !!cfg.pix_ativo,
       min_encomenda: num(cfg.min_encomenda, 0),
       km_gratis: num(cfg.km_gratis, 0),
       taxa_base: num(cfg.taxa_base, 0),
@@ -157,6 +159,33 @@ function RestauranteOnline() {
               IFTHENPAY_GATEWAY_KEY, IFTHENPAY_CCARD_KEY, IFTHENPAY_GOOGLE_KEY e
               IFTHENPAY_APPLE_KEY estarem no Vercel — caso contrário o cliente
               escolhe e o pagamento falha. MB Way e Multibanco não dependem disto.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      {/* Pix — moeda por confirmar com o IfThenPay */}
+      <div className={`${CARTAO} p-6`}>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={!!cfg.pix_ativo}
+            onChange={(e) => setCfg((c) => ({ ...c, pix_ativo: e.target.checked }))}
+            className="mt-1 h-5 w-5 accent-ambar-500"
+          />
+          <span>
+            <span className="font-display text-lg font-bold uppercase text-grafite-900">
+              Aceitar Pix
+            </span>
+            <span className="mt-1 block text-sm text-grafite-600/70">
+              Pagamento instantâneo brasileiro, para clientes com conta no Brasil.
+              Pede o CPF no checkout. Precisa da IFTHENPAY_PIX_KEY no Vercel.
+            </span>
+            <span className="mt-2 block rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <strong>Não ligar sem confirmar a moeda com o IfThenPay.</strong> O Pix
+              liquida em reais e a documentação não é clara sobre se o valor deve
+              seguir em euros (convertidos por eles) ou já em BRL. Se for em BRL e
+              enviarmos euros, cobra-se cerca de um sexto do preço.
             </span>
           </span>
         </label>

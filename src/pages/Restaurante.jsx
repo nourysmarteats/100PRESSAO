@@ -38,6 +38,7 @@ const CHAVE_PAGAMENTO = '100p:pagamento-cartao'
 const CONFIG_INICIAL = {
   ativo: false,
   cartao_ativo: false,
+  pix_ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
   taxa_base: 1.6,
@@ -96,6 +97,7 @@ function Restaurante() {
   const [calculando, setCalculando] = useState(false)
   const [erroDist, setErroDist] = useState('')
   const [metodo, setMetodo] = useState('mbway')
+  const [cpf, setCpf] = useState('') // só para Pix
   const [idade, setIdade] = useState(false) // 18+ (Brandão E)
   const [aceito, setAceito] = useState(false) // Condições de Venda (Brandão J)
 
@@ -343,6 +345,7 @@ function Restaurante() {
     emailValido &&
     (tipo === 'levar' || morada.trim()) &&
     metodo &&
+    (metodo !== 'pix' || cpf.replace(/\D/g, '').length === 11) &&
     idade &&
     aceito
 
@@ -390,7 +393,7 @@ function Restaurante() {
       const resp = await fetch('/api/pagamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pedido_id: data.id, telefone }),
+        body: JSON.stringify({ pedido_id: data.id, telefone, cpf }),
       })
       const j = await resp.json().catch(() => ({}))
       if (!resp.ok) {
@@ -402,11 +405,11 @@ function Restaurante() {
       // Cartão: o cliente sai do site para a página do IfThenPay. Guarda-se o
       // essencial da encomenda para o ecrã de regresso conseguir mostrá-la
       // (o estado do React não sobrevive à navegação).
-      if (j.metodo === 'cartao' && j.paymentUrl) {
+      if ((j.metodo === 'cartao' || j.metodo === 'pix') && j.paymentUrl) {
         try {
           sessionStorage.setItem(
             CHAVE_PAGAMENTO,
-            JSON.stringify({ id: data.id, numero: data.numero, total: data.total, tipo, email: email.trim() }),
+            JSON.stringify({ id: data.id, numero: data.numero, total: data.total, tipo, email: email.trim(), metodo }),
           )
         } catch {
           /* sessionStorage indisponível: o regresso usa só o ?pedido= */
@@ -722,13 +725,15 @@ function Restaurante() {
             {/* Pagamento */}
             <div className="rounded-2xl border border-creme-300 bg-white/70 p-6">
               <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Pagamento online</h2>
-              <div className={`mt-3 grid gap-2 ${cfg.cartao_ativo ? 'grid-cols-3' : 'grid-cols-2'}`}>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { id: 'mbway', r: 'MB Way' },
                   { id: 'multibanco', r: 'Multibanco' },
                   // Só depois de o cartão estar contratado no IfThenPay e a
                   // chave configurada no Vercel (interruptor no painel Admin).
                   ...(cfg.cartao_ativo ? [{ id: 'cartao', r: 'Cartão · Pay' }] : []),
+                  // Pix: liquida em reais, para clientes com conta brasileira.
+                  ...(cfg.pix_ativo ? [{ id: 'pix', r: 'Pix' }] : []),
                 ].map((m) => (
                   <button key={m.id} type="button" onClick={() => setMetodo(m.id)} className={`rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest ${metodo === m.id ? 'border-ambar-500 bg-ambar-500/15 text-grafite-900' : 'border-creme-300 text-grafite-600/70'}`}>{m.r}</button>
                 ))}
@@ -738,8 +743,25 @@ function Restaurante() {
                   ? 'Recebes um pedido de pagamento na app MB WAY, no número acima.'
                   : metodo === 'cartao'
                     ? 'Vais para a página segura do IfThenPay, onde podes pagar com cartão Visa ou Mastercard, Google Pay ou Apple Pay — o que estiver disponível no teu dispositivo. Voltas aqui no fim.'
-                    : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}
+                    : metodo === 'pix'
+                      ? 'Pagamento instantâneo brasileiro. Precisas de conta num banco do Brasil e do teu CPF.'
+                      : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}
               </p>
+              {metodo === 'pix' && (
+                <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">
+                  CPF
+                  <input
+                    value={cpf}
+                    onChange={(e) => setCpf(e.target.value.replace(/[^\d.-]/g, '').slice(0, 14))}
+                    inputMode="numeric"
+                    className={CAMPO}
+                    placeholder="000.000.000-00"
+                  />
+                  <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-grafite-600/70">
+                    Exigido pelo Pix para identificar quem paga.
+                  </span>
+                </label>
+              )}
             </div>
 
             {/* Resumo + alergénios (Brandão C) */}
