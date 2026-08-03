@@ -38,7 +38,30 @@ const REDES = [
 // Confirmado pelo Leandro (2026-07-20): o pagamento é sempre feito no local —
 // o /cardapio regista o pedido, não cobra. Correspondem aos métodos aceites
 // pelo `criar_pedido` no Supabase e mapeados para a Vendus.
-const PAGAMENTOS = ['Dinheiro', 'Multibanco', 'MB Way', 'Visa', 'Mastercard']
+// Métodos aceites no restaurante online. O Mastercard leva a sua marca real
+// (dois círculos sobrepostos, geometria simples e inequívoca); os restantes
+// ficam em wordmark, porque desenhar de cabeça um logótipo de pagamento sai
+// sempre a parecer falsificado — e é aí que o cliente decide se confia.
+const MARCA_MASTERCARD = (
+  <svg viewBox="0 0 32 20" className="h-4 w-6" aria-hidden="true">
+    <circle cx="12.5" cy="10" r="6.6" fill="#EB001B" />
+    <circle cx="19.5" cy="10" r="6.6" fill="#F79E1B" />
+    <path
+      d="M16 4.9a6.6 6.6 0 0 0 0 10.2 6.6 6.6 0 0 0 0-10.2Z"
+      fill="#FF5F00"
+    />
+  </svg>
+)
+
+const PAGAMENTOS = [
+  { nome: 'Multibanco' },
+  { nome: 'MB WAY' },
+  { nome: 'Visa' },
+  { nome: 'Mastercard', marca: MARCA_MASTERCARD },
+  { nome: 'Apple Pay' },
+  { nome: 'Google Pay' },
+  { nome: 'Pix' },
+]
 
 function Footer() {
   const horario = useHorario()
@@ -188,19 +211,14 @@ function Footer() {
               Livro de Reclamações
             </a>
           </nav>
-          <ul
-            className="flex flex-wrap items-center gap-2"
-            aria-label="Métodos de pagamento aceites no local"
-          >
-            <li className="mr-1 text-xs uppercase tracking-wider text-creme-500/70">
-              Pagamento no local
-            </li>
+          <ul className="flex flex-wrap items-center gap-2" aria-label="Métodos de pagamento aceites">
             {PAGAMENTOS.map((p) => (
               <li
-                key={p}
-                className="rounded border border-grafite-700 px-2.5 py-1 text-xs uppercase tracking-wider text-creme-500"
+                key={p.nome}
+                className="inline-flex items-center gap-1.5 rounded border border-grafite-700 bg-grafite-900/40 px-2.5 py-1 text-xs uppercase tracking-wider text-creme-500"
               >
-                {p}
+                {p.marca}
+                {p.nome}
               </li>
             ))}
           </ul>
