@@ -5,9 +5,13 @@
 //   VITE_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (já existem)
 //   IFTHENPAY_MBWAY_KEY        — chave MB WAY do backoffice IfThenPay
 //   IFTHENPAY_MULTIBANCO_KEY   — chave Multibanco (MB) do backoffice IfThenPay
-//   IFTHENPAY_CCARD_KEY        — chave Cartão de Crédito (só depois de contratado)
-//   SITE_URL (opcional)        — base dos URLs de retorno do cartão; por
-//                                omissão usa o domínio do próprio pedido
+//   IFTHENPAY_GATEWAY_KEY      — chave do gateway (formato AAAA-000000), usada
+//                                por cartão, Google Pay e Apple Pay
+//   IFTHENPAY_CCARD_KEY        — chave Cartão de Crédito   (formato ITP-000000)
+//   IFTHENPAY_GOOGLE_KEY       — chave Google Pay          (formato ITP-000000)
+//   IFTHENPAY_APPLE_KEY        — chave Apple Pay           (formato ITP-000000)
+//   SITE_URL (opcional)        — base dos URLs de retorno; por omissão usa o
+//                                domínio do próprio pedido
 import { createClient } from '@supabase/supabase-js'
 
 const IFT = 'https://api.ifthenpay.com'
@@ -97,13 +101,17 @@ export default async function handler(req, res) {
     return res.status(200).json({ metodo: 'multibanco', ...ref })
   }
 
-  // ── Cartão de crédito/débito: página alojada do IfThenPay ──
+  // ── Cartão / Google Pay / Apple Pay: gateway alojado do IfThenPay ──
   //
-  // Ao contrário do MB Way e do Multibanco, o cartão é um fluxo de
-  // REDIRECIONAMENTO: devolvemos um PaymentUrl, o cliente vai introduzir os
-  // dados do cartão na página do IfThenPay e volta ao site. Os dados do cartão
-  // nunca passam por este servidor nem pelo browser do nosso site — é o
-  // IfThenPay que os recolhe, no domínio deles.
+  // Google Pay e Apple Pay NÃO têm endpoint próprio: a documentação oficial
+  // encaminha-os para a API Pay by Link & Pinpay (o gateway), declarando os
+  // métodos aceites em `accounts`. Como o cartão também cabe aí, os três
+  // partilham um só caminho — o cliente escolhe na página do IfThenPay, que
+  // mostra Apple Pay ou Google Pay só nos dispositivos compatíveis.
+  //
+  // É um fluxo de REDIRECIONAMENTO: devolvemos um URL, o cliente paga no
+  // domínio do IfThenPay e volta. Os dados do cartão ou da carteira nunca
+  // passam por este servidor nem pelo browser do nosso site.
   //
   // O successUrl NÃO confirma o pagamento: é só para onde o cliente é enviado
   // de volta e qualquer pessoa lhe pode aceder à mão. Quem marca a encomenda
@@ -111,9 +119,25 @@ export default async function handler(req, res) {
   // (api/ifthenpay-callback.js), que é a fonte de verdade. O ecrã de retorno
   // limita-se a fazer polling até o callback ter chegado.
   if (metodo === 'cartao') {
-    const key = process.env.IFTHENPAY_CCARD_KEY
-    if (!key) {
-      return res.status(500).json({ erro: 'IFTHENPAY_CCARD_KEY não configurada no Vercel.' })
+    const gatewayKey = process.env.IFTHENPAY_GATEWAY_KEY
+    if (!gatewayKey) {
+      return res.status(500).json({ erro: 'IFTHENPAY_GATEWAY_KEY não configurada no Vercel.' })
+    }
+
+    // Só entram no `accounts` os métodos com chave configurada — assim o
+    // gateway nunca oferece uma carteira que a conta ainda não tem.
+    const contas = [
+      ['CCARD', process.env.IFTHENPAY_CCARD_KEY],
+      ['GOOGLE', process.env.IFTHENPAY_GOOGLE_KEY],
+      ['APPLE', process.env.IFTHENPAY_APPLE_KEY],
+    ]
+      .filter(([, k]) => k)
+      .map(([m, k]) => `${m}|${k}`)
+      .join(';')
+    if (!contas) {
+      return res.status(500).json({
+        erro: 'Nenhuma chave de cartão/carteira configurada no Vercel (CCARD, GOOGLE ou APPLE).',
+      })
     }
 
     // Base do site a partir do pedido: é o domínio onde o cliente está.
@@ -123,28 +147,31 @@ export default async function handler(req, res) {
     const volta = (estado) =>
       `${base}/restaurante?pedido=${encodeURIComponent(pedido.id)}&pag=${estado}`
 
-    const r = await fetch(`https://ifthenpay.com/api/creditcard/init/${encodeURIComponent(key)}`, {
+    const r = await fetch(`${IFT}/gateway/pinpay/${encodeURIComponent(gatewayKey)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        orderId, // numero da encomenda (máx. 15 alfanuméricos)
+        id: orderId, // o gateway usa `id`, não `orderId`
         amount,
+        description: `100PRESSAO #${orderId}`,
+        accounts: contas,
         successUrl: volta('ok'),
         errorUrl: volta('erro'),
         cancelUrl: volta('cancelado'),
+        // Link de uso único: evita que a mesma ligação possa ser paga duas vezes.
+        otp: 'true',
         language: 'pt',
       }),
     })
     const j = await r.json().catch(() => ({}))
-    const paymentUrl = j.PaymentUrl || j.paymentUrl
-    // Neste endpoint, Status "0" = pedido aceite (difere do MB Way, que usa "000").
-    if (!r.ok || String(j.Status ?? '') !== '0' || !paymentUrl) {
-      console.error('IfThenPay cartão init', r.status, JSON.stringify(j))
-      return res.status(502).json({ erro: j.Message || 'Não foi possível iniciar o pagamento por cartão.' })
+    const paymentUrl = j.PinpayUrl || j.pinpayUrl || j.PaymentUrl
+    if (!r.ok || !paymentUrl) {
+      console.error('IfThenPay gateway init', r.status, JSON.stringify(j))
+      return res.status(502).json({ erro: j.Message || 'Não foi possível iniciar o pagamento.' })
     }
     await admin
       .from('orders')
-      .update({ pagamento_id: j.RequestId || null })
+      .update({ pagamento_id: j.RequestId || j.PinCode || null })
       .eq('id', pedido.id)
     return res.status(200).json({ metodo: 'cartao', paymentUrl })
   }

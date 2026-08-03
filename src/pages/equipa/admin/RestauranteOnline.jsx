@@ -147,14 +147,16 @@ function RestauranteOnline() {
           />
           <span>
             <span className="font-display text-lg font-bold uppercase text-grafite-900">
-              Aceitar cartão de crédito/débito
+              Aceitar cartão, Google Pay e Apple Pay
             </span>
             <span className="mt-1 block text-sm text-grafite-600/70">
-              Acrescenta "Cartão" aos métodos de pagamento do checkout. Só ligar
-              depois de o cartão estar contratado no IfThenPay <em>e</em> da chave
-              IFTHENPAY_CCARD_KEY estar no Vercel — caso contrário o cliente
-              escolhe cartão e o pagamento falha. MB Way e Multibanco não
-              dependem disto.
+              Acrescenta a opção "Cartão · Pay" ao checkout, que abre o gateway
+              do IfThenPay com cartão Visa/Mastercard, Google Pay e Apple Pay (as
+              carteiras só aparecem em dispositivos compatíveis). Só ligar depois
+              de os métodos estarem contratados no IfThenPay <em>e</em> das chaves
+              IFTHENPAY_GATEWAY_KEY, IFTHENPAY_CCARD_KEY, IFTHENPAY_GOOGLE_KEY e
+              IFTHENPAY_APPLE_KEY estarem no Vercel — caso contrário o cliente
+              escolhe e o pagamento falha. MB Way e Multibanco não dependem disto.
             </span>
           </span>
         </label>

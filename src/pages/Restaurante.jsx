@@ -3,7 +3,8 @@
 // ementa mas usa o PREÇO ONLINE (preco_online, com fallback ao preço local).
 //
 // Checkout REAL: cria encomenda via RPC criar_pedido_online (o servidor
-// calcula preço e portes) e cobra por IfThenPay (MB Way / Multibanco) através
+// calcula preço e portes) e cobra por IfThenPay (MB Way, Multibanco e, pelo
+// gateway, cartão + Google Pay + Apple Pay) através
 // das funções /api/pagamento e /api/pagamento-estado. Só pagamento online.
 // A configuração (mínimo, portes, prazo, interruptor) vem do painel Admin
 // "Restaurante Online" (definicoes → chave 'entrega').
@@ -31,7 +32,7 @@ const ETIQUETAS = ['Cervejaria', 'Petiscos', 'Luso-brasileiro']
 // para o sticky dos chips e para o destino do scroll ao saltar de categoria.
 const ALTURA_HEADER = { movel: 88, grande: 104 }
 
-// Guarda a encomenda enquanto o cliente está na página de cartão do IfThenPay.
+// Guarda a encomenda enquanto o cliente está no gateway do IfThenPay.
 const CHAVE_PAGAMENTO = '100p:pagamento-cartao'
 
 const CONFIG_INICIAL = {
@@ -727,7 +728,7 @@ function Restaurante() {
                   { id: 'multibanco', r: 'Multibanco' },
                   // Só depois de o cartão estar contratado no IfThenPay e a
                   // chave configurada no Vercel (interruptor no painel Admin).
-                  ...(cfg.cartao_ativo ? [{ id: 'cartao', r: 'Cartão' }] : []),
+                  ...(cfg.cartao_ativo ? [{ id: 'cartao', r: 'Cartão · Pay' }] : []),
                 ].map((m) => (
                   <button key={m.id} type="button" onClick={() => setMetodo(m.id)} className={`rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest ${metodo === m.id ? 'border-ambar-500 bg-ambar-500/15 text-grafite-900' : 'border-creme-300 text-grafite-600/70'}`}>{m.r}</button>
                 ))}
@@ -736,7 +737,7 @@ function Restaurante() {
                 {metodo === 'mbway'
                   ? 'Recebes um pedido de pagamento na app MB WAY, no número acima.'
                   : metodo === 'cartao'
-                    ? 'Vais para a página segura do IfThenPay para introduzir o cartão, e voltas aqui no fim. Aceita Visa e Mastercard, de crédito ou débito.'
+                    ? 'Vais para a página segura do IfThenPay, onde podes pagar com cartão Visa ou Mastercard, Google Pay ou Apple Pay — o que estiver disponível no teu dispositivo. Voltas aqui no fim.'
                     : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}
               </p>
             </div>
@@ -801,7 +802,7 @@ function Restaurante() {
                 {!erroPag && (
                   <>
                     <p className="mt-3 text-grafite-600">
-                      Obrigado! Estamos a confirmar o pagamento com o banco. Assim que entrar,
+                      Obrigado! Estamos a confirmar o pagamento. Assim que entrar,
                       recebes um email de confirmação e a encomenda vai para a cozinha.
                     </p>
                     <div className="mt-6 flex items-center justify-center gap-2 text-sm text-grafite-600/70">
