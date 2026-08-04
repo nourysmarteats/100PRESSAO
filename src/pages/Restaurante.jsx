@@ -97,6 +97,7 @@ function Restaurante() {
   const [calculando, setCalculando] = useState(false)
   const [erroDist, setErroDist] = useState('')
   const [metodo, setMetodo] = useState('mbway')
+  const [carteira, setCarteira] = useState(null) // null | 'apple' | 'google'
   const [cpf, setCpf] = useState('') // só para Pix
   const [idade, setIdade] = useState(false) // 18+ (Brandão E)
   const [aceito, setAceito] = useState(false) // Condições de Venda (Brandão J)
@@ -106,6 +107,10 @@ function Restaurante() {
   const [refMB, setRefMB] = useState(null) // { entidade, referencia, valor }
   const [aFinalizar, setAFinalizar] = useState(false)
   const [erroPag, setErroPag] = useState('')
+
+  // O Apple Pay só existe em Safari/iOS. Mostrar o botão noutro sítio leva o
+  // cliente a um beco sem saída, por isso só aparece onde o browser o suporta.
+  const temApplePay = typeof window !== 'undefined' && 'ApplePaySession' in window
 
   // Configuração do canal (mínimo, portes, prazo, interruptor)
   useEffect(() => {
@@ -393,7 +398,7 @@ function Restaurante() {
       const resp = await fetch('/api/pagamento', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pedido_id: data.id, telefone, cpf }),
+        body: JSON.stringify({ pedido_id: data.id, telefone, cpf, carteira }),
       })
       const j = await resp.json().catch(() => ({}))
       if (!resp.ok) {
@@ -727,22 +732,49 @@ function Restaurante() {
               <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Pagamento online</h2>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
-                  { id: 'mbway', r: 'MB Way' },
-                  { id: 'multibanco', r: 'Multibanco' },
-                  // Só depois de o cartão estar contratado no IfThenPay e a
-                  // chave configurada no Vercel (interruptor no painel Admin).
-                  ...(cfg.cartao_ativo ? [{ id: 'cartao', r: 'Cartão · Pay' }] : []),
+                  { id: 'mbway', r: 'MB Way', metodo: 'mbway', carteira: null },
+                  { id: 'multibanco', r: 'Multibanco', metodo: 'multibanco', carteira: null },
+                  // Cartão, Apple Pay e Google Pay vão todos ao gateway do
+                  // IfThenPay, mas com entradas próprias: são marcas que o
+                  // cliente reconhece e escolhe à vista, não escondidas dentro
+                  // de "Cartão". Na base de dados continuam a ser 'cartao'.
+                  ...(cfg.cartao_ativo
+                    ? [
+                        { id: 'cartao', r: 'Cartão', metodo: 'cartao', carteira: null },
+                        ...(temApplePay
+                          ? [{ id: 'apple', r: 'Apple Pay', metodo: 'cartao', carteira: 'apple' }]
+                          : []),
+                        { id: 'google', r: 'Google Pay', metodo: 'cartao', carteira: 'google' },
+                      ]
+                    : []),
                   // Pix: liquida em reais, para clientes com conta brasileira.
-                  ...(cfg.pix_ativo ? [{ id: 'pix', r: 'Pix' }] : []),
-                ].map((m) => (
-                  <button key={m.id} type="button" onClick={() => setMetodo(m.id)} className={`rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest ${metodo === m.id ? 'border-ambar-500 bg-ambar-500/15 text-grafite-900' : 'border-creme-300 text-grafite-600/70'}`}>{m.r}</button>
-                ))}
+                  ...(cfg.pix_ativo ? [{ id: 'pix', r: 'Pix', metodo: 'pix', carteira: null }] : []),
+                ].map((m) => {
+                  const ativo = metodo === m.metodo && carteira === m.carteira
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setMetodo(m.metodo)
+                        setCarteira(m.carteira)
+                      }}
+                      className={`rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest ${ativo ? 'border-ambar-500 bg-ambar-500/15 text-grafite-900' : 'border-creme-300 text-grafite-600/70'}`}
+                    >
+                      {m.r}
+                    </button>
+                  )
+                })}
               </div>
               <p className="mt-2 text-xs text-grafite-600/70">
                 {metodo === 'mbway'
                   ? 'Recebes um pedido de pagamento na app MB WAY, no número acima.'
                   : metodo === 'cartao'
-                    ? 'Vais para a página segura do IfThenPay, onde podes pagar com cartão Visa ou Mastercard, Google Pay ou Apple Pay — o que estiver disponível no teu dispositivo. Voltas aqui no fim.'
+                    ? carteira === 'apple'
+                      ? 'Vais para a página segura do IfThenPay e confirmas com Apple Pay, por Face ID ou Touch ID. Voltas aqui no fim.'
+                      : carteira === 'google'
+                        ? 'Vais para a página segura do IfThenPay e confirmas com Google Pay. Voltas aqui no fim.'
+                        : 'Vais para a página segura do IfThenPay para introduzir o cartão Visa ou Mastercard. Voltas aqui no fim.'
                     : metodo === 'pix'
                       ? 'Pagamento instantâneo brasileiro. Precisas de conta num banco do Brasil e do teu CPF.'
                       : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}

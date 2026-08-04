@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ erro: 'Configuração do Supabase em falta no Vercel.' })
   }
 
-  const { pedido_id, telefone, cpf } = req.body || {}
+  const { pedido_id, telefone, cpf, carteira } = req.body || {}
   if (!pedido_id) return res.status(400).json({ erro: 'pedido_id em falta.' })
 
   const admin = createClient(url, serviceKey, {
@@ -125,16 +125,24 @@ export default async function handler(req, res) {
       return res.status(500).json({ erro: 'IFTHENPAY_GATEWAY_KEY não configurada no Vercel.' })
     }
 
-    // Só entram no `accounts` os métodos com chave configurada — assim o
-    // gateway nunca oferece uma carteira que a conta ainda não tem.
-    const contas = [
+    // O cliente já escolheu no nosso checkout entre cartão, Apple Pay e Google
+    // Pay, por isso o gateway abre directamente no método escolhido em vez de
+    // voltar a perguntar. `carteira` vazia = cartão, e nesse caso oferecem-se
+    // todos os disponíveis (serve também de retrocompatibilidade).
+    const DISPONIVEIS = [
       ['CCARD', process.env.IFTHENPAY_CCARD_KEY],
       ['GOOGLE', process.env.IFTHENPAY_GOOGLE_KEY],
       ['APPLE', process.env.IFTHENPAY_APPLE_KEY],
-    ]
-      .filter(([, k]) => k)
-      .map(([m, k]) => `${m}|${k}`)
-      .join(';')
+    ].filter(([, k]) => k)
+
+    const so = carteira === 'apple' ? 'APPLE' : carteira === 'google' ? 'GOOGLE' : null
+    const escolhidas = so ? DISPONIVEIS.filter(([m]) => m === so) : DISPONIVEIS
+    if (so && escolhidas.length === 0) {
+      return res.status(500).json({
+        erro: `Chave do ${so === 'APPLE' ? 'Apple Pay' : 'Google Pay'} não configurada no Vercel.`,
+      })
+    }
+    const contas = escolhidas.map(([m, k]) => `${m}|${k}`).join(';')
     if (!contas) {
       return res.status(500).json({
         erro: 'Nenhuma chave de cartão/carteira configurada no Vercel (CCARD, GOOGLE ou APPLE).',
