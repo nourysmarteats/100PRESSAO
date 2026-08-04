@@ -14,6 +14,13 @@ export default async function handler(req, res) {
   const q = req.query || {}
   const chave = q.key || q.chave
 
+  // Rasto de TODOS os callbacks recebidos (sem a chave), porque a alternativa
+  // é o silêncio: quando um pagamento não fica confirmado, é impossível
+  // distinguir "o callback não chegou" de "chegou e não deu match". A chave
+  // anti-phishing é redigida — é um segredo.
+  const { key: _k, chave: _c, ...visivel } = q
+  console.log('ifthenpay callback recebido', JSON.stringify(visivel))
+
   const antiPhishing = process.env.IFTHENPAY_ANTIPHISHING_KEY
   if (!antiPhishing) {
     console.error('IFTHENPAY_ANTIPHISHING_KEY não configurada')
@@ -25,6 +32,7 @@ export default async function handler(req, res) {
 
   const orderId = q.orderId || q.order_id || q.id
   if (!orderId || !/^\d+$/.test(String(orderId))) {
+    console.error('callback sem orderId utilizável', JSON.stringify(visivel))
     return res.status(400).send('missing/invalid orderId')
   }
 
@@ -42,9 +50,17 @@ export default async function handler(req, res) {
     .eq('numero', Number(orderId))
     .eq('canal', 'online')
     .single()
-  if (!pedido) return res.status(404).send('order not found')
+  if (!pedido) {
+    console.error('callback para encomenda inexistente', { orderId })
+    return res.status(404).send('order not found')
+  }
 
-  await marcarPago(admin, pedido.id)
+  const marcado = await marcarPago(admin, pedido.id)
+  console.log('callback processado', {
+    orderId,
+    metodo: q.method || q.metodo || null,
+    ja_estava_pago: !marcado,
+  })
 
   // O IfThenPay só precisa de um 200 para dar o callback como entregue.
   return res.status(200).send('OK')

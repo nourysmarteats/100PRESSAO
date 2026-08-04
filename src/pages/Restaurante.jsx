@@ -107,6 +107,7 @@ function Restaurante() {
   const [refMB, setRefMB] = useState(null) // { entidade, referencia, valor }
   const [aFinalizar, setAFinalizar] = useState(false)
   const [erroPag, setErroPag] = useState('')
+  const [confirmacaoLenta, setConfirmacaoLenta] = useState(false)
 
   // O Apple Pay só existe em Safari/iOS. Mostrar o botão noutro sítio leva o
   // cliente a um beco sem saída, por isso só aparece onde o browser o suporta.
@@ -430,10 +431,20 @@ function Restaurante() {
   }
 
   // ── Polling do estado do pagamento (fase 'pagamento') ──
+  //
+  // A confirmação vem do callback servidor-a-servidor do IfThenPay; isto só
+  // observa a nossa base de dados à espera dela. Se o callback não chegar (por
+  // exemplo, por não estar activado no backoffice para o método usado), o
+  // cliente não pode ficar eternamente com um indicador a girar depois de ter
+  // pago — ao fim de 2 minutos assume-se confirmação lenta e diz-se-lhe o que
+  // esperar, com o número da encomenda como referência.
   const intervaloRef = useRef(null)
   useEffect(() => {
     if (fase !== 'pagamento' || !pedido) return
     let vivo = true
+    let tentativas = 0
+    const MAX_TENTATIVAS = 30 // 30 × 4s = 2 minutos
+
     async function verificar() {
       try {
         const r = await fetch(`/api/pagamento-estado?pedido_id=${pedido.id}`)
@@ -443,11 +454,23 @@ function Restaurante() {
         if (j.numero != null && pedido.numero == null) {
           setPedido((p) => (p ? { ...p, numero: j.numero, total: j.total } : p))
         }
-        if (j.pago) setFase('confirmado')
+        if (j.pago) {
+          setConfirmacaoLenta(false)
+          setFase('confirmado')
+          return
+        }
       } catch {
         /* tenta na próxima */
       }
+      if (!vivo) return
+      tentativas += 1
+      if (tentativas >= MAX_TENTATIVAS) {
+        setConfirmacaoLenta(true)
+        clearInterval(intervaloRef.current)
+      }
     }
+
+    setConfirmacaoLenta(false)
     verificar()
     intervaloRef.current = setInterval(verificar, 4000)
     return () => {
@@ -853,7 +876,7 @@ function Restaurante() {
                 <p className="mt-3 font-display text-2xl font-bold uppercase text-ambar-600">
                   {erroPag ? 'Pagamento não concluído' : 'A confirmar o pagamento'}
                 </p>
-                {!erroPag && (
+                {!erroPag && !confirmacaoLenta && (
                   <>
                     <p className="mt-3 text-grafite-600">
                       Obrigado! Estamos a confirmar o pagamento. Assim que entrar,
@@ -862,6 +885,31 @@ function Restaurante() {
                     <div className="mt-6 flex items-center justify-center gap-2 text-sm text-grafite-600/70">
                       <span className="h-3 w-3 animate-pulse rounded-full bg-ambar-500" /> À espera da confirmação…
                     </div>
+                  </>
+                )}
+                {/* Confirmação a demorar: nunca deixar o cliente que já pagou
+                    sem saber o que se passou nem a quem falar. */}
+                {!erroPag && confirmacaoLenta && (
+                  <>
+                    <p className="mt-3 text-grafite-600">
+                      A confirmação do banco está a demorar mais do que o costume.
+                      {pedido.numero ? ` Guarda o número da encomenda (${pedido.numero}).` : ''}{' '}
+                      <strong className="text-grafite-900">Se o pagamento foi feito, não voltes a pagar.</strong>{' '}
+                      Assim que a confirmação chegar, recebes o email e preparamos a encomenda.
+                    </p>
+                    <p className="mt-3 text-sm text-grafite-600/70">
+                      Se em 15 minutos não receberes nada, fala connosco — resolvemos na hora.
+                    </p>
+                    <a
+                      href={`https://wa.me/351935995011?text=${encodeURIComponent(
+                        `Olá 100PRESSÃO! Paguei a encomenda${pedido.numero ? ` nº ${pedido.numero}` : ''} por cartão mas ainda não recebi confirmação.`,
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${BOTAO} mt-5`}
+                    >
+                      Falar connosco no WhatsApp
+                    </a>
                   </>
                 )}
                 {erroPag && (
