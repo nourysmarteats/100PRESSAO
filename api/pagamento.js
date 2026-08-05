@@ -175,6 +175,22 @@ export default async function handler(req, res) {
       }),
     })
     const j = await r.json().catch(() => ({}))
+
+    // DIAGNÓSTICO: o gateway estava a devolver 200 e um link que, ao ser
+    // aberto, mostrava "não encontrámos os dados para pagamento" — ou seja,
+    // criava a ligação sem lá pôr os métodos. Regista-se a resposta e a FORMA
+    // das chaves (nunca o valor), para se ver se o problema é o formato: o
+    // IfThenPay espera ITP-000000 nos métodos e AAAA-000000 no gateway.
+    console.log('gateway diagnóstico', JSON.stringify({
+      resposta: j,
+      gateway_formato_ok: /^[A-Z]{4}-\d{6}$/.test(gatewayKey),
+      metodos: escolhidas.map(([m, k]) => ({
+        metodo: m,
+        formato_ok: /^[A-Z]{3}-\d{6}$/.test(k),
+        comprimento: String(k).length,
+      })),
+    }))
+
     // A resposta traz três campos: RedirectUrl (a página de pagamento online),
     // PinpayUrl (o serviço PINPAY, por código PIN, para vendas ao telefone) e
     // PinCode. Para o cliente pagar no site é o RedirectUrl — o PinpayUrl leva
