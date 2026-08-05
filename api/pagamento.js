@@ -212,8 +212,6 @@ export default async function handler(req, res) {
         success_url: volta('ok'),
         error_url: volta('erro'),
         cancel_url: volta('cancelado'),
-        // Link de uso único: evita que a mesma ligação possa ser paga duas vezes.
-        otp: 'true',
         lang: 'pt',
       }),
     })
