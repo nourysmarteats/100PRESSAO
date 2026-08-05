@@ -129,10 +129,20 @@ export default async function handler(req, res) {
     // Pay, por isso o gateway abre directamente no método escolhido em vez de
     // voltar a perguntar. `carteira` vazia = cartão, e nesse caso oferecem-se
     // todos os disponíveis (serve também de retrocompatibilidade).
+    // O backoffice do IfThenPay mostra as chaves como "CCARD | ITP-123456", por
+    // isso colar a linha inteira na variável de ambiente é um erro natural —
+    // e silencioso, porque a API aceita o pedido e devolve um link morto.
+    // Aceita-se qualquer das formas: tira-se um eventual rótulo antes do "|"
+    // e os espaços em redor.
+    const limpar = (k) => {
+      const bruto = String(k ?? '').trim().replace(/^["']|["']$/g, '')
+      return (bruto.includes('|') ? bruto.slice(bruto.lastIndexOf('|') + 1) : bruto).trim()
+    }
+
     const DISPONIVEIS = [
-      ['CCARD', process.env.IFTHENPAY_CCARD_KEY],
-      ['GOOGLE', process.env.IFTHENPAY_GOOGLE_KEY],
-      ['APPLE', process.env.IFTHENPAY_APPLE_KEY],
+      ['CCARD', limpar(process.env.IFTHENPAY_CCARD_KEY)],
+      ['GOOGLE', limpar(process.env.IFTHENPAY_GOOGLE_KEY)],
+      ['APPLE', limpar(process.env.IFTHENPAY_APPLE_KEY)],
     ].filter(([, k]) => k)
 
     const so = carteira === 'apple' ? 'APPLE' : carteira === 'google' ? 'GOOGLE' : null
@@ -148,7 +158,8 @@ export default async function handler(req, res) {
     // "não encontrámos os dados para pagamento". Mais vale falhar aqui, com uma
     // mensagem que diz o que corrigir, do que mandar quem quer pagar para uma
     // página morta.
-    if (!/^[A-Z]{4}-\d{6}$/.test(gatewayKey)) {
+    const gatewayLimpa = limpar(gatewayKey)
+    if (!/^[A-Z]{4}-\d{6}$/.test(gatewayLimpa)) {
       console.error('IFTHENPAY_GATEWAY_KEY fora do formato AAAA-000000')
       return res.status(500).json({
         erro: 'Configuração de pagamento inválida. Já estamos a tratar disso — usa MB Way ou Multibanco.',
@@ -188,7 +199,7 @@ export default async function handler(req, res) {
     const volta = (estado) =>
       `${base}/restaurante?pedido=${encodeURIComponent(pedido.id)}&pag=${estado}`
 
-    const r = await fetch(`${IFT}/gateway/pinpay/${encodeURIComponent(gatewayKey)}`, {
+    const r = await fetch(`${IFT}/gateway/pinpay/${encodeURIComponent(gatewayLimpa)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
