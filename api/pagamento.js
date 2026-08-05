@@ -17,6 +17,16 @@ import { createClient } from '@supabase/supabase-js'
 
 const IFT = 'https://api.ifthenpay.com'
 
+// O backoffice do IfThenPay mostra as chaves como "CCARD | ITP-123456", por
+// isso colar a linha inteira na variável de ambiente é um erro natural — e
+// silencioso, porque a API aceita o pedido e devolve um link morto. Aceita-se
+// qualquer das formas: tira-se um eventual rótulo antes do "|", aspas e
+// espaços em redor.
+const limparChave = (k) => {
+  const bruto = String(k ?? '').trim().replace(/^["']|["']$/g, '')
+  return (bruto.includes('|') ? bruto.slice(bruto.lastIndexOf('|') + 1) : bruto).trim()
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não suportado' })
@@ -129,25 +139,21 @@ export default async function handler(req, res) {
     // Pay, por isso o gateway abre directamente no método escolhido em vez de
     // voltar a perguntar. `carteira` vazia = cartão, e nesse caso oferecem-se
     // todos os disponíveis (serve também de retrocompatibilidade).
-    // O backoffice do IfThenPay mostra as chaves como "CCARD | ITP-123456", por
-    // isso colar a linha inteira na variável de ambiente é um erro natural —
-    // e silencioso, porque a API aceita o pedido e devolve um link morto.
-    // Aceita-se qualquer das formas: tira-se um eventual rótulo antes do "|"
-    // e os espaços em redor.
-    const limpar = (k) => {
-      const bruto = String(k ?? '').trim().replace(/^["']|["']$/g, '')
-      return (bruto.includes('|') ? bruto.slice(bruto.lastIndexOf('|') + 1) : bruto).trim()
-    }
-
     const DISPONIVEIS = [
-      ['CCARD', limpar(process.env.IFTHENPAY_CCARD_KEY)],
-      ['GOOGLE', limpar(process.env.IFTHENPAY_GOOGLE_KEY)],
-      ['APPLE', limpar(process.env.IFTHENPAY_APPLE_KEY)],
+      ['CCARD', limparChave(process.env.IFTHENPAY_CCARD_KEY)],
+      ['GOOGLE', limparChave(process.env.IFTHENPAY_GOOGLE_KEY)],
+      ['APPLE', limparChave(process.env.IFTHENPAY_APPLE_KEY)],
     ].filter(([, k]) => k)
 
+    // A carteira escolhida abre em destaque, mas o cartão viaja sempre junto:
+    // é o gateway que decide o que mostrar conforme o dispositivo, e sem esta
+    // rede de segurança quem escolhesse Apple Pay num Android ficava sem nada
+    // onde carregar — o mesmo beco sem saída que já custou caro aqui.
     const so = carteira === 'apple' ? 'APPLE' : carteira === 'google' ? 'GOOGLE' : null
-    const escolhidas = so ? DISPONIVEIS.filter(([m]) => m === so) : DISPONIVEIS
-    if (so && escolhidas.length === 0) {
+    const escolhidas = so
+      ? DISPONIVEIS.filter(([m]) => m === so || m === 'CCARD')
+      : DISPONIVEIS
+    if (so && !escolhidas.some(([m]) => m === so)) {
       return res.status(500).json({
         erro: `Chave do ${so === 'APPLE' ? 'Apple Pay' : 'Google Pay'} não configurada no Vercel.`,
       })
@@ -158,7 +164,7 @@ export default async function handler(req, res) {
     // "não encontrámos os dados para pagamento". Mais vale falhar aqui, com uma
     // mensagem que diz o que corrigir, do que mandar quem quer pagar para uma
     // página morta.
-    const gatewayLimpa = limpar(gatewayKey)
+    const gatewayLimpa = limparChave(gatewayKey)
     if (!/^[A-Z]{4}-\d{6}$/.test(gatewayLimpa)) {
       console.error('IFTHENPAY_GATEWAY_KEY fora do formato AAAA-000000')
       return res.status(500).json({
@@ -246,13 +252,18 @@ export default async function handler(req, res) {
   // métodos portugueses não têm: o IfThenPay obriga a CPF, nome, email e
   // telemóvel do cliente, e o telemóvel vai no formato indicativo#numero.
   //
-  // ATENÇÃO À MOEDA: o Pix liquida em reais. Enquanto não estiver confirmado
-  // com o IfThenPay se o `amount` vai em euros (convertido por eles) ou já em
-  // BRL, este método não deve ser ligado — enviar euros num campo esperado em
-  // reais cobraria cerca de um sexto do preço.
+  // MOEDA: confirmado pelo Leandro junto do IfThenPay (2026-08-05) que são
+  // eles a fazer o câmbio e a liquidar ao comerciante em euros. O `amount`
+  // segue em euros, como nos restantes métodos.
   if (metodo === 'pix') {
-    const key = process.env.IFTHENPAY_PIX_KEY
+    const key = limparChave(process.env.IFTHENPAY_PIX_KEY)
     if (!key) return res.status(500).json({ erro: 'IFTHENPAY_PIX_KEY não configurada no Vercel.' })
+    if (!/^[A-Z]{3}-\d{6}$/.test(key)) {
+      console.error('IFTHENPAY_PIX_KEY fora do formato ITP-000000')
+      return res.status(500).json({
+        erro: 'Configuração de pagamento inválida. Já estamos a tratar disso — usa MB Way ou Multibanco.',
+      })
+    }
 
     const cpfLimpo = String(cpf || '').replace(/\D/g, '')
     if (cpfLimpo.length !== 11) {

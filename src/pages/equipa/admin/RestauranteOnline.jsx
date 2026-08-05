@@ -181,11 +181,9 @@ function RestauranteOnline() {
               Pagamento instantâneo brasileiro, para clientes com conta no Brasil.
               Pede o CPF no checkout. Precisa da IFTHENPAY_PIX_KEY no Vercel.
             </span>
-            <span className="mt-2 block rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-              <strong>Não ligar sem confirmar a moeda com o IfThenPay.</strong> O Pix
-              liquida em reais e a documentação não é clara sobre se o valor deve
-              seguir em euros (convertidos por eles) ou já em BRL. Se for em BRL e
-              enviarmos euros, cobra-se cerca de um sexto do preço.
+            <span className="mt-2 block text-sm text-grafite-600/70">
+              O cliente paga em reais; o câmbio é feito pelo IfThenPay, que liquida
+              em euros. Os preços seguem em euros, como nos restantes métodos.
             </span>
           </span>
         </label>

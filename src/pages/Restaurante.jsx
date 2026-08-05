@@ -109,10 +109,6 @@ function Restaurante() {
   const [erroPag, setErroPag] = useState('')
   const [confirmacaoLenta, setConfirmacaoLenta] = useState(false)
 
-  // O Apple Pay só existe em Safari/iOS. Mostrar o botão noutro sítio leva o
-  // cliente a um beco sem saída, por isso só aparece onde o browser o suporta.
-  const temApplePay = typeof window !== 'undefined' && 'ApplePaySession' in window
-
   // Configuração do canal (mínimo, portes, prazo, interruptor)
   useEffect(() => {
     supabase
@@ -776,9 +772,10 @@ function Restaurante() {
                   ...(cfg.cartao_ativo
                     ? [
                         { id: 'cartao', r: 'Cartão', metodo: 'cartao', carteira: null },
-                        ...(temApplePay
-                          ? [{ id: 'apple', r: 'Apple Pay', metodo: 'cartao', carteira: 'apple' }]
-                          : []),
+                        // Aparece sempre, por decisão do Leandro. Num
+                        // dispositivo sem Apple Pay o gateway mostra o cartão,
+                        // porque o servidor envia sempre CCARD como alternativa.
+                        { id: 'apple', r: 'Apple Pay', metodo: 'cartao', carteira: 'apple' },
                         { id: 'google', r: 'Google Pay', metodo: 'cartao', carteira: 'google' },
                       ]
                     : []),
