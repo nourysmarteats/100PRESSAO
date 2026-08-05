@@ -156,7 +156,19 @@ export default async function handler(req, res) {
     }
     const malFormadas = escolhidas.filter(([, k]) => !/^[A-Z]{3}-\d{6}$/.test(k)).map(([m]) => m)
     if (malFormadas.length > 0) {
-      console.error('Chaves IfThenPay fora do formato ITP-000000:', malFormadas.join(', '))
+      // Mostra a FORMA da chave, nunca o valor: maiúsculas viram A, minúsculas
+      // a, dígitos 9; pontuação e espaços ficam. Chega para ver se há um
+      // prefixo, um espaço ou aspas coladas, sem expor o segredo.
+      const forma = (k) =>
+        String(k).replace(/[A-Z]/g, 'A').replace(/[a-z]/g, 'a').replace(/\d/g, '9')
+      console.error(
+        'Chaves IfThenPay fora do formato ITP-000000 (esperado AAA-999999, 10 caracteres):',
+        JSON.stringify(
+          escolhidas
+            .filter(([, k]) => !/^[A-Z]{3}-\d{6}$/.test(k))
+            .map(([m, k]) => ({ metodo: m, forma: forma(k), caracteres: String(k).length })),
+        ),
+      )
       return res.status(500).json({
         erro: 'Configuração de pagamento inválida. Já estamos a tratar disso — usa MB Way ou Multibanco.',
       })
