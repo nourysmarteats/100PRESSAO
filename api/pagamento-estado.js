@@ -12,6 +12,16 @@ export default async function handler(req, res) {
   const pedido_id = req.query?.pedido_id || req.body?.pedido_id
   if (!pedido_id) return res.status(400).json({ erro: 'pedido_id em falta.' })
 
+  // Regresso do gateway com erro ou cancelamento: o browser reenvia os
+  // parâmetros que o IfThenPay lhe pôs no URL. É a única pista sobre a causa
+  // da falha, que de outro modo se perderia no cliente.
+  if (req.query?.retorno) {
+    console.log('regresso do gateway', {
+      pedido_id,
+      parametros: String(req.query.retorno).slice(0, 500),
+    })
+  }
+
   const url = process.env.VITE_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !serviceKey) return res.status(500).json({ erro: 'Configuração do Supabase em falta.' })

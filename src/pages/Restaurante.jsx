@@ -505,6 +505,18 @@ function Restaurante() {
     if (resultado === 'ok') {
       setFase('pagamento')
     } else {
+      // O IfThenPay pode juntar detalhe do erro aos parâmetros de regresso.
+      // Sem isto perde-se a única pista sobre PORQUE falhou o pagamento — o
+      // servidor regista-o para ficar no log junto ao resto do fluxo.
+      try {
+        const query = new URLSearchParams(window.location.search).toString()
+        fetch(
+          `/api/pagamento-estado?pedido_id=${encodeURIComponent(idPedido)}&retorno=${encodeURIComponent(query)}`,
+        ).catch(() => {})
+      } catch {
+        /* diagnóstico é acessório: nunca deve partir o ecrã */
+      }
+
       setFase('pagamento')
       setErroPag(
         resultado === 'cancelado'
