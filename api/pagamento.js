@@ -142,6 +142,26 @@ export default async function handler(req, res) {
         erro: `Chave do ${so === 'APPLE' ? 'Apple Pay' : 'Google Pay'} não configurada no Vercel.`,
       })
     }
+    // O IfThenPay exige um formato exacto nas chaves: ITP-000000 nos métodos e
+    // AAAA-000000 no gateway. Com uma chave fora do formato, a API responde 200
+    // e devolve um link — mas o link não tem métodos lá dentro e o cliente vê
+    // "não encontrámos os dados para pagamento". Mais vale falhar aqui, com uma
+    // mensagem que diz o que corrigir, do que mandar quem quer pagar para uma
+    // página morta.
+    if (!/^[A-Z]{4}-\d{6}$/.test(gatewayKey)) {
+      console.error('IFTHENPAY_GATEWAY_KEY fora do formato AAAA-000000')
+      return res.status(500).json({
+        erro: 'Configuração de pagamento inválida. Já estamos a tratar disso — usa MB Way ou Multibanco.',
+      })
+    }
+    const malFormadas = escolhidas.filter(([, k]) => !/^[A-Z]{3}-\d{6}$/.test(k)).map(([m]) => m)
+    if (malFormadas.length > 0) {
+      console.error('Chaves IfThenPay fora do formato ITP-000000:', malFormadas.join(', '))
+      return res.status(500).json({
+        erro: 'Configuração de pagamento inválida. Já estamos a tratar disso — usa MB Way ou Multibanco.',
+      })
+    }
+
     const contas = escolhidas.map(([m, k]) => `${m}|${k}`).join(';')
     if (!contas) {
       return res.status(500).json({
@@ -176,20 +196,11 @@ export default async function handler(req, res) {
     })
     const j = await r.json().catch(() => ({}))
 
-    // DIAGNÓSTICO: o gateway estava a devolver 200 e um link que, ao ser
-    // aberto, mostrava "não encontrámos os dados para pagamento" — ou seja,
-    // criava a ligação sem lá pôr os métodos. Regista-se a resposta e a FORMA
-    // das chaves (nunca o valor), para se ver se o problema é o formato: o
-    // IfThenPay espera ITP-000000 nos métodos e AAAA-000000 no gateway.
-    console.log('gateway diagnóstico', JSON.stringify({
-      resposta: j,
-      gateway_formato_ok: /^[A-Z]{4}-\d{6}$/.test(gatewayKey),
-      metodos: escolhidas.map(([m, k]) => ({
-        metodo: m,
-        formato_ok: /^[A-Z]{3}-\d{6}$/.test(k),
-        comprimento: String(k).length,
-      })),
-    }))
+    console.log('gateway iniciado', {
+      encomenda: orderId,
+      metodos: escolhidas.map(([m]) => m).join(','),
+      pin: j.PinCode || null,
+    })
 
     // A resposta traz três campos: RedirectUrl (a página de pagamento online),
     // PinpayUrl (o serviço PINPAY, por código PIN, para vendas ao telefone) e
