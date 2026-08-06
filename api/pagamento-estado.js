@@ -12,16 +12,6 @@ export default async function handler(req, res) {
   const pedido_id = req.query?.pedido_id || req.body?.pedido_id
   if (!pedido_id) return res.status(400).json({ erro: 'pedido_id em falta.' })
 
-  // Regresso do gateway com erro ou cancelamento: o browser reenvia os
-  // parâmetros que o IfThenPay lhe pôs no URL. É a única pista sobre a causa
-  // da falha, que de outro modo se perderia no cliente.
-  if (req.query?.retorno) {
-    console.log('regresso do gateway', {
-      pedido_id,
-      parametros: String(req.query.retorno).slice(0, 500),
-    })
-  }
-
   const url = process.env.VITE_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !serviceKey) return res.status(500).json({ erro: 'Configuração do Supabase em falta.' })
@@ -32,10 +22,29 @@ export default async function handler(req, res) {
 
   const { data: pedido } = await admin
     .from('orders')
-    .select('id, numero, total, estado_pagamento, metodo_pagamento, pagamento_id')
+    .select('id, numero, total, estado_pagamento, metodo_pagamento, pagamento_id, pagamento_ref')
     .eq('id', pedido_id)
     .single()
   if (!pedido) return res.status(404).json({ erro: 'Encomenda não encontrada.' })
+
+  // Regresso do gateway com erro ou cancelamento: o browser reenvia os
+  // parâmetros que o IfThenPay lhe pôs no URL — a única pista sobre a causa da
+  // falha. Fica no log E gravado na encomenda, porque a retenção de logs do
+  // Vercel é de um dia e já nos custou perder o diagnóstico de uma tentativa.
+  // Não se toca no pagamento_ref do Multibanco, que guarda entidade/referência.
+  if (req.query?.retorno) {
+    const registo = {
+      parametros: String(req.query.retorno).slice(0, 500),
+      em: new Date().toISOString(),
+    }
+    console.log('regresso do gateway', { pedido_id, numero: pedido.numero, ...registo })
+    if (pedido.metodo_pagamento !== 'multibanco') {
+      await admin
+        .from('orders')
+        .update({ pagamento_ref: { ...(pedido.pagamento_ref || {}), regresso: registo } })
+        .eq('id', pedido.id)
+    }
+  }
 
   // Número e total acompanham a resposta: quem volta da página de cartão do
   // IfThenPay perdeu o estado do React e precisa deles para o ecrã final.
