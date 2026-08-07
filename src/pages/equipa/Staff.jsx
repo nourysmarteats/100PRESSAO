@@ -6,6 +6,7 @@ import {
   proximoEstado,
   ROTULO_ESTADO,
   METODOS_PAGAMENTO,
+  exigeFatura,
   nomeItemPedido,
   obterPedidosAtivos,
 } from '../../lib/pedidos'
@@ -30,7 +31,11 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   const [ocupado, setOcupado] = useState(false)
   const [querFatura, setQuerFatura] = useState(false)
   const [nif, setNif] = useState('')
-  const nifValido = !querFatura || nif === '' || /^\d{9}$/.test(nif)
+  // Eletrónico é sempre faturado; em numerário a fatura fica ao critério do
+  // cliente. O NIF é sempre opcional, mas se for escrito tem de ser válido.
+  const faturaObrigatoria = exigeFatura(metodo)
+  const vaiFaturar = faturaObrigatoria || querFatura
+  const nifValido = nif === '' || /^\d{9}$/.test(nif)
   const pronto = pedido.estado === 'pronto'
 
   return (
@@ -88,16 +93,22 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
               </button>
             ))}
           </div>
-          <label className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-grafite-600">
-            <input
-              type="checkbox"
-              checked={querFatura}
-              onChange={(e) => setQuerFatura(e.target.checked)}
-              className="h-4 w-4 accent-ambar-500"
-            />
-            Cliente quer fatura
-          </label>
-          {querFatura && (
+          {faturaObrigatoria ? (
+            <p className="mt-3 rounded-lg border border-creme-300 bg-creme-100/60 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600">
+              Fatura emitida automaticamente
+            </p>
+          ) : (
+            <label className="mt-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-grafite-600">
+              <input
+                type="checkbox"
+                checked={querFatura}
+                onChange={(e) => setQuerFatura(e.target.checked)}
+                className="h-4 w-4 accent-ambar-500"
+              />
+              Cliente quer fatura
+            </label>
+          )}
+          {vaiFaturar && (
             <input
               type="text"
               inputMode="numeric"
@@ -114,7 +125,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
             disabled={!metodo || ocupado || !nifValido}
             onClick={async () => {
               setOcupado(true)
-              await aoEntregar(pedido.id, metodo, { querFatura, nif: nif || undefined })
+              await aoEntregar(pedido.id, metodo, { querFatura: vaiFaturar, nif: nif || undefined })
               setOcupado(false)
             }}
             className="mt-3 w-full cursor-pointer rounded-full bg-ambar-500 px-6 py-3 font-semibold uppercase tracking-widest text-grafite-950 transition-colors hover:bg-ambar-400 disabled:opacity-40"

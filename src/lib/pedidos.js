@@ -18,6 +18,12 @@ export const METODOS_PAGAMENTO = [
   { id: 'cartao', rotulo: 'Cartão' },
 ]
 
+// Regra fiscal (Leandro, 2026-08-07): só o numerário deixa a fatura ao critério
+// do cliente. Tudo o que é pagamento eletrónico deixa rasto e é sempre faturado
+// pela Vendus — a caixa "cliente quer fatura" nem sequer aparece nesses casos.
+export const FATURA_OPCIONAL_EM = 'dinheiro'
+export const exigeFatura = (metodo) => !!metodo && metodo !== FATURA_OPCIONAL_EM
+
 export function proximoEstado(estado) {
   const i = ESTADOS_PEDIDO.indexOf(estado)
   return i >= 0 && i < ESTADOS_PEDIDO.length - 1 ? ESTADOS_PEDIDO[i + 1] : null
