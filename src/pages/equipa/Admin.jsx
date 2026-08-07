@@ -6,6 +6,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { usePerfil } from '../../lib/equipa'
 import Analytics from './admin/Analytics'
 import Relatorios from './admin/Relatorios'
+import Rentabilidade from './admin/Rentabilidade'
 import Caixa from './admin/Caixa'
 import Ementa from './admin/Ementa'
 import Produtos from './admin/Produtos'
@@ -22,6 +23,7 @@ import Faturas from './admin/Faturas'
 const SECCOES = [
   { id: 'analytics', rotulo: 'Analytics', Componente: Analytics },
   { id: 'relatorios', rotulo: 'Relatórios', Componente: Relatorios },
+  { id: 'rentabilidade', rotulo: 'Rentabilidade', Componente: Rentabilidade },
   { id: 'caixa', rotulo: 'Fecho de caixa', Componente: Caixa },
   { id: 'faturas', rotulo: 'Faturas', Componente: Faturas },
   { id: 'ementa', rotulo: 'Ementa', Componente: Ementa },
