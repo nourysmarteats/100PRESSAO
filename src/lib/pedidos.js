@@ -73,7 +73,12 @@ export const SELECT_PEDIDO_LEGADO = `
 // passar tudo o que não é online (mesa/balcão), e do online só o que já está
 // pago — assim uma encomenda online por pagar (ou abandonada no checkout)
 // nunca aparece no Staff/Operacional/Ecrã.
-export const FILTRO_ONLINE_PAGO = 'canal.neq.online,estado_pagamento.eq.pago'
+// 'na_entrega' é uma encomenda online confirmada que se paga ao receber
+// (dinheiro). Ao contrário de 'pendente' — checkout abandonado —, tem de
+// chegar à cozinha como qualquer outra.
+export const ESTADOS_PAGAMENTO_VALIDOS = ['pago', 'na_entrega']
+export const FILTRO_ONLINE_PAGO =
+  'canal.neq.online,estado_pagamento.eq.pago,estado_pagamento.eq.na_entrega'
 
 export async function obterPedidosAtivos(supabase) {
   // Tenta na ordem: (completo+filtro) → (legado+filtro) → (completo) → (legado).

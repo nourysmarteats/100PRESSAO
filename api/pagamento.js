@@ -14,6 +14,7 @@
 //   SITE_URL (opcional)        — base dos URLs de retorno; por omissão usa o
 //                                domínio do próprio pedido
 import { createClient } from '@supabase/supabase-js'
+import { enviarConfirmacao } from './_lib/pagamentos.js'
 
 const IFT = 'https://api.ifthenpay.com'
 
@@ -48,12 +49,29 @@ export default async function handler(req, res) {
   // Encomenda lida no servidor — o total autoritativo vem daqui, nunca do browser.
   const { data: pedido, error } = await admin
     .from('orders')
-    .select('id, numero, total, metodo_pagamento, estado_pagamento, cliente_email, cliente_telefone, canal')
+    .select('id, numero, total, portes, metodo_pagamento, estado_pagamento, cliente_email, cliente_nome, cliente_telefone, tipo_entrega, morada, canal')
     .eq('id', pedido_id)
     .single()
   if (error || !pedido) return res.status(404).json({ erro: 'Encomenda não encontrada.' })
   if (pedido.canal !== 'online') return res.status(400).json({ erro: 'Encomenda inválida.' })
   if (pedido.estado_pagamento === 'pago') return res.status(200).json({ ja_pago: true })
+
+  // ── Dinheiro: nada a cobrar, só confirmar ──
+  // A encomenda foi criada pela RPC já em 'na_entrega' e está na cozinha. Falta
+  // o email de confirmação, que no fluxo eletrónico sairia via callback — aqui
+  // não há callback nenhum, por isso sai daqui.
+  if (pedido.metodo_pagamento === 'dinheiro') {
+    if (pedido.estado_pagamento !== 'na_entrega') {
+      return res.status(400).json({ erro: 'Encomenda inválida para pagamento em dinheiro.' })
+    }
+    try {
+      await enviarConfirmacao(admin, pedido)
+    } catch (e) {
+      // O email nunca bloqueia: a encomenda já está confirmada e na cozinha.
+      console.error('email de confirmação (dinheiro) falhou', e?.message || e)
+    }
+    return res.status(200).json({ metodo: 'dinheiro', confirmado: true })
+  }
 
   const amount = Number(pedido.total).toFixed(2)
   const orderId = String(pedido.numero)

@@ -14,6 +14,7 @@ const CONFIG_INICIAL = {
   ativo: false,
   cartao_ativo: false,
   pix_ativo: false,
+  dinheiro_ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
   taxa_base: 1.6,
@@ -80,6 +81,7 @@ function RestauranteOnline() {
       ativo: !!cfg.ativo,
       cartao_ativo: !!cfg.cartao_ativo,
       pix_ativo: !!cfg.pix_ativo,
+      dinheiro_ativo: !!cfg.dinheiro_ativo,
       min_encomenda: num(cfg.min_encomenda, 0),
       km_gratis: num(cfg.km_gratis, 0),
       taxa_base: num(cfg.taxa_base, 0),
@@ -184,6 +186,32 @@ function RestauranteOnline() {
             <span className="mt-2 block text-sm text-grafite-600/70">
               O cliente paga em reais; o câmbio é feito pelo IfThenPay, que liquida
               em euros. Os preços seguem em euros, como nos restantes métodos.
+            </span>
+          </span>
+        </label>
+      </div>
+
+      {/* Dinheiro à entrega / ao levantar */}
+      <div className={`${CARTAO} p-6`}>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={!!cfg.dinheiro_ativo}
+            onChange={(e) => setCfg((c) => ({ ...c, dinheiro_ativo: e.target.checked }))}
+            className="mt-1 h-5 w-5 accent-ambar-500"
+          />
+          <span>
+            <span className="font-display text-lg font-bold uppercase text-grafite-900">
+              Aceitar dinheiro na entrega
+            </span>
+            <span className="mt-1 block text-sm text-grafite-600/70">
+              A encomenda é confirmada logo e vai para a cozinha sem pagamento
+              prévio; cobra-se ao entregar ou ao levantar. Ao confirmar a entrega
+              no painel Staff, a encomenda passa a paga.
+            </span>
+            <span className="mt-2 block text-sm text-grafite-600/70">
+              É o único método sem dinheiro garantido à partida: uma encomenda
+              falsa custa a comida e a deslocação. Desliga aqui se acontecer.
             </span>
           </span>
         </label>

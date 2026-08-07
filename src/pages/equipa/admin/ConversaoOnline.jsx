@@ -14,6 +14,7 @@ const ROTULO = {
   multibanco: 'Multibanco',
   cartao: 'Cartão / Pay',
   pix: 'Pix',
+  dinheiro: 'Dinheiro',
 }
 
 // Uma encomenda por pagar pode ser só alguém a hesitar; o alarme é a
@@ -47,7 +48,9 @@ function ConversaoOnline({ dias = 30 }) {
       const m = o.metodo_pagamento || 'outro'
       const a = mapa.get(m) || { metodo: m, criadas: 0, pagas: 0, receita: 0, perdida: 0 }
       a.criadas += 1
-      if (o.estado_pagamento === 'pago') {
+      // 'na_entrega' (dinheiro) é encomenda confirmada, não conversão falhada:
+      // não há passo de pagamento que possa correr mal antes da entrega.
+      if (o.estado_pagamento === 'pago' || o.estado_pagamento === 'na_entrega') {
         a.pagas += 1
         a.receita += Number(o.total || 0)
       } else {

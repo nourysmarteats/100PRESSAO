@@ -39,6 +39,7 @@ const CONFIG_INICIAL = {
   ativo: false,
   cartao_ativo: false,
   pix_ativo: false,
+  dinheiro_ativo: false,
   min_encomenda: 20,
   km_gratis: 2,
   taxa_base: 1.6,
@@ -389,6 +390,21 @@ function Restaurante() {
       }
 
       setPedido(data)
+
+      // Dinheiro: não há nada a cobrar agora — a encomenda já foi criada em
+      // 'na_entrega' e segue direta para a cozinha. Ainda assim passa pelo
+      // servidor, porque é de lá que sai o email de confirmação, que as
+      // Condições de Venda exigem em qualquer encomenda à distância.
+      if (metodo === 'dinheiro') {
+        await fetch('/api/pagamento', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pedido_id: data.id }),
+        }).catch(() => {})
+        setFase('confirmado')
+        return
+      }
+
       setFase('pagamento')
 
       // Inicia o pagamento no servidor (chave IfThenPay nunca vem ao browser).
@@ -760,7 +776,7 @@ function Restaurante() {
 
             {/* Pagamento */}
             <div className="rounded-2xl border border-creme-300 bg-white/70 p-6">
-              <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Pagamento online</h2>
+              <h2 className="font-display text-lg font-bold uppercase text-grafite-600">Pagamento</h2>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[
                   { id: 'mbway', r: 'MB Way', metodo: 'mbway', carteira: null },
@@ -781,6 +797,11 @@ function Restaurante() {
                     : []),
                   // Pix: liquida em reais, para clientes com conta brasileira.
                   ...(cfg.pix_ativo ? [{ id: 'pix', r: 'Pix', metodo: 'pix', carteira: null }] : []),
+                  // Dinheiro: sem pagamento online — a encomenda é confirmada
+                  // logo e paga-se ao receber.
+                  ...(cfg.dinheiro_ativo
+                    ? [{ id: 'dinheiro', r: 'Dinheiro', metodo: 'dinheiro', carteira: null }]
+                    : []),
                 ].map((m) => {
                   const ativo = metodo === m.metodo && carteira === m.carteira
                   return (
@@ -807,6 +828,10 @@ function Restaurante() {
                       : carteira === 'google'
                         ? 'Vais para a página segura do IfThenPay e confirmas com Google Pay. Voltas aqui no fim.'
                         : 'Vais para a página segura do IfThenPay para introduzir o cartão Visa ou Mastercard. Voltas aqui no fim.'
+                    : metodo === 'dinheiro'
+                      ? tipo === 'entrega'
+                        ? 'Pagas em dinheiro ao estafeta, na entrega. Tem o valor certo, se puderes.'
+                        : 'Pagas em dinheiro no restaurante, ao levantar.'
                     : metodo === 'pix'
                       ? 'Pagamento instantâneo brasileiro. Precisas de conta num banco do Brasil e do teu CPF.'
                       : 'Geramos uma referência Multibanco; a encomenda entra na cozinha assim que pagares.'}
@@ -968,7 +993,17 @@ function Restaurante() {
           <div className="mt-10 rounded-2xl border border-creme-300 bg-white/70 p-8 text-center">
             <p className="font-display text-2xl font-bold uppercase text-ambar-600">Encomenda nº {pedido.numero} confirmada ✓</p>
             <p className="mt-3 text-grafite-600">
-              Obrigado, {nome || 'cliente'}! Recebemos o pagamento de {fmt(pedido.total)} e já estamos a preparar.
+              Obrigado, {nome || 'cliente'}!{' '}
+              {metodo === 'dinheiro' ? (
+                <>
+                  Já estamos a preparar.{' '}
+                  <strong className="text-grafite-900">
+                    Pagas {fmt(pedido.total)} em dinheiro {tipo === 'entrega' ? 'na entrega' : 'ao levantar'}.
+                  </strong>
+                </>
+              ) : (
+                `Recebemos o pagamento de ${fmt(pedido.total)} e já estamos a preparar.`
+              )}{' '}
               Enviámos a confirmação para {email}.
               {tipo === 'entrega'
                 ? ' Vamos a caminho assim que estiver pronto.'
