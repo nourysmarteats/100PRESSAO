@@ -12,6 +12,7 @@
 // durante a sessão do browser (sessionStorage), como o convite ao restaurante:
 // quem volta noutro dia torna a ver, quem já disse que não fica em paz.
 import { useEffect, useState } from 'react'
+import logoStamp from '../assets/logo-100pressao.png'
 
 const KEY = 'instalar-app-fechado-v1'
 
@@ -23,6 +24,37 @@ const eIOS = () =>
   typeof navigator !== 'undefined' &&
   /iphone|ipad|ipod/i.test(navigator.userAgent) &&
   !/crios|fxios|edgios/i.test(navigator.userAgent) // no iPhone só o Safari instala
+
+// O botão leva o carimbo e o nome: é o que vai ficar no ecrã do telemóvel, e
+// ver o ícone antes de instalar torna claro o que se está a guardar.
+function BotaoInstalar({ onClick, compacto = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group inline-flex cursor-pointer items-center gap-3 rounded-full bg-ambar-500 text-grafite-950 transition-colors hover:bg-ambar-400 ${
+        compacto ? 'py-1.5 pl-1.5 pr-5' : 'py-2 pl-2 pr-6'
+      }`}
+    >
+      <img
+        src={logoStamp}
+        alt=""
+        aria-hidden="true"
+        width="640"
+        height="640"
+        className={`shrink-0 rounded-full bg-grafite-900 ${compacto ? 'h-8 w-8' : 'h-10 w-10'}`}
+      />
+      <span className="text-left leading-tight">
+        <span className={`block font-display font-bold uppercase tracking-tight ${compacto ? 'text-sm' : 'text-base'}`}>
+          100PRESSÃO Online
+        </span>
+        <span className="block text-[0.65rem] font-semibold uppercase tracking-[0.2em] opacity-70">
+          Instalar
+        </span>
+      </span>
+    </button>
+  )
+}
 
 function IconePartilhar() {
   return (
@@ -89,9 +121,6 @@ function InstalarApp({ className = '', escuro = false, variante = 'cartao' }) {
   // Variante compacta: um link só, sem caixa nem botão de dispensar. No iPhone
   // dá a indicação em texto, porque não há diálogo para abrir.
   if (variante === 'linha') {
-    const cor = escuro
-      ? 'text-creme-300 hover:text-creme-50'
-      : 'text-grafite-600 hover:text-grafite-900'
     if (ios) {
       return (
         <p className={`text-xs ${escuro ? 'text-creme-500' : 'text-grafite-600/70'} ${className}`}>
@@ -100,13 +129,9 @@ function InstalarApp({ className = '', escuro = false, variante = 'cartao' }) {
       )
     }
     return (
-      <button
-        type="button"
-        onClick={instalar}
-        className={`cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] underline-offset-4 transition-colors hover:underline ${cor} ${className}`}
-      >
-        Instalar no telemóvel
-      </button>
+      <div className={className}>
+        <BotaoInstalar onClick={instalar} compacto />
+      </div>
     )
   }
 
@@ -136,18 +161,24 @@ function InstalarApp({ className = '', escuro = false, variante = 'cartao' }) {
       </p>
 
       {ios ? (
-        <p className={`mt-4 text-sm ${corTexto}`}>
-          No iPhone, toca em <IconePartilhar /> <strong className={corTitulo}>Partilhar</strong> e
-          depois em <strong className={corTitulo}>«Adicionar ao Ecrã Principal»</strong>.
-        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <img
+            src={logoStamp}
+            alt=""
+            aria-hidden="true"
+            width="640"
+            height="640"
+            className="h-12 w-12 shrink-0 rounded-full bg-grafite-900"
+          />
+          <p className={`text-sm ${corTexto}`}>
+            No iPhone, toca em <IconePartilhar /> <strong className={corTitulo}>Partilhar</strong> e
+            depois em <strong className={corTitulo}>«Adicionar ao Ecrã Principal»</strong>.
+          </p>
+        </div>
       ) : (
-        <button
-          type="button"
-          onClick={instalar}
-          className="mt-4 inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-ambar-500 px-6 py-2.5 text-sm font-semibold uppercase tracking-widest text-grafite-950 transition-colors hover:bg-ambar-400"
-        >
-          Instalar
-        </button>
+        <div className="mt-4">
+          <BotaoInstalar onClick={instalar} />
+        </div>
       )}
     </section>
   )
