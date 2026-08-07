@@ -4,7 +4,8 @@
 // pouco antigos, na pior das hipóteses) se o Wi-Fi do mercado cair a meio
 // de um serviço. Não existe para acelerar o site todo nem para tornar o
 // resto da app "offline-first" — só cobre:
-//   1) app shell (HTML/JS/CSS/ícones) para a SPA arrancar sem rede;
+//   1) app shell (HTML/JS/CSS/ícones) para a SPA arrancar sem rede — inclui
+//      o /restaurante, que é instalável como app própria;
 //   2) leituras públicas do cardápio no Supabase (categorias, produtos,
 //      combos, variantes) em stale-while-revalidate.
 //
@@ -15,13 +16,15 @@
 
 // Subir a versão faz o activate apagar as caches antigas — necessário aqui
 // para descartar as entradas de menu guardadas pela estratégia anterior.
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v3'
 const SHELL_CACHE = `100p-shell-${CACHE_VERSION}`
 const MENU_CACHE = `100p-menu-${CACHE_VERSION}`
 
 const SHELL_URLS = [
   '/',
   '/cardapio',
+  '/restaurante',
+  '/restaurante.webmanifest',
   '/site.webmanifest',
   '/cardapio.webmanifest',
   '/icon-192.png',
@@ -73,7 +76,11 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(
-        async () => (await caches.match('/cardapio')) || (await caches.match('/')),
+        async () =>
+          // A app instalada arranca no /restaurante; sem rede, serve-se o shell
+          // mais próximo — é uma SPA, o HTML é o mesmo em qualquer rota.
+          (await caches.match(url.pathname.startsWith('/restaurante') ? '/restaurante' : '/cardapio')) ||
+          (await caches.match('/')),
       ),
     )
     return

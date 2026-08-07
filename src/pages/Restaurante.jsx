@@ -15,6 +15,7 @@ import { fmt } from '../lib/pedidos'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
 import FormularioFeedback from '../components/FormularioFeedback'
+import InstalarApp from '../components/InstalarApp'
 import logoStamp from '../assets/logo-100pressao.png'
 
 const WHATSAPP_SUGESTAO =
@@ -559,7 +560,7 @@ function Restaurante() {
 
   return (
     <main className="bg-creme-50 text-grafite-800">
-      <SEOHead title="Restaurante Online | 100PRESSÃO" description="Encomende do 100PRESSÃO para entrega ou levantamento." path="/restaurante" />
+      <SEOHead title="Restaurante Online | 100PRESSÃO" description="Encomende do 100PRESSÃO para entrega ou levantamento." path="/restaurante" manifest="/restaurante.webmanifest" />
       <CabecalhoLoja tipo={tipo} cfg={cfg} />
 
       <div className="mx-auto max-w-6xl px-6">
@@ -699,6 +700,11 @@ function Restaurante() {
                   </section>
                 ))}
               </div>
+
+              {/* Depois da ementa: quem chegou ao fim já viu o que há e tem
+                  motivo para guardar o atalho. Dentro da coluna da esquerda,
+                  senão torna-se item da grelha e empurra o carrinho. */}
+              <InstalarApp className="mt-10" />
             </div>
 
             {/* Carrinho fixo no desktop — abaixo do cabeçalho (6.5rem) + chips (~3.5rem) */}
