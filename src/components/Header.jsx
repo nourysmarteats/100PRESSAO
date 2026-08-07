@@ -3,10 +3,14 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import logoStamp from '../assets/logo-100pressao.png'
 
+// Partilhado com o rodapé (Footer importa daqui), para as duas navegações
+// nunca divergirem. "Encomendar" fica ao lado da "Ementa" por serem as duas
+// acções comerciais: ver o que há, e pedir para casa.
 export const NAV_LINKS = [
   { to: '/', label: 'Início' },
   { to: '/quem-somos', label: 'Quem Somos' },
   { to: '/cardapio', label: 'Ementa' },
+  { to: '/restaurante', label: 'Encomendar' },
   { to: '/contacto', label: 'Contacto' },
   { to: '/faca-parte', label: 'Faça Parte' },
 ]
@@ -44,7 +48,9 @@ function Header() {
         </Link>
 
         {/* Desktop */}
-        <nav className="hidden items-center gap-8 md:flex" aria-label="Navegação principal">
+        {/* Com 6 itens já não cabe a 768px ao lado do logótipo — o menu completo
+            passa a aparecer só a partir de lg; abaixo disso fica o hambúrguer. */}
+        <nav className="hidden items-center gap-6 lg:flex xl:gap-8" aria-label="Navegação principal">
           {NAV_LINKS.map((l) => (
             <NavLink
               key={l.to}
@@ -64,7 +70,7 @@ function Header() {
           onClick={() => setAberto((v) => !v)}
           aria-expanded={aberto}
           aria-label={aberto ? 'Fechar menu' : 'Abrir menu'}
-          className={`cursor-pointer p-2 md:hidden ${corBase}`}
+          className={`cursor-pointer p-2 lg:hidden ${corBase}`}
         >
           <svg
             className="h-7 w-7"
@@ -91,7 +97,7 @@ function Header() {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
             aria-label="Navegação principal (móvel)"
-            className={`overflow-hidden md:hidden ${escuro ? 'bg-grafite-950/95' : 'border-b border-creme-300 bg-creme-50'}`}
+            className={`overflow-hidden lg:hidden ${escuro ? 'bg-grafite-950/95' : 'border-b border-creme-300 bg-creme-50'}`}
           >
             <ul className="space-y-1 px-6 py-4">
               {NAV_LINKS.map((l) => (
