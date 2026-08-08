@@ -14,7 +14,13 @@ import { supabase } from '../../../lib/supabase'
 import logoStamp from '../../../assets/logo-100pressao.png'
 import { CAMPO, BOTAO_PRIMARIO } from './comuns'
 
-const BASE = 'https://www.100pressao.pt/restaurante'
+// Dois destinos, para dois propósitos diferentes:
+//   · encomendar — cai na loja, para quem quer comer hoje
+//   · instalar   — cai no /app, página curta que só trata da instalação
+const DESTINOS = [
+  { id: 'loja', rotulo: 'Encomendar', base: 'https://www.100pressao.pt/restaurante', dica: 'Abre a loja' },
+  { id: 'app', rotulo: 'Instalar app', base: 'https://www.100pressao.pt/app', dica: 'Abre a instalação' },
+]
 
 // A origem fica no URL para se saber por onde entrou cada cliente. Chega ao
 // Google Analytics pelo page_location, que leva a query string completa
@@ -28,12 +34,16 @@ const ORIGENS = [
 ]
 
 function QrCode() {
+  const [destino, setDestino] = useState('loja')
   const [origem, setOrigem] = useState('saco')
   const [svg, setSvg] = useState('')
   const [png, setPng] = useState('')
   const [poupanca, setPoupanca] = useState(null)
 
-  const url = useMemo(() => `${BASE}?via=${origem}`, [origem])
+  const url = useMemo(() => {
+    const d = DESTINOS.find((x) => x.id === destino) || DESTINOS[0]
+    return `${d.base}?via=${origem}`
+  }, [destino, origem])
 
   useEffect(() => {
     let vivo = true
@@ -76,7 +86,25 @@ function QrCode() {
           clientes.
         </p>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+        <div className="mt-4 flex flex-wrap gap-2">
+          {DESTINOS.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setDestino(d.id)}
+              className={`cursor-pointer rounded-full border px-5 py-2 text-sm font-semibold uppercase tracking-widest transition-colors ${
+                destino === d.id
+                  ? 'border-ambar-500 bg-ambar-500 text-grafite-950'
+                  : 'border-creme-300 text-grafite-600 hover:border-grafite-600'
+              }`}
+              title={d.dica}
+            >
+              {d.rotulo}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-4">
           {ORIGENS.map((o) => (
             <button
               key={o.id}
@@ -108,7 +136,7 @@ function QrCode() {
           {png && (
             <a
               href={png}
-              download={`100pressao-qr-${origem}.png`}
+              download={`100pressao-qr-${destino}-${origem}.png`}
               className="inline-flex cursor-pointer items-center justify-center rounded-full border border-creme-300 px-5 py-2.5 text-sm font-semibold uppercase tracking-widest text-grafite-600 transition-colors hover:border-grafite-600"
             >
               Descarregar PNG
@@ -117,8 +145,9 @@ function QrCode() {
         </div>
 
         <p className="mt-4 text-sm text-grafite-600/70">
-          O código abre a loja no telemóvel. A instalação no ecrã principal é o
-          passo seguinte, feito lá dentro — um QR não instala nada sozinho.
+          Um QR não instala nada sozinho: abre um endereço. O destino "Instalar
+          app" leva a uma página curta que só trata disso, em vez de deixar o
+          cliente à procura do botão no rodapé da loja.
         </p>
       </section>
 
@@ -135,7 +164,7 @@ function QrCode() {
           className="mx-auto h-20 w-20 rounded-full bg-grafite-900"
         />
         <p className="mt-4 font-display text-2xl font-bold uppercase leading-none tracking-tight text-grafite-900">
-          Encomenda direto
+          {destino === 'app' ? 'Instala a nossa app' : 'Encomenda direto'}
         </p>
         {poupanca > 0 && (
           <p className="mt-2 font-display text-lg font-bold uppercase text-cobre-600">

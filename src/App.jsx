@@ -7,6 +7,7 @@ const Home = lazy(() => import('./pages/Home'))
 const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
 const Restaurante = lazy(() => import('./pages/Restaurante'))
+const InstalarPWA = lazy(() => import('./pages/InstalarPWA'))
 const Contacto = lazy(() => import('./pages/Contacto'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
 const Privacidade = lazy(() => import('./pages/legal/Privacidade'))
@@ -43,6 +44,8 @@ function App() {
           <Route path="/quem-somos" element={pagina(QuemSomos)} />
           <Route path="/cardapio" element={pagina(Cardapio)} />
           <Route path="/restaurante" element={pagina(Restaurante)} />
+          {/* Endereço curto para caber num QR impresso e ser escrito à mão */}
+          <Route path="/app" element={pagina(InstalarPWA)} />
           <Route path="/contacto" element={pagina(Contacto)} />
           <Route path="/faca-parte" element={pagina(FacaParte)} />
           {/* Páginas legais */}

@@ -69,10 +69,11 @@ function IconePartilhar() {
 const BOTAO =
   'flex w-full cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold uppercase tracking-widest transition-colors'
 
-function InstalarApp() {
+// Partilhado entre o rodapé e a página /app, para a mecânica da instalação
+// existir num sítio só.
+export function useInstalacao() {
   const [evento, setEvento] = useState(eventoGuardado)
   const [instalada, setInstalada] = useState(false)
-  const [passos, setPassos] = useState(null) // null | 'ios' | 'android'
 
   useEffect(() => {
     setInstalada(jaInstalada())
@@ -86,20 +87,33 @@ function InstalarApp() {
     }
   }, [])
 
-  if (instalada) return null
-
-  async function instalarAndroid() {
-    if (!evento) {
-      // Sem diálogo disponível — por exemplo, num browser que não suporta, ou
-      // se o Chrome ainda não considerou a app instalável nesta visita.
-      setPassos((v) => (v === 'android' ? null : 'android'))
-      return
-    }
-    setPassos(null)
+  async function instalar() {
+    if (!evento) return false // sem diálogo possível: quem chama mostra os passos
     evento.prompt()
     await evento.userChoice.catch(() => null)
     eventoGuardado = null // o evento só serve uma vez
     setEvento(null)
+    return true
+  }
+
+  return { podeInstalar: !!evento, instalada, instalar }
+}
+
+function InstalarApp() {
+  const { instalada, instalar } = useInstalacao()
+  const [passos, setPassos] = useState(null) // null | 'ios' | 'android'
+
+  if (instalada) return null
+
+  async function instalarAndroid() {
+    const abriu = await instalar()
+    if (!abriu) {
+      // Sem diálogo disponível — browser sem suporte, ou o Chrome ainda não
+      // considerou a app instalável nesta visita.
+      setPassos((v) => (v === 'android' ? null : 'android'))
+      return
+    }
+    setPassos(null)
   }
 
   return (
@@ -162,4 +176,5 @@ function InstalarApp() {
   )
 }
 
+export { IconeAndroid, IconeApple, IconePartilhar }
 export default InstalarApp
