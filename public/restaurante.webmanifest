@@ -1,6 +1,6 @@
 {
-  "name": "100PRESSÃO · Encomendar",
-  "short_name": "100PRESSÃO",
+  "name": "100PRESSÃO Online",
+  "short_name": "100PRESSÃO Online",
   "description": "Encomenda do 100PRESSÃO para entrega ou levantamento, sem taxas de plataforma.",
   "start_url": "/restaurante",
   "scope": "/restaurante",
@@ -8,11 +8,27 @@
   "orientation": "portrait",
   "background_color": "#16181d",
   "theme_color": "#16181d",
-  "categories": ["food", "shopping"],
+  "categories": [
+    "food",
+    "shopping"
+  ],
   "lang": "pt-PT",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
