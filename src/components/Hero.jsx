@@ -9,7 +9,6 @@ import { Link } from 'react-router-dom'
 import logoStamp from '../assets/logo-100pressao.png'
 import SEOHead from './SEOHead'
 import ConviteRestaurante from './ConviteRestaurante'
-import InstalarApp from './InstalarApp'
 import { SEO_PAGES } from '../seo/pages'
 
 const MotionLink = motion.create(Link)
@@ -214,11 +213,6 @@ function Hero() {
           Contactos
         </span>
       </motion.button>
-
-      {/* Atalho para guardar o restaurante online no telemóvel. Discreto por
-          desenho: o Hero é uma composição fechada e um cartão aqui competiria
-          com os CTAs. Só aparece onde a instalação é mesmo possível. */}
-      <InstalarApp variante="linha" escuro className="absolute inset-x-0 bottom-6 z-10 mx-auto w-max" />
 
       {/* Convite ao restaurante online (dispensável, gatilho no interruptor) */}
       <ConviteRestaurante />

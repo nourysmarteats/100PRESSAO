@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { NAV_LINKS } from './Header'
 import { useHorario } from '../lib/horario'
 import logoStamp from '../assets/logo-100pressao.png'
+import InstalarApp from './InstalarApp'
 
 const REDES = [
   {
@@ -153,7 +154,7 @@ function Footer() {
   const horario = useHorario()
   return (
     <footer className="bg-grafite-950 text-creme-300">
-      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-14 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl gap-12 px-6 py-14 sm:grid-cols-2 lg:grid-cols-5">
         {/* Marca + tagline */}
         <div>
           <img
@@ -184,6 +185,9 @@ function Footer() {
             ))}
           </ul>
         </nav>
+
+        {/* Downloads: instalar o restaurante online como app */}
+        <InstalarApp />
 
         {/* Horário */}
         <div>
