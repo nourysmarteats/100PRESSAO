@@ -1,0 +1,48 @@
+-- 2026-08-09 — APLICADO EM PRODUÇÃO (via MCP, nesta data).
+--
+-- Estado 'a_caminho' no percurso de uma encomenda.
+--
+-- PORQUÊ
+-- Faltava um estado entre "pronto" e "entregue" para as entregas ao domicílio.
+-- Num pedido à mesa esses dois momentos são quase o mesmo instante: o prato sai
+-- da cozinha e vai à mesa. Numa entrega há vários minutos em que a comida já
+-- saiu e ainda não chegou — e sem o registar:
+--   · a equipa não sabe o que está em rota;
+--   · o cliente não sabe que já vai a caminho;
+--   · não há momento certo para cobrar em dinheiro, porque "pronto" ainda é
+--     dentro do restaurante.
+--
+-- Aditivo: nenhuma encomenda existente muda de estado. Fica ANTES de 'entregue'
+-- na ordenação do enum, para que ordenar por estado siga a sequência real do
+-- serviço.
+alter type public.pedido_estado add value if not exists 'a_caminho' before 'entregue';
+
+-- Ordem resultante, verificada ao aplicar:
+--   recebido → em_preparacao → pronto → a_caminho → entregue
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- ALTERAÇÕES QUE ACOMPANHAM, NO CÓDIGO
+-- ─────────────────────────────────────────────────────────────────────────
+-- · proximoEstado(estado, comEntrega) — o 'a_caminho' é saltado em tudo o que
+--   não seja entrega ao domicílio, senão o balcão teria de carregar duas vezes
+--   para fechar um pedido de mesa.
+-- · temEntrega(pedido) — canal online + tipo_entrega 'entrega'.
+-- · Staff: bloco de entrega com morada, distância, telefone clicável e atalho
+--   para o Google Maps. Antes disto o painel não mostrava morada nenhuma, pelo
+--   que era literalmente impossível entregar uma encomenda.
+-- · Staff: aviso "Cobrar na entrega: X € em dinheiro" quando estado_pagamento
+--   é 'na_entrega'.
+-- · Staff: o ecrã de fechar a conta aparece em 'pronto' ao balcão e em
+--   'a_caminho' na entrega — é quando o dinheiro muda de mãos.
+-- · Operacional: as entregas ficam marcadas "Para entrega", porque se embalam
+--   de outra maneira.
+-- · Restaurante: o cliente passa a ver o estado a avançar depois de confirmar,
+--   pela RPC estado_pedido (só o estado; o UUID serve de credencial).
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- NOTA
+-- ─────────────────────────────────────────────────────────────────────────
+-- Não há como remover um valor de um enum em Postgres. A reversão, se alguma
+-- vez for precisa, passa por recriar o tipo — e antes disso teriam de ser
+-- tratadas as encomendas nesse estado:
+--   select numero from public.orders where estado = 'a_caminho';

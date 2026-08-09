@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabasePublico as supabase } from '../lib/supabase'
-import { fmt } from '../lib/pedidos'
+import { fmt, ROTULO_ESTADO } from '../lib/pedidos'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
 import FormularioFeedback from '../components/FormularioFeedback'
@@ -109,6 +109,7 @@ function Restaurante() {
   const [aFinalizar, setAFinalizar] = useState(false)
   const [erroPag, setErroPag] = useState('')
   const [confirmacaoLenta, setConfirmacaoLenta] = useState(false)
+  const [estadoPedido, setEstadoPedido] = useState('recebido')
 
   // Configuração do canal (mínimo, portes, prazo, interruptor)
   useEffect(() => {
@@ -490,6 +491,30 @@ function Restaurante() {
       clearInterval(intervaloRef.current)
     }
   }, [fase, pedido])
+
+  // ── Acompanhar a encomenda depois de confirmada ──
+  // Quem pagou uma entrega quer saber quando a comida saiu. Usa a RPC
+  // estado_pedido, que devolve só o estado — o UUID da encomenda serve de
+  // credencial e nenhum dado pessoal sai da base de dados.
+  useEffect(() => {
+    if (fase !== 'confirmado' || !pedido?.id) return
+    if (estadoPedido === 'entregue') return
+    let vivo = true
+    async function ver() {
+      const { data, error } = await supabase.rpc('estado_pedido', { p_id: pedido.id })
+      if (!vivo || error || !data) return
+      setEstadoPedido(data)
+    }
+    ver()
+    const relogio = setInterval(ver, 15000)
+    const aoVoltar = () => document.visibilityState === 'visible' && ver()
+    document.addEventListener('visibilitychange', aoVoltar)
+    return () => {
+      vivo = false
+      clearInterval(relogio)
+      document.removeEventListener('visibilitychange', aoVoltar)
+    }
+  }, [fase, pedido?.id, estadoPedido])
 
   // ── Regresso da página de cartão do IfThenPay ──
   // O cliente volta a /restaurante?pedido=<id>&pag=ok|erro|cancelado. O "ok"
@@ -1009,7 +1034,9 @@ function Restaurante() {
                 ? ' Vamos a caminho assim que estiver pronto.'
                 : ` Podes levantar no restaurante em cerca de ${cfg.prazo_preparacao} min.`}
             </p>
-            <button type="button" onClick={() => { setCarrinho({}); setPedido(null); setRefMB(null); setFase('menu') }} className={`${BOTAO} mt-6`}>Nova encomenda</button>
+            <Acompanhamento estado={estadoPedido} entrega={tipo === 'entrega'} />
+
+            <button type="button" onClick={() => { setCarrinho({}); setPedido(null); setRefMB(null); setEstadoPedido('recebido'); setFase('menu') }} className={`${BOTAO} mt-6`}>Nova encomenda</button>
 
             <div className="mt-8 border-t border-creme-300 pt-6 text-left">
               <p className="text-center text-sm text-grafite-600">
@@ -1052,6 +1079,41 @@ function Restaurante() {
         </div>
       )}
     </main>
+  )
+}
+
+// ── Acompanhamento da encomenda ──
+// O 'a caminho' só faz sentido em entrega ao domicílio; no levantamento a
+// comida não anda, fica à espera no balcão.
+function Acompanhamento({ estado, entrega }) {
+  const passos = entrega
+    ? ['recebido', 'em_preparacao', 'pronto', 'a_caminho', 'entregue']
+    : ['recebido', 'em_preparacao', 'pronto', 'entregue']
+  const atual = passos.indexOf(estado)
+
+  return (
+    <ol className="mt-6 flex items-center justify-center gap-1.5" aria-label="Estado da encomenda">
+      {passos.map((p, i) => {
+        const feito = atual >= i
+        const agora = atual === i
+        return (
+          <li key={p} className="flex flex-1 flex-col items-center gap-1.5">
+            <span
+              className={`h-1.5 w-full rounded-full transition-colors ${
+                feito ? 'bg-ambar-500' : 'bg-creme-300'
+              }`}
+            />
+            <span
+              className={`text-center text-[0.6rem] font-semibold uppercase leading-tight tracking-wider ${
+                agora ? 'text-grafite-900' : feito ? 'text-grafite-600/70' : 'text-grafite-600/40'
+              }`}
+            >
+              {p === 'entregue' && !entrega ? 'Levantado' : ROTULO_ESTADO[p]}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 

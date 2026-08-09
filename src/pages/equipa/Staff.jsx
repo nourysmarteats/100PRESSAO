@@ -7,6 +7,7 @@ import {
   ROTULO_ESTADO,
   METODOS_PAGAMENTO,
   exigeFatura,
+  temEntrega,
   nomeItemPedido,
   obterPedidosAtivos,
 } from '../../lib/pedidos'
@@ -26,7 +27,12 @@ function Kpi({ rotulo, valor, destaque }) {
   )
 }
 
+const ATALHO =
+  'inline-flex items-center rounded-full border border-grafite-900/20 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-800 transition-colors hover:border-grafite-900'
+
 function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
+  const entrega = temEntrega(pedido)
+  const porCobrar = pedido.estado_pagamento === 'na_entrega'
   const [metodo, setMetodo] = useState(pedido.metodo_pagamento || null)
   const [ocupado, setOcupado] = useState(false)
   const [querFatura, setQuerFatura] = useState(false)
@@ -36,12 +42,16 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   const faturaObrigatoria = exigeFatura(metodo)
   const vaiFaturar = faturaObrigatoria || querFatura
   const nifValido = nif === '' || /^\d{9}$/.test(nif)
-  const pronto = pedido.estado === 'pronto'
+  // O momento de fechar a conta é o último passo antes de 'entregue': ao balcão
+  // é quando está pronto; numa entrega é quando já vai a caminho, porque só
+  // então o dinheiro muda de mãos.
+  const aFechar = pedido.estado === (entrega ? 'a_caminho' : 'pronto')
+  const emDestaque = pedido.estado === 'pronto' || pedido.estado === 'a_caminho'
 
   return (
     <article
       className={`rounded-2xl border p-5 ${
-        pronto ? 'border-ambar-500/60 bg-white/70' : 'border-creme-300 bg-white/70'
+        emDestaque ? 'border-ambar-500/60 bg-white/70' : 'border-creme-300 bg-white/70'
       }`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -60,6 +70,39 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
         </div>
       </header>
 
+      {entrega && (
+        <div className="mt-4 rounded-xl border border-ambar-500/50 bg-ambar-500/10 p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cobre-600">
+            Entrega ao domicílio
+            {pedido.distancia_km > 0 && ` · ${Number(pedido.distancia_km).toFixed(1)} km`}
+          </p>
+          <p className="mt-1.5 font-semibold text-grafite-900">{pedido.morada || '— sem morada —'}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {pedido.cliente_telefone && (
+              <a href={`tel:+351${pedido.cliente_telefone}`} className={ATALHO}>
+                Ligar {pedido.cliente_telefone}
+              </a>
+            )}
+            {pedido.morada && (
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pedido.morada)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={ATALHO}
+              >
+                Como chegar
+              </a>
+            )}
+          </div>
+          {/* A cobrar à porta: quem vai entregar tem de saber o valor e levar troco. */}
+          {porCobrar && (
+            <p className="mt-3 rounded-lg bg-grafite-900 px-3 py-2 text-sm font-semibold text-creme-50">
+              Cobrar na entrega: {fmt(pedido.total)} em dinheiro
+            </p>
+          )}
+        </div>
+      )}
+
       <ul className="mt-4 space-y-1 border-t border-creme-300 pt-3 text-sm text-grafite-600">
         {pedido.order_items.map((i) => (
           <li key={i.id} className="flex justify-between">
@@ -75,7 +118,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
         </li>
       </ul>
 
-      {pronto ? (
+      {aFechar ? (
         <div className="mt-4 border-t border-creme-300 pt-4">
           <div className="grid grid-cols-2 gap-2">
             {METODOS_PAGAMENTO.map((m) => (
@@ -144,7 +187,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
           }}
           className="mt-4 w-full cursor-pointer rounded-full border border-grafite-600/40 px-6 py-3 text-sm font-semibold uppercase tracking-widest text-grafite-900 transition-colors hover:border-ambar-500 hover:text-ambar-600 disabled:opacity-40"
         >
-          → {ROTULO_ESTADO[proximoEstado(pedido.estado)]}
+          → {ROTULO_ESTADO[proximoEstado(pedido.estado, entrega)]}
         </button>
       )}
     </article>
@@ -193,7 +236,7 @@ function Staff() {
   }, [carregar])
 
   async function avancarPedido(pedido) {
-    const proximo = proximoEstado(pedido.estado)
+    const proximo = proximoEstado(pedido.estado, temEntrega(pedido))
     if (!proximo || proximo === 'entregue') return
     await supabase.from('orders').update({ estado: proximo }).eq('id', pedido.id)
     carregar()
@@ -237,8 +280,10 @@ function Staff() {
     }
   }
 
-  const prontos = pedidos.filter((p) => p.estado === 'pronto')
-  const emCurso = pedidos.filter((p) => p.estado !== 'pronto')
+  // "Prontos" é o que já saiu da cozinha e espera fecho: pronto ao balcão, ou
+  // a caminho na estrada.
+  const prontos = pedidos.filter((p) => p.estado === 'pronto' || p.estado === 'a_caminho')
+  const emCurso = pedidos.filter((p) => p.estado !== 'pronto' && p.estado !== 'a_caminho')
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">

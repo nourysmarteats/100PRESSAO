@@ -2,14 +2,23 @@
 
 export const fmt = (n) => `${Number(n).toFixed(2).replace('.', ',')} €`
 
-export const ESTADOS_PEDIDO = ['recebido', 'em_preparacao', 'pronto', 'entregue']
+// 'a_caminho' só existe para encomendas com entrega ao domicílio: num pedido
+// à mesa, pronto e entregue são quase o mesmo instante; numa entrega há vários
+// minutos em que a comida já saiu e ainda não chegou.
+export const ESTADOS_PEDIDO = ['recebido', 'em_preparacao', 'pronto', 'a_caminho', 'entregue']
 
 export const ROTULO_ESTADO = {
   recebido: 'Recebido',
   em_preparacao: 'Em preparação',
   pronto: 'Pronto',
+  a_caminho: 'A caminho',
   entregue: 'Entregue',
 }
+
+// Uma encomenda vai para a estrada; tudo o resto (mesa, balcão, levantamento)
+// passa do balcão para as mãos do cliente.
+export const temEntrega = (pedido) =>
+  pedido?.canal === 'online' && pedido?.tipo_entrega === 'entrega'
 
 export const METODOS_PAGAMENTO = [
   { id: 'dinheiro', rotulo: 'Dinheiro' },
@@ -24,9 +33,14 @@ export const METODOS_PAGAMENTO = [
 export const FATURA_OPCIONAL_EM = 'dinheiro'
 export const exigeFatura = (metodo) => !!metodo && metodo !== FATURA_OPCIONAL_EM
 
-export function proximoEstado(estado) {
-  const i = ESTADOS_PEDIDO.indexOf(estado)
-  return i >= 0 && i < ESTADOS_PEDIDO.length - 1 ? ESTADOS_PEDIDO[i + 1] : null
+// O 'a_caminho' é saltado em tudo o que não seja entrega ao domicílio — senão
+// o balcão teria de carregar duas vezes para fechar um pedido de mesa.
+export function proximoEstado(estado, comEntrega = false) {
+  const sequencia = comEntrega
+    ? ESTADOS_PEDIDO
+    : ESTADOS_PEDIDO.filter((e) => e !== 'a_caminho')
+  const i = sequencia.indexOf(estado)
+  return i >= 0 && i < sequencia.length - 1 ? sequencia[i + 1] : null
 }
 
 export function minutosDesde(iso) {

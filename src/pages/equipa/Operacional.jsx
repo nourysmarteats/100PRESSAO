@@ -5,6 +5,7 @@ import {
   beep,
   minutosDesde,
   ROTULO_ESTADO,
+  temEntrega,
   nomeItemPedido,
   categoriaItemPedido,
   obterPedidosAtivos,
@@ -174,7 +175,13 @@ function Operacional() {
                   nº {p.numero}
                 </span>
                 <div className="text-right text-xs text-grafite-600/70">
-                  <p>{p.sessions?.posicao_mesa || p.sessions?.nome_cliente || '—'}</p>
+                  {temEntrega(p) ? (
+                    <p className="font-semibold uppercase tracking-widest text-cobre-600">
+                      Para entrega
+                    </p>
+                  ) : (
+                    <p>{p.sessions?.posicao_mesa || p.sessions?.nome_cliente || '—'}</p>
+                  )}
                   <p className={minutos >= 15 ? 'font-bold text-red-600' : ''}>{minutos} min</p>
                 </div>
               </header>
