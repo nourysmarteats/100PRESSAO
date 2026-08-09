@@ -100,6 +100,8 @@ function Restaurante() {
   const [metodo, setMetodo] = useState('mbway')
   const [carteira, setCarteira] = useState(null) // null | 'apple' | 'google'
   const [cpf, setCpf] = useState('') // só para Pix
+  const [querFatura, setQuerFatura] = useState(false)
+  const [nif, setNif] = useState('')
   const [idade, setIdade] = useState(false) // 18+ (Brandão E)
   const [aceito, setAceito] = useState(false) // Condições de Venda (Brandão J)
 
@@ -355,6 +357,7 @@ function Restaurante() {
     (tipo === 'levar' || morada.trim()) &&
     metodo &&
     (metodo !== 'pix' || cpf.replace(/\D/g, '').length === 11) &&
+    (!querFatura || /^\d{9}$/.test(nif)) &&
     idade &&
     aceito
 
@@ -386,6 +389,7 @@ function Restaurante() {
           p_idade_ok: idade,
           p_aceitou: aceito,
           p_itens: itens,
+          p_nif: querFatura ? nif : null,
         })
         .single()
 
@@ -785,6 +789,35 @@ function Restaurante() {
               <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Email
                 <input value={email} onChange={(e) => setEmail(e.target.value)} inputMode="email" className={CAMPO} placeholder="para a confirmação da encomenda" />
               </label>
+              {/* Fatura com contribuinte: pedir a toda a gente acrescenta atrito,
+                  por isso fica atrás de uma caixa que a maioria não marca. */}
+              <label className="mt-4 flex items-center gap-2 text-sm text-grafite-700">
+                <input
+                  type="checkbox"
+                  checked={querFatura}
+                  onChange={(e) => setQuerFatura(e.target.checked)}
+                  className="h-4 w-4 accent-ambar-500"
+                />
+                Quero fatura com NIF
+              </label>
+              {querFatura && (
+                <label className="mt-2 block text-sm font-semibold uppercase tracking-widest text-ambar-600">
+                  NIF
+                  <input
+                    value={nif}
+                    onChange={(e) => setNif(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                    inputMode="numeric"
+                    className={CAMPO}
+                    placeholder="9 dígitos"
+                  />
+                  {nif !== '' && !/^\d{9}$/.test(nif) && (
+                    <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-red-600">
+                      O NIF tem 9 dígitos.
+                    </span>
+                  )}
+                </label>
+              )}
+
               {tipo === 'entrega' && (
                 <>
                   <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Morada de entrega

@@ -36,6 +36,10 @@ const TIPO_VENDUS_POR_METODO = {
   multibanco: 'CD',
   mbway: 'MBWAY',
   cartao: 'CC',
+  // O Pix não tem tipo padrão em Portugal e o código correto depende da conta
+  // Vendus. Fica por configurar em VENDUS_TIPO_PIX em vez de adivinhado aqui:
+  // um código fiscal errado numa fatura é pior do que uma fatura por emitir.
+  pix: process.env.VENDUS_TIPO_PIX || null,
 }
 
 function nomeItem(item) {
@@ -134,9 +138,24 @@ export default async function handler(req, res) {
 
   const tipoVendus = TIPO_VENDUS_POR_METODO[pedido.metodo_pagamento]
   if (!tipoVendus) {
-    return res
-      .status(400)
-      .json({ erro: `Método de pagamento sem mapeamento Vendus: ${pedido.metodo_pagamento}` })
+    // Em vez de um beco, listar o que a conta Vendus tem disponível — assim
+    // sabe-se logo qual o código a pôr na variável de ambiente.
+    let disponiveis = []
+    try {
+      const lista = await vendusFetch('/documents/paymentmethods/', vendusKey)
+      const arr = Array.isArray(lista) ? lista : lista?.data || []
+      disponiveis = arr.filter((m) => m.status !== 'off').map((m) => `${m.type} (${m.title})`)
+    } catch {
+      /* a listagem é um extra: não deve mascarar o erro principal */
+    }
+    return res.status(400).json({
+      erro:
+        `Método de pagamento sem mapeamento Vendus: ${pedido.metodo_pagamento}.` +
+        (pedido.metodo_pagamento === 'pix'
+          ? ' Define VENDUS_TIPO_PIX no Vercel com o código adequado.'
+          : ''),
+      tipos_disponiveis: disponiveis,
+    })
   }
 
   try {
@@ -166,6 +185,20 @@ export default async function handler(req, res) {
       gross_price: Number(i.preco_unitario),
       tax_id: TAX_ID_DEFAULT,
     }))
+
+    // A taxa de entrega é parte do que foi cobrado e tem de constar como linha:
+    // os `payments` usam o total (que a inclui), pelo que sem isto a soma dos
+    // artigos ficava abaixo do valor pago e o documento saía inconsistente.
+    const portes = Number(pedido.portes || 0)
+    if (portes > 0) {
+      items.push({
+        reference: '100P-PORTES',
+        title: 'Taxa de entrega',
+        qty: 1,
+        gross_price: portes,
+        tax_id: TAX_ID_DEFAULT,
+      })
+    }
 
     // 3. Descobrir o "register" (posto) a usar. A Vendus exige que os
     // documentos emitidos por API venham de um register do tipo "api" —
