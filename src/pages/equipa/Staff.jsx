@@ -27,6 +27,14 @@ function Kpi({ rotulo, valor, destaque }) {
   )
 }
 
+const ROTULO_METODO = {
+  dinheiro: 'Dinheiro',
+  multibanco: 'Multibanco',
+  mbway: 'MB Way',
+  cartao: 'Cartão',
+  pix: 'Pix',
+}
+
 const ATALHO =
   'inline-flex items-center rounded-full border border-grafite-900/20 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-800 transition-colors hover:border-grafite-900'
 
@@ -35,8 +43,11 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   const porCobrar = pedido.estado_pagamento === 'na_entrega'
   const [metodo, setMetodo] = useState(pedido.metodo_pagamento || null)
   const [ocupado, setOcupado] = useState(false)
-  const [querFatura, setQuerFatura] = useState(false)
-  const [nif, setNif] = useState('')
+  // Uma encomenda online chega com o método já escolhido e, se o cliente quis
+  // fatura com contribuinte, com o NIF já preenchido. Começar em branco fazia
+  // a confirmação da entrega apagar o NIF que o cliente escreveu.
+  const [querFatura, setQuerFatura] = useState(!!pedido.fatura_pedida)
+  const [nif, setNif] = useState(pedido.fatura_nif || '')
   // Eletrónico é sempre faturado; em numerário a fatura fica ao critério do
   // cliente. O NIF é sempre opcional, mas se for escrito tem de ser válido.
   const faturaObrigatoria = exigeFatura(metodo)
@@ -45,6 +56,11 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   // O momento de fechar a conta é o último passo antes de 'entregue': ao balcão
   // é quando está pronto; numa entrega é quando já vai a caminho, porque só
   // então o dinheiro muda de mãos.
+  // No canal online o método foi escolhido no checkout e o dinheiro (ou a
+  // promessa dele) já está associado. Voltar a perguntar convida a trocar por
+  // engano — e o Pix nem sequer consta dos botões do balcão, pelo que nenhum
+  // apareceria seleccionado.
+  const metodoJaDefinido = pedido.canal === 'online' && !!pedido.metodo_pagamento
   const aFechar = pedido.estado === (entrega ? 'a_caminho' : 'pronto')
   const emDestaque = pedido.estado === 'pronto' || pedido.estado === 'a_caminho'
 
@@ -120,6 +136,13 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
 
       {aFechar ? (
         <div className="mt-4 border-t border-creme-300 pt-4">
+          {metodoJaDefinido ? (
+            <p className="rounded-lg border border-creme-300 bg-creme-100/60 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600">
+              {porCobrar
+                ? `A cobrar agora · ${ROTULO_METODO[pedido.metodo_pagamento] || pedido.metodo_pagamento}`
+                : `Já pago · ${ROTULO_METODO[pedido.metodo_pagamento] || pedido.metodo_pagamento}`}
+            </p>
+          ) : (
           <div className="grid grid-cols-2 gap-2">
             {METODOS_PAGAMENTO.map((m) => (
               <button
@@ -136,6 +159,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
               </button>
             ))}
           </div>
+          )}
           {faturaObrigatoria ? (
             <p className="mt-3 rounded-lg border border-creme-300 bg-creme-100/60 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600">
               Fatura emitida automaticamente
