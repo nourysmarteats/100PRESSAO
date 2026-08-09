@@ -18,9 +18,19 @@ const VENDUS_BASE = 'https://www.vendus.pt/ws/v1.1'
 
 // Produtos/combos de 100PRESSÃO ainda não estão sincronizados com o
 // catálogo do Vendus, por isso cada item vai "avulso" (só por título).
-// tax_id por defeito 'NOR' (taxa normal, 23%) — CONFIRMAR com a
-// contabilista se algum produto deve ter taxa reduzida antes de ligar
-// isto a sério (VENDUS_MODE=normal).
+// Taxa de IVA: 'NOR' (normal, 23%) em todos os artigos, decidido pelo Leandro
+// em 2026-08-09.
+//
+// Fica registada a ressalva que lhe foi apresentada, para quem ler isto mais
+// tarde saber que a questão foi levantada e não esquecida: a verba 3.1 da Lista
+// II do CIVA prevê taxa intermédia (13%) para serviços de alimentação e bebidas,
+// excluindo bebidas alcoólicas, refrigerantes, sumos, néctares e águas
+// gaseificadas. Numa cervejaria isso separaria os petiscos e os pratos (13%) das
+// cervejas e refrigerantes (23%). Aplicar 23% a tudo não subfactura o Estado —
+// entrega-se mais IVA do que o devido —, mas encarece a comida sem necessidade.
+//
+// Se a contabilista vier a distinguir taxas, o passo seguinte é um campo de taxa
+// por produto; a constante fica então como valor por omissão.
 const TAX_ID_DEFAULT = 'NOR'
 
 // Método de pagamento interno → "type" oficial do Vendus. Os IDs de cada
