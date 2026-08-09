@@ -248,6 +248,10 @@ function Restaurante() {
   const total = subtotal + portes
   const abaixoMinimo = tipo === 'entrega' && subtotal < Number(cfg.min_encomenda || 0)
   const foraDoRaio = tipo === 'entrega' && distancia > Number(cfg.raio_max || 0)
+  // Sem distância não há portes: a encomenda #51 passou com entrega grátis para
+  // Algés porque o cálculo falhou e ninguém impediu o avanço. Uma entrega tem
+  // sempre de ter distância — a validação repete-se no servidor.
+  const semDistancia = tipo === 'entrega' && !(distancia > 0)
 
   async function calcularDistancia() {
     if (!morada.trim()) {
@@ -344,6 +348,7 @@ function Restaurante() {
     nItens > 0 &&
     !abaixoMinimo &&
     !foraDoRaio &&
+    !semDistancia &&
     nome.trim() &&
     telValido &&
     emailValido &&
@@ -899,6 +904,12 @@ function Restaurante() {
               <div className="mt-2 flex justify-between border-t border-creme-300 pt-2 font-display text-lg font-bold text-grafite-900"><span>Total</span><span>{fmt(total)}</span></div>
               {abaixoMinimo && <p className="mt-2 text-sm text-red-600">Encomenda mínima de {fmt(cfg.min_encomenda)} para entrega. Faltam {fmt(cfg.min_encomenda - subtotal)}.</p>}
               {foraDoRaio && <p className="mt-2 text-sm text-red-600">Fora da área de entrega (máx. {cfg.raio_max} km). Escolhe levantamento ou uma morada mais próxima.</p>}
+              {semDistancia && !foraDoRaio && (
+                <p className="mt-2 text-sm text-red-600">
+                  Falta calcular a distância para sabermos os portes. Escreve a morada e carrega
+                  em <strong>Calcular</strong> — ou escolhe levantamento.
+                </p>
+              )}
               <p className="mt-3 text-xs text-grafite-600/70">
                 Informação de alergénios por petisco acima; para dúvidas específicas, fala connosco antes de encomendar.
               </p>

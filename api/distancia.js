@@ -30,9 +30,21 @@ export default async function handler(req, res) {
     const data = await r.json()
     const el = data?.rows?.[0]?.elements?.[0]
     if (data.status !== 'OK' || !el || el.status !== 'OK' || !el.distance) {
-      return res.status(400).json({
-        erro: 'Não foi possível calcular a distância para essa morada.',
-        detalhe: el?.status || data.status,
+      const estado = el?.status || data.status
+      // Distinguir "a morada não serve" de "o serviço está em baixo": dizer ao
+      // cliente que a morada está errada quando o problema é a nossa chave do
+      // Google manda-o corrigir uma coisa que está certa.
+      const nossoProblema = ['REQUEST_DENIED', 'OVER_QUERY_LIMIT', 'INVALID_REQUEST', 'UNKNOWN_ERROR'].includes(
+        data.status,
+      )
+      if (nossoProblema) {
+        console.error('Google Distance Matrix indisponível', estado, data.error_message || '')
+      }
+      return res.status(nossoProblema ? 503 : 400).json({
+        erro: nossoProblema
+          ? 'Não conseguimos calcular os portes neste momento. Escolhe levantamento, ou fala connosco que tratamos da entrega.'
+          : 'Não encontrámos essa morada. Confirma a rua, o número e a localidade.',
+        detalhe: estado,
         google: data.error_message || null,
       })
     }
