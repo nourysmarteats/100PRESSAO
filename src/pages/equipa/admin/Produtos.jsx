@@ -311,6 +311,11 @@ function FichaTecnica({ produtoId, preco, aoAvisar }) {
   )
 }
 
+// Procura sem acentos nem maiúsculas: "acai" encontra "Açaí", "pao" encontra
+// "Pão". Numa ementa portuguesa é a diferença entre a procura servir e não servir.
+const semAcentos = (s) =>
+  (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
 function Produtos({ alvoEdicao, aoConsumirAlvo }) {
   const [produtos, setProdutos] = useState([])
   const [categorias, setCategorias] = useState([])
@@ -318,7 +323,23 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
   const [form, setForm] = useState(PRODUTO_VAZIO)
   const [precoOriginal, setPrecoOriginal] = useState(null)
   const [selecionados, setSelecionados] = useState(() => new Set())
+  const [busca, setBusca] = useState('')
   const { mostrarAviso, Aviso } = useAviso()
+
+  // Procura pelo nome, mas também pela categoria, estilo e origem — quem edita
+  // costuma pensar em "as IPA" ou "os brasileiros", não só no nome exato.
+  const termo = semAcentos(busca).trim()
+  const visiveis = termo
+    ? produtos.filter((p) =>
+        [p.nome, p.categories?.nome, p.estilo, p.origem, p.descricao].some((c) =>
+          semAcentos(c).includes(termo),
+        ),
+      )
+    : produtos
+  // A ordem grava-se por índice na lista completa. Numa lista filtrada os
+  // índices deixam de corresponder, e arrastar moveria o produto errado — por
+  // isso a reordenação desaparece enquanto se procura.
+  const aProcurar = termo.length > 0
 
   const carregar = useCallback(async () => {
     const [rProd, rCat] = await Promise.all([
@@ -450,7 +471,8 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
     })
   }
 
-  const todosSelecionados = produtos.length > 0 && selecionados.size === produtos.length
+  const todosSelecionados =
+    visiveis.length > 0 && visiveis.every((p) => selecionados.has(p.id))
 
   async function loteDisponibilidade(disponivel) {
     const ids = [...selecionados]
@@ -481,15 +503,45 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
             type="checkbox"
             checked={todosSelecionados}
             onChange={() =>
-              setSelecionados(todosSelecionados ? new Set() : new Set(produtos.map((p) => p.id)))
+              // Com procura ativa, "todos" são os que estão à vista — senão
+              // marcar-se-iam produtos que o operador nem consegue ver.
+              setSelecionados((s) => {
+                const nova = new Set(s)
+                visiveis.forEach((p) => (todosSelecionados ? nova.delete(p.id) : nova.add(p.id)))
+                return nova
+              })
             }
             className="h-5 w-5 accent-ambar-500"
           />
-          {produtos.length} produtos · {categorias.length} categorias
+          {aProcurar
+            ? `${visiveis.length} de ${produtos.length} produtos`
+            : `${produtos.length} produtos · ${categorias.length} categorias`}
         </label>
-        <button type="button" onClick={() => abrirEdicao(null)} className={BOTAO_PRIMARIO}>
-          + Novo produto
-        </button>
+        <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
+          <div className="relative min-w-56 flex-1 sm:max-w-xs">
+            <input
+              type="search"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Procurar produto…"
+              aria-label="Procurar produto"
+              className={`${CAMPO} mt-0 pr-9 [&::-webkit-search-cancel-button]:hidden`}
+            />
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca('')}
+                aria-label="Limpar procura"
+                className="absolute inset-y-0 right-0 cursor-pointer px-3 text-grafite-600/70 hover:text-grafite-900"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <button type="button" onClick={() => abrirEdicao(null)} className={BOTAO_PRIMARIO}>
+            + Novo produto
+          </button>
+        </div>
       </div>
 
       {selecionados.size > 0 && (
@@ -660,10 +712,10 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
       )}
 
       <ul className="mt-6 space-y-2">
-        {produtos.map((p, i) => (
+        {visiveis.map((p, i) => (
           <li
             key={p.id}
-            {...propsArrasto(i)}
+            {...(aProcurar ? {} : propsArrasto(i))}
             className={`${CARTAO} flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${
               p.disponivel ? '' : 'opacity-50'
             }`}
@@ -676,8 +728,12 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
                 aria-label={`Selecionar ${p.nome}`}
                 className="h-5 w-5 accent-ambar-500"
               />
-              <PegaArrasto />
-              <SetasOrdem i={i} total={produtos.length} mover={mover} rotulo={p.nome} />
+              {!aProcurar && (
+                <>
+                  <PegaArrasto />
+                  <SetasOrdem i={i} total={produtos.length} mover={mover} rotulo={p.nome} />
+                </>
+              )}
               <div>
                 <p className="font-semibold text-grafite-900">
                   {p.nome}
@@ -706,6 +762,19 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
           </li>
         ))}
       </ul>
+
+      {aProcurar && visiveis.length === 0 && (
+        <p className={`${CARTAO} mt-6 p-6 text-grafite-600`}>
+          Nenhum produto encontrado para “{busca}”. A procura abrange o nome, a
+          categoria, o estilo, a origem e a descrição.
+        </p>
+      )}
+      {aProcurar && visiveis.length > 0 && (
+        <p className="mt-3 text-xs text-grafite-600/70">
+          A reordenação está suspensa enquanto procuras — limpa a procura para
+          voltar a arrastar.
+        </p>
+      )}
 
       {Aviso}
     </div>
