@@ -134,7 +134,11 @@ function Restaurante() {
         supabase.from('product_variants').select('*').eq('disponivel', true).order('ordem'),
       ])
       if (!ativo) return
-      const ocultas = new Set((rCat.data || []).filter((c) => c.visivel === false).map((c) => c.id))
+      const ocultas = new Set(
+        (rCat.data || [])
+          .filter((c) => c.visivel === false || c.nome?.toLowerCase() === 'ingredientes')
+          .map((c) => c.id),
+      )
       if (!rCat.error) setCategorias(rCat.data.filter((c) => !ocultas.has(c.id)))
       if (!rProd.error) setProdutos(rProd.data.filter((p) => !ocultas.has(p.category_id)))
       if (!rCombos.error) setCombos(rCombos.data.filter((c) => !ocultas.has(c.category_id)))
