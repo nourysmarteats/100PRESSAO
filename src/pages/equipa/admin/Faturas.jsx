@@ -38,7 +38,10 @@ function Faturas() {
       .select(
         'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_documento_numero, fatura_url, fatura_erro, sessions ( nome_cliente, posicao_mesa )',
       )
-      .eq('estado', 'entregue')
+      // Entregues (venda ao balcão, onde se paga no fim) e também as online já
+      // pagas mas ainda em preparação — essas têm fatura devida desde o momento
+      // do pagamento, e sem isto nem chegavam a aparecer aqui.
+      .or('estado.eq.entregue,estado_pagamento.eq.pago')
       .gte('criado_em', inicio.toISOString())
       .order('criado_em', { ascending: false })
       .limit(500)

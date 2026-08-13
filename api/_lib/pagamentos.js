@@ -2,6 +2,8 @@
 // Ficheiro sob api/_lib/ (prefixo _) → não é uma rota, só um módulo de apoio
 // importado pelo callback e pelo polling. Marca a encomenda como paga (de
 // forma idempotente) e envia o email de confirmação ao cliente.
+import { emitirFatura, exigeFatura, registarFalhaFatura } from './faturacao.js'
+
 const fmt = (n) => `${Number(n).toFixed(2).replace('.', ',')} €`
 
 // Marca a encomenda como paga UMA só vez. O filtro neq garante idempotência:
@@ -13,7 +15,9 @@ export async function marcarPago(admin, pedidoId) {
     .update({ estado_pagamento: 'pago', pago_em: new Date().toISOString() })
     .eq('id', pedidoId)
     .neq('estado_pagamento', 'pago')
-    .select('id, numero, cliente_email, cliente_nome, tipo_entrega, morada, total, portes')
+    .select(
+      'id, numero, cliente_email, cliente_nome, tipo_entrega, morada, total, portes, metodo_pagamento, fatura_nif',
+    )
   if (error) {
     console.error('marcarPago falhou', error.message)
     return null
@@ -26,8 +30,33 @@ export async function marcarPago(admin, pedidoId) {
       // O email nunca bloqueia a confirmação do pagamento.
       console.error('email de confirmação falhou', e?.message || e)
     }
+    await faturarSePreciso(admin, pedido)
   }
   return pedido
+}
+
+// Fatura assim que o dinheiro entra, sem esperar que alguém feche a encomenda
+// no Staff. Antes a emissão exigia estado 'entregue' — regra que faz sentido ao
+// balcão, onde se paga no fim, mas que numa encomenda online pré-paga deixava a
+// fatura por emitir por tempo indeterminado. Foi o que aconteceu à encomenda
+// nº 2: paga com cartão, sem fatura, e sem sequer aparecer no painel de Faturas.
+//
+// Nunca deixa rebentar: a confirmação do pagamento é o que não pode falhar. Se
+// o Vendus recusar, a razão fica gravada na encomenda e aparece no painel de
+// Faturas com um botão para tentar de novo.
+async function faturarSePreciso(admin, pedido) {
+  if (!exigeFatura(pedido.metodo_pagamento)) return
+  try {
+    const r = await emitirFatura(admin, pedido.id)
+    console.log('fatura automática', {
+      encomenda: pedido.numero,
+      numero: r.numero || null,
+      ja_existia: !!r.ja_existia,
+    })
+  } catch (e) {
+    console.error('fatura automática falhou', pedido.numero, e?.message || e)
+    await registarFalhaFatura(admin, pedido.id, e.message)
+  }
 }
 
 // Email de confirmação (suporte duradouro — requisito legal de venda à
