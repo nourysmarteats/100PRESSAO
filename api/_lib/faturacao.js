@@ -277,7 +277,9 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
     ok: true,
     documento_id: doc.id,
     numero: doc.number,
-    url: doc.output,
+    // Pelo mesmo tratamento que o valor guardado, e não `doc.output` em cru:
+    // com output:'pdf_url' esse campo traz o tipo, não o endereço.
+    url: urlDoDocumento(doc),
     modo_teste: corpo.mode === 'tests',
   }
 }
@@ -287,16 +289,66 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
 // aconteceu às faturas FR T01P2026/3 e /4. Os restantes nomes ficam como rede,
 // por a documentação não ser explícita quanto ao campo devolvido.
 // Documentação: https://www.vendus.pt/ws/v1.1/documents.doc
-// Só serve o que é mesmo um endereço externo. Um caminho relativo guardado
-// como está resolve-se contra 100pressao.pt quando alguém o abre, e o
-// utilizador acaba na loja em vez do PDF — foi o que aconteceu. E o campo pode
-// nem sequer trazer um endereço: com output:'pdf' vem o ficheiro em base64.
-function comoEndereco(v) {
+//
+// O que o Vendus devolveu mesmo, verificado contra o que ficou guardado nessas
+// duas faturas, não é nenhuma das formas que estavam previstas aqui:
+//
+//   {"type":"pdf","data":[],"content":"ZG9jdW1lbnRzLzM2NTIyMjkwMC5wZGY/bW9kZT10ZXN0cw=="}
+//
+// É um objeto, e o endereço vem em `content` — em base64, e como caminho
+// RELATIVO SEM barra inicial ("documents/365222900.pdf?mode=tests"), relativo
+// à base da API. Guardado como veio, o browser resolve-o contra 100pressao.pt,
+// não encontra a rota, o catch-all do router manda para "/" e o operador
+// aterra na loja em vez de ver o PDF.
+//
+// Daí esta função aceitar quatro formas e rejeitar tudo o resto. O que não for
+// endereço tem de sair daqui como null: guardar lixo neste campo é pior do que
+// não guardar nada, porque o painel passa a mostrar "Ver PDF" e o botão que
+// recupera o endereço deixa de aparecer.
+function comoEndereco(v, profundidade = 0) {
+  // O objeto {type,data,content} traz o endereço em `content`. A recursão tem
+  // fundo para o caso de vir aninhado ou de o content apontar para si próprio.
+  if (v && typeof v === 'object' && profundidade < 3) {
+    return comoEndereco(v.content ?? v.url ?? v.data, profundidade + 1)
+  }
   if (typeof v !== 'string') return null
   const s = v.trim()
   if (!s) return null
+
   if (/^https?:\/\//i.test(s)) return s
   if (s.startsWith('/')) return `https://www.vendus.pt${s}`
+
+  // Guardado por código anterior como JSON serializado. Reabre-se e tenta-se
+  // outra vez, para as faturas antigas se recuperarem sozinhas.
+  if (profundidade < 3 && (s.startsWith('{') || s.startsWith('['))) {
+    try {
+      return comoEndereco(JSON.parse(s), profundidade + 1)
+    } catch {
+      return null
+    }
+  }
+
+  // Base64: só se descodifica se o resultado for texto legível e parecer um
+  // caminho. Com output:'pdf' este campo traz o ficheiro inteiro em base64 —
+  // descodificá-lo aqui daria uma string binária gigante tratada como link.
+  if (profundidade < 3 && /^[A-Za-z0-9+/]{8,}={0,2}$/.test(s)) {
+    try {
+      const aberto = Buffer.from(s, 'base64').toString('utf8')
+      if (/^[\x20-\x7e]+$/.test(aberto) && !aberto.startsWith('%PDF')) {
+        return comoEndereco(aberto, profundidade + 1)
+      }
+    } catch {
+      /* não era base64 útil — segue para o caminho relativo */
+    }
+  }
+
+  // Caminho relativo sem barra ("documents/365222900.pdf?mode=tests"), que é o
+  // que o Vendus devolve de facto. Resolve-se contra a base da API, não contra
+  // o domínio: www.vendus.pt/documents/... não existe.
+  if (/^[\w.-]+(\/[\w.-]*)*(\?[^\s]*)?$/.test(s) && s.includes('/')) {
+    return `${VENDUS_BASE}/${s}`
+  }
+
   return null
 }
 
@@ -321,7 +373,20 @@ export async function obterPdf(admin, pedidoId) {
     .eq('id', pedidoId)
     .single()
   if (!pedido?.fatura_documento_id) throw new Error('Esta encomenda ainda não tem fatura emitida.')
-  if (pedido.fatura_url) return { ok: true, url: pedido.fatura_url, ja_existia: true }
+
+  // Revalidar o que está guardado em vez de o devolver por estar preenchido.
+  // As faturas emitidas antes desta validação existir têm aqui um objeto JSON,
+  // não um endereço; devolvê-lo tal e qual mandava o operador para a loja. Se
+  // não prestar, ignora-se e vai-se buscar de novo ao Vendus — é assim que
+  // estas linhas se corrigem sozinhas, sem ninguém ter de lhes tocar à mão.
+  const guardado = comoEndereco(pedido.fatura_url)
+  if (guardado) {
+    // Aproveita-se para deixar guardada a forma limpa, e não a original.
+    if (guardado !== pedido.fatura_url) {
+      await admin.from('orders').update({ fatura_url: guardado }).eq('id', pedidoId)
+    }
+    return { ok: true, url: guardado, ja_existia: true }
+  }
 
   // O `mode` tem de acompanhar a consulta: sem ele, procurar um documento de
   // ensaio no espaço normal devolve 404.

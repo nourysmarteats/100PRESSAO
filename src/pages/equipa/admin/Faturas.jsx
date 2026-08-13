@@ -92,6 +92,17 @@ function EstadoVendus() {
 const estadoFatura = (p) =>
   p.fatura_documento_numero ? 'emitida' : p.fatura_erro ? 'falhada' : 'sem'
 
+// Um endereço só serve para ser aberto se for mesmo externo. As faturas
+// emitidas antes da validação no servidor têm aqui o objeto JSON que o Vendus
+// devolveu, e um <a href> com isso lá dentro é lido como caminho relativo: o
+// browser resolve-o contra 100pressao.pt, a rota não existe, o catch-all do
+// router manda para "/" e o operador perde o painel e vai parar à loja.
+//
+// Ter esta verificação aqui E no servidor é repetição de propósito. O painel é
+// a última porta antes do clique, e é a única que protege as linhas que já
+// estão guardadas com lixo.
+const linkExterno = (v) => (/^https?:\/\//i.test(String(v || '')) ? String(v) : null)
+
 function Faturas() {
   const [periodo, setPeriodo] = useState('semana')
   const [filtro, setFiltro] = useState('todas')
@@ -322,9 +333,13 @@ function Faturas() {
                 )}
 
                 <div className="mt-2 flex justify-end gap-2">
-                  {p.fatura_url ? (
+                  {/* A decisão é pelo endereço ser aproveitável, não por o
+                      campo estar preenchido: preenchido com lixo, mostrava
+                      "Ver PDF" e escondia o botão que ia buscar o endereço
+                      bom — a fatura ficava presa sem forma de se recuperar. */}
+                  {linkExterno(p.fatura_url) ? (
                     <a
-                      href={p.fatura_url}
+                      href={linkExterno(p.fatura_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={BOTAO_SECUNDARIO}
