@@ -16,6 +16,79 @@ const rotuloMetodo = (id) =>
 
 // Três estados, e não dois: emitida (há documento), falhada (tentou-se e o
 // Vendus recusou) e sem fatura (ninguém pediu).
+// Estado da ligação ao Vendus, à cabeça do painel. Sem isto, "estamos a emitir
+// documentos reais ou de ensaio?" respondia-se por suposição — e um documento
+// fiscal emitido por engano não se apaga, corrige-se com nota de crédito.
+function EstadoVendus() {
+  const [estado, setEstado] = useState(null)
+  const [ocupado, setOcupado] = useState(false)
+
+  const verificar = useCallback(async () => {
+    setOcupado(true)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const r = await fetch('/api/vendus-estado', {
+        headers: { Authorization: `Bearer ${data?.session?.access_token}` },
+      })
+      setEstado(await r.json())
+    } catch (e) {
+      setEstado({ erro: e.message })
+    }
+    setOcupado(false)
+  }, [])
+
+  useEffect(() => {
+    verificar()
+  }, [verificar])
+
+  const real = estado?.modo === 'normal'
+  return (
+    <div className={`${CARTAO} mb-6 p-4`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-widest ${
+              real ? 'bg-red-500/10 text-red-600' : 'bg-ambar-500/15 text-ambar-600'
+            }`}
+          >
+            {estado ? (real ? 'Faturação real' : 'Modo de ensaio') : 'A verificar…'}
+          </span>
+          {estado && !estado.api_ok && (
+            <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-red-600">
+              API indisponível
+            </span>
+          )}
+          {estado?.postos_api === 0 && (
+            <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-red-600">
+              Sem posto API
+            </span>
+          )}
+        </div>
+        <button type="button" onClick={verificar} disabled={ocupado} className={BOTAO_SECUNDARIO}>
+          {ocupado ? 'A verificar…' : 'Verificar de novo'}
+        </button>
+      </div>
+
+      {estado && (
+        <div className="mt-3 space-y-1 text-xs leading-relaxed text-grafite-600">
+          <p>
+            {real
+              ? 'Cada emissão produz um documento fiscal verdadeiro, comunicado à AT.'
+              : 'Os documentos saem numa série de ensaio (número com “T”) e não têm valor fiscal.'}
+            {estado.modo_explicito === false &&
+              ' O modo não está definido no Vercel — é o valor por omissão, não uma decisão.'}
+          </p>
+          {!estado.chave_configurada && <p className="text-red-600">VENDUS_API_KEY por definir.</p>}
+          {estado.api_mensagem && (
+            <p className={estado.api_ok ? '' : 'text-red-600'}>{estado.api_mensagem}</p>
+          )}
+          {estado.subscricao_termina && <p>Subscrição até {estado.subscricao_termina}.</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const estadoFatura = (p) =>
   p.fatura_documento_numero ? 'emitida' : p.fatura_erro ? 'falhada' : 'sem'
 
@@ -95,6 +168,8 @@ function Faturas() {
 
   return (
     <div>
+      <EstadoVendus />
+
       {/* Período */}
       <div className="flex gap-2">
         {[
