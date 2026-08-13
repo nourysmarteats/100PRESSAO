@@ -287,12 +287,25 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
 // aconteceu às faturas FR T01P2026/3 e /4. Os restantes nomes ficam como rede,
 // por a documentação não ser explícita quanto ao campo devolvido.
 // Documentação: https://www.vendus.pt/ws/v1.1/documents.doc
+// Só serve o que é mesmo um endereço externo. Um caminho relativo guardado
+// como está resolve-se contra 100pressao.pt quando alguém o abre, e o
+// utilizador acaba na loja em vez do PDF — foi o que aconteceu. E o campo pode
+// nem sequer trazer um endereço: com output:'pdf' vem o ficheiro em base64.
+function comoEndereco(v) {
+  if (typeof v !== 'string') return null
+  const s = v.trim()
+  if (!s) return null
+  if (/^https?:\/\//i.test(s)) return s
+  if (s.startsWith('/')) return `https://www.vendus.pt${s}`
+  return null
+}
+
 const urlDoDocumento = (doc) =>
-  doc?.output_data ||
-  (typeof doc?.output === 'string' && doc.output.startsWith('http') ? doc.output : null) ||
-  doc?.output_url ||
-  doc?.pdf_url ||
-  doc?.url ||
+  comoEndereco(doc?.output_data) ||
+  comoEndereco(doc?.output) ||
+  comoEndereco(doc?.output_url) ||
+  comoEndereco(doc?.pdf_url) ||
+  comoEndereco(doc?.url) ||
   null
 
 // Vai buscar o PDF de uma fatura já emitida e guarda-o na encomenda. Serve as
@@ -328,7 +341,16 @@ export async function obterPdf(admin, pedidoId) {
     throw e
   }
   const url = urlDoDocumento(doc)
-  if (!url) throw new Error('O Vendus não devolveu o endereço do PDF para este documento.')
+  if (!url) {
+    // Sem os logs do Vercel acessíveis, a amostra do que veio é a única forma
+    // de perceber o que o Vendus está a devolver. Cortada, porque pode ser o
+    // PDF inteiro em base64.
+    const amostra = JSON.stringify({ output: doc?.output, output_data: doc?.output_data }).slice(
+      0,
+      200,
+    )
+    throw new Error(`O Vendus não devolveu um endereço de PDF. Recebido: ${amostra}`)
+  }
 
   await admin.from('orders').update({ fatura_url: url }).eq('id', pedidoId)
   return { ok: true, url }

@@ -167,6 +167,11 @@ function Faturas() {
       })
       const json = await r.json()
       if (!r.ok) throw new Error(json.erro || 'Erro no servidor.')
+      // Nunca abrir um endereço que não seja externo: um caminho relativo levava
+      // o operador para fora do painel, para a loja, em vez de abrir o PDF.
+      if (!/^https?:\/\//i.test(String(json.url || ''))) {
+        throw new Error('O endereço devolvido para o PDF não é válido.')
+      }
       window.open(json.url, '_blank', 'noopener')
     } catch (e) {
       mostrarAviso(e.message)
