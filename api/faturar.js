@@ -67,15 +67,38 @@ async function vendusFetch(path, apiKey, options = {}) {
       ...(options.headers || {}),
     },
   })
-  const json = await resp.json().catch(() => ({}))
+  const bruto = await resp.text()
+  let json = {}
+  try {
+    json = JSON.parse(bruto)
+  } catch {
+    /* resposta não-JSON: fica o texto em bruto, tratado mais abaixo */
+  }
   if (!resp.ok) {
-    // Log completo no servidor — o erro que chega ao browser é só um
-    // resumo, isto fica nos Vercel Logs para diagnóstico
-    console.error(`Vendus ${options.method || 'GET'} ${path} -> ${resp.status}`, JSON.stringify(json))
-    const msg = json?.error || json?.message || `Vendus respondeu ${resp.status}`
-    throw new Error(msg)
+    console.error(`Vendus ${options.method || 'GET'} ${path} -> ${resp.status}`, bruto)
+    throw new Error(`${razaoVendus(json, bruto)} (HTTP ${resp.status})`)
   }
   return json
+}
+
+// O Vendus devolve os erros em `errors: [{ code, message }]`. Olhar só para
+// `error`/`message` deixava-nos com "Vendus respondeu 400" — uma mensagem que
+// não diz nada e que obriga a ir aos logs, que nem sempre estão acessíveis.
+// A razão tem de sobreviver até ao ecrã de quem carregou no botão.
+function razaoVendus(json, bruto) {
+  const erros = Array.isArray(json?.errors) ? json.errors : json?.errors ? [json.errors] : []
+  if (erros.length) {
+    return erros
+      .map((e) => [e.code, e.message || e.msg || e.detail].filter(Boolean).join(': '))
+      .filter(Boolean)
+      .join(' · ')
+  }
+  if (json?.error) return typeof json.error === 'string' ? json.error : JSON.stringify(json.error)
+  if (json?.message) return json.message
+  // Nada reconhecível: vai o corpo em bruto, cortado. Feio, mas diagnosticável —
+  // ao contrário de uma mensagem genérica.
+  const texto = (bruto || '').trim().replace(/\s+/g, ' ')
+  return texto ? `resposta inesperada: ${texto.slice(0, 300)}` : 'resposta vazia'
 }
 
 export default async function handler(req, res) {

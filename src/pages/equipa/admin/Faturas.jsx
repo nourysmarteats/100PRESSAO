@@ -1,19 +1,31 @@
-// Registo de faturas pedidas (jul 2026). Mostra, dos pedidos entregues,
-// quem pediu fatura (+ NIF) e quem não. A emissão via Vendus é separada e
-// entra quando a conta estiver ligada à AT.
+// Registo de faturação (jul 2026, revisto ago 2026). Mostra, dos pedidos
+// entregues, o que foi de facto emitido no Vendus, o que falhou e porquê, e o
+// que ficou sem fatura.
+//
+// Antes só se olhava para fatura_pedida, o que dava uma leitura falsa: um
+// pedido cuja emissão rebentou contava como "com fatura", porque o pedido de
+// fatura tinha sido feito. O que interessa é se existe documento.
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt, METODOS_PAGAMENTO } from '../../../lib/pedidos'
-import { CARTAO } from './comuns'
+import { chamarApiFaturar } from '../../../lib/equipa'
+import { CARTAO, BOTAO_SECUNDARIO, useAviso } from './comuns'
 
 const rotuloMetodo = (id) =>
   METODOS_PAGAMENTO.find((m) => m.id === id)?.rotulo || id || '—'
+
+// Três estados, e não dois: emitida (há documento), falhada (tentou-se e o
+// Vendus recusou) e sem fatura (ninguém pediu).
+const estadoFatura = (p) =>
+  p.fatura_documento_numero ? 'emitida' : p.fatura_erro ? 'falhada' : 'sem'
 
 function Faturas() {
   const [periodo, setPeriodo] = useState('semana')
   const [filtro, setFiltro] = useState('todas')
   const [pedidos, setPedidos] = useState(null)
   const [erro, setErro] = useState('')
+  const [aEmitir, setAEmitir] = useState(null)
+  const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
     const inicio = new Date()
@@ -24,7 +36,7 @@ function Faturas() {
     const { data, error } = await supabase
       .from('orders')
       .select(
-        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, sessions ( nome_cliente, posicao_mesa )',
+        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_documento_numero, fatura_url, fatura_erro, sessions ( nome_cliente, posicao_mesa )',
       )
       .eq('estado', 'entregue')
       .gte('criado_em', inicio.toISOString())
@@ -48,11 +60,35 @@ function Faturas() {
   if (pedidos === null) return <p className="text-grafite-600/70">A carregar…</p>
   if (erro) return <p className={`${CARTAO} p-6 text-grafite-600`}>{erro}</p>
 
-  const comFatura = pedidos.filter((p) => p.fatura_pedida)
-  const semFatura = pedidos.filter((p) => !p.fatura_pedida)
+  const emitidas = pedidos.filter((p) => estadoFatura(p) === 'emitida')
+  const falhadas = pedidos.filter((p) => estadoFatura(p) === 'falhada')
+  const semFatura = pedidos.filter((p) => estadoFatura(p) === 'sem')
   const soma = (arr) => arr.reduce((s, p) => s + Number(p.total || 0), 0)
   const lista =
-    filtro === 'com' ? comFatura : filtro === 'sem' ? semFatura : pedidos
+    filtro === 'com'
+      ? emitidas
+      : filtro === 'falhou'
+        ? falhadas
+        : filtro === 'sem'
+          ? semFatura
+          : pedidos
+
+  // Voltar a tentar sem sair do painel: os pedidos entregues já não aparecem no
+  // ecrã de Staff, pelo que sem isto uma fatura falhada não teria como ser
+  // reemitida.
+  async function reemitir(p) {
+    setAEmitir(p.id)
+    try {
+      const r = await chamarApiFaturar({ pedido_id: p.id, nif: p.fatura_nif || undefined })
+      mostrarAviso(
+        r.ja_existia ? 'Já existia fatura para este pedido.' : `Fatura ${r.numero || ''} emitida ✓`,
+      )
+    } catch (e) {
+      mostrarAviso(e.message)
+    }
+    setAEmitir(null)
+    carregar()
+  }
 
   return (
     <div>
@@ -82,8 +118,8 @@ function Faturas() {
       <div className="mt-6 grid grid-cols-3 gap-3">
         {[
           { rotulo: 'Total apurado', valor: soma(pedidos), n: pedidos.length },
-          { rotulo: 'Com fatura', valor: soma(comFatura), n: comFatura.length },
-          { rotulo: 'Sem fatura', valor: soma(semFatura), n: semFatura.length },
+          { rotulo: 'Emitidas', valor: soma(emitidas), n: emitidas.length },
+          { rotulo: 'Por emitir', valor: soma(falhadas) + soma(semFatura), n: falhadas.length + semFatura.length },
         ].map((k) => (
           <div key={k.rotulo} className={`${CARTAO} p-4`}>
             <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600/70">
@@ -101,7 +137,8 @@ function Faturas() {
       <div className="mt-6 flex gap-2">
         {[
           { id: 'todas', rotulo: `Todas (${pedidos.length})` },
-          { id: 'com', rotulo: `Com fatura (${comFatura.length})` },
+          { id: 'com', rotulo: `Emitidas (${emitidas.length})` },
+          { id: 'falhou', rotulo: `Falharam (${falhadas.length})` },
           { id: 'sem', rotulo: `Sem fatura (${semFatura.length})` },
         ].map((f) => (
           <button
@@ -149,21 +186,61 @@ function Faturas() {
                   {fmt(p.total)} · {rotuloMetodo(p.metodo_pagamento)}
                 </p>
               </div>
-              <div className="text-right">
-                {p.fatura_pedida ? (
+              <div className="max-w-md text-right">
+                {estadoFatura(p) === 'emitida' && (
                   <span className="rounded-full bg-ambar-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-ambar-600">
-                    Fatura pedida
+                    {p.fatura_documento_numero}
                   </span>
-                ) : (
+                )}
+                {estadoFatura(p) === 'falhada' && (
+                  <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-red-600">
+                    Falhou
+                  </span>
+                )}
+                {estadoFatura(p) === 'sem' && (
                   <span className="rounded-full border border-grafite-600/30 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-grafite-600/70">
                     Sem fatura
                   </span>
                 )}
+
                 {p.fatura_pedida && (
                   <p className="mt-1 text-xs text-grafite-600">
                     NIF: {p.fatura_nif || 'não indicado'}
                   </p>
                 )}
+
+                {/* A razão da recusa vive aqui: é onde alguém vem procurar por
+                    que motivo uma fatura não saiu. */}
+                {estadoFatura(p) === 'falhada' && (
+                  <p className="mt-1 text-xs leading-relaxed text-red-600">{p.fatura_erro}</p>
+                )}
+
+                <div className="mt-2 flex justify-end gap-2">
+                  {p.fatura_url && (
+                    <a
+                      href={p.fatura_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={BOTAO_SECUNDARIO}
+                    >
+                      Ver PDF
+                    </a>
+                  )}
+                  {estadoFatura(p) !== 'emitida' && (
+                    <button
+                      type="button"
+                      disabled={aEmitir === p.id}
+                      onClick={() => reemitir(p)}
+                      className={BOTAO_SECUNDARIO}
+                    >
+                      {aEmitir === p.id
+                        ? 'A emitir…'
+                        : estadoFatura(p) === 'falhada'
+                          ? 'Tentar de novo'
+                          : 'Emitir fatura'}
+                    </button>
+                  )}
+                </div>
               </div>
             </li>
           ))}
@@ -171,10 +248,12 @@ function Faturas() {
       )}
 
       <p className="mt-6 text-xs leading-relaxed text-grafite-600/70">
-        A emissão automática da fatura (Vendus) entra quando a conta estiver
-        ligada à Autoridade Tributária. Até lá, este registo serve para saberes
-        quem pediu fatura e o NIF, para emitires como fazes hoje.
+        Só aparecem pedidos já entregues — é nesse momento que a fatura pode ser
+        emitida. Enquanto o Vendus estiver em modo de testes, os documentos saem
+        numa série de ensaio (número com “T”) e não têm valor fiscal.
       </p>
+
+      {Aviso}
     </div>
   )
 }
