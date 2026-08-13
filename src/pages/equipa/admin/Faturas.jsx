@@ -152,6 +152,29 @@ function Faturas() {
   // Voltar a tentar sem sair do painel: os pedidos entregues já não aparecem no
   // ecrã de Staff, pelo que sem isto uma fatura falhada não teria como ser
   // reemitida.
+  // Faturas emitidas sem o link do PDF: vai buscá-lo pelo ID do documento.
+  async function buscarPdf(p) {
+    setAEmitir(p.id)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const r = await fetch('/api/fatura-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${data?.session?.access_token}`,
+        },
+        body: JSON.stringify({ pedido_id: p.id }),
+      })
+      const json = await r.json()
+      if (!r.ok) throw new Error(json.erro || 'Erro no servidor.')
+      window.open(json.url, '_blank', 'noopener')
+    } catch (e) {
+      mostrarAviso(e.message)
+    }
+    setAEmitir(null)
+    carregar()
+  }
+
   async function reemitir(p) {
     setAEmitir(p.id)
     try {
@@ -294,7 +317,7 @@ function Faturas() {
                 )}
 
                 <div className="mt-2 flex justify-end gap-2">
-                  {p.fatura_url && (
+                  {p.fatura_url ? (
                     <a
                       href={p.fatura_url}
                       target="_blank"
@@ -303,6 +326,17 @@ function Faturas() {
                     >
                       Ver PDF
                     </a>
+                  ) : (
+                    estadoFatura(p) === 'emitida' && (
+                      <button
+                        type="button"
+                        disabled={aEmitir === p.id}
+                        onClick={() => buscarPdf(p)}
+                        className={BOTAO_SECUNDARIO}
+                      >
+                        {aEmitir === p.id ? 'A obter…' : 'Obter PDF'}
+                      </button>
+                    )
                   )}
                   {estadoFatura(p) !== 'emitida' && (
                     <button

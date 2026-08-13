@@ -262,7 +262,7 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
       fatura_nif: fiscalId,
       fatura_documento_id: String(doc.id),
       fatura_documento_numero: doc.number || null,
-      fatura_url: doc.output || null,
+      fatura_url: urlDoDocumento(doc),
       fatura_erro: null,
       fatura_criado_em: new Date().toISOString(),
     })
@@ -275,6 +275,39 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
     url: doc.output,
     modo_teste: corpo.mode === 'tests',
   }
+}
+
+// O Vendus nem sempre devolve o PDF no campo `output`, mesmo com
+// output:'pdf_url' no pedido — as faturas FR T01P2026/3 e /4 saíram com ele
+// vazio. Em vez de assumir um nome, aceitam-se os que a API usa, e há
+// obterPdf() para o ir buscar depois pelo ID do documento.
+const urlDoDocumento = (doc) =>
+  doc?.output || doc?.output_url || doc?.url || doc?.pdf_url || doc?.download_url || null
+
+// Vai buscar o PDF de uma fatura já emitida e guarda-o na encomenda. Serve as
+// faturas cuja emissão não trouxe o link e as que foram emitidas antes de isto
+// existir — sem ele, o documento só se alcança pelo backoffice do Vendus.
+export async function obterPdf(admin, pedidoId) {
+  const chave = process.env.VENDUS_API_KEY
+  if (!chave) throw new Error('VENDUS_API_KEY não configurada no Vercel.')
+
+  const { data: pedido } = await admin
+    .from('orders')
+    .select('id, fatura_documento_id, fatura_url')
+    .eq('id', pedidoId)
+    .single()
+  if (!pedido?.fatura_documento_id) throw new Error('Esta encomenda ainda não tem fatura emitida.')
+  if (pedido.fatura_url) return { ok: true, url: pedido.fatura_url, ja_existia: true }
+
+  const doc = await vendusFetch(
+    `/documents/${pedido.fatura_documento_id}/?output=pdf_url`,
+    chave,
+  )
+  const url = urlDoDocumento(doc)
+  if (!url) throw new Error('O Vendus não devolveu o endereço do PDF para este documento.')
+
+  await admin.from('orders').update({ fatura_url: url }).eq('id', pedidoId)
+  return { ok: true, url }
 }
 
 // Regista a falha na própria encomenda. A razão tem de ficar onde alguém a vá
