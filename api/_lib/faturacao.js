@@ -277,12 +277,18 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   }
 }
 
-// O Vendus nem sempre devolve o PDF no campo `output`, mesmo com
-// output:'pdf_url' no pedido — as faturas FR T01P2026/3 e /4 saíram com ele
-// vazio. Em vez de assumir um nome, aceitam-se os que a API usa, e há
-// obterPdf() para o ir buscar depois pelo ID do documento.
+// Com output:'pdf_url', o Vendus devolve o tipo em `output` e o endereço em
+// `output_data` — lê-lo de `output` deixava-nos sempre sem link, que foi o que
+// aconteceu às faturas FR T01P2026/3 e /4. Os restantes nomes ficam como rede,
+// por a documentação não ser explícita quanto ao campo devolvido.
+// Documentação: https://www.vendus.pt/ws/v1.1/documents.doc
 const urlDoDocumento = (doc) =>
-  doc?.output || doc?.output_url || doc?.url || doc?.pdf_url || doc?.download_url || null
+  doc?.output_data ||
+  (typeof doc?.output === 'string' && doc.output.startsWith('http') ? doc.output : null) ||
+  doc?.output_url ||
+  doc?.pdf_url ||
+  doc?.url ||
+  null
 
 // Vai buscar o PDF de uma fatura já emitida e guarda-o na encomenda. Serve as
 // faturas cuja emissão não trouxe o link e as que foram emitidas antes de isto
@@ -299,10 +305,21 @@ export async function obterPdf(admin, pedidoId) {
   if (!pedido?.fatura_documento_id) throw new Error('Esta encomenda ainda não tem fatura emitida.')
   if (pedido.fatura_url) return { ok: true, url: pedido.fatura_url, ja_existia: true }
 
-  const doc = await vendusFetch(
-    `/documents/${pedido.fatura_documento_id}/?output=pdf_url`,
-    chave,
-  )
+  let doc
+  try {
+    doc = await vendusFetch(`/documents/${pedido.fatura_documento_id}/?output=pdf_url`, chave)
+  } catch (e) {
+    // Documentos emitidos em modo de ensaio podem não ser consultáveis por esta
+    // via. Vale a pena dizê-lo: senão parece avaria nossa, e não é.
+    if (/404/.test(e.message)) {
+      throw new Error(
+        'O Vendus não encontra este documento para consulta (HTTP 404). ' +
+          'Acontece com documentos da série de ensaio — vê-se no backoffice do Vendus. ' +
+          'As faturas emitidas a partir de agora já guardam o endereço do PDF na emissão.',
+      )
+    }
+    throw e
+  }
   const url = urlDoDocumento(doc)
   if (!url) throw new Error('O Vendus não devolveu o endereço do PDF para este documento.')
 
