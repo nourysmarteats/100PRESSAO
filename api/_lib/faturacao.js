@@ -207,8 +207,13 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   }
 
   // 3. Descobrir o "register" (posto) a usar. A Vendus exige que os documentos
-  // emitidos por API venham de um register do tipo "api" — caso contrário
-  // devolve o erro A001 ("You need to configure a register to be of type API").
+  // emitidos por API venham de um register do tipo "api".
+  //
+  // Cuidado com o código A001: é reutilizado pelo Vendus para causas diferentes.
+  // Documentámo-lo aqui como sendo o posto por configurar, mas em 2026-08-13 a
+  // conta 100PRESSÃO devolveu "A001: Your subscription plan does not allow use
+  // of API" — o plano subscrito não inclui API, e nenhuma chamada passa. Ler a
+  // mensagem, não o código.
   let registerId = process.env.VENDUS_REGISTER_ID ? Number(process.env.VENDUS_REGISTER_ID) : null
   if (!registerId) {
     const registos = await vendusFetch('/registers/?type=api&isActive=yes', vendusKey)
