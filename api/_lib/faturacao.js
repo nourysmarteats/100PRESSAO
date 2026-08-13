@@ -16,6 +16,11 @@
 
 const VENDUS_BASE = 'https://www.vendus.pt/ws/v1.1'
 
+// Testes e produção são espaços separados no Vendus. Um documento emitido em
+// 'tests' não é encontrado por uma consulta que não diga em que espaço procurar
+// — daí o 404 ao tentar obter o PDF das faturas FR T01P2026/3 e /4.
+export const modoVendus = () => (process.env.VENDUS_MODE === 'normal' ? 'normal' : 'tests')
+
 // Produtos/combos de 100PRESSÃO ainda não estão sincronizados com o catálogo do
 // Vendus, por isso cada item vai "avulso" (só por título).
 // Taxa de IVA: 'NOR' (normal, 23%) em todos os artigos, decidido pelo Leandro
@@ -240,7 +245,7 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
 
   const corpo = {
     type: 'FR', // Fatura-Recibo — já está pago
-    mode: process.env.VENDUS_MODE === 'normal' ? 'normal' : 'tests',
+    mode: modoVendus(),
     output: 'pdf_url',
     external_reference: `100PRESSAO-${pedido.numero}`,
     tx_id: pedido.id, // idempotência também do lado do Vendus
@@ -305,17 +310,19 @@ export async function obterPdf(admin, pedidoId) {
   if (!pedido?.fatura_documento_id) throw new Error('Esta encomenda ainda não tem fatura emitida.')
   if (pedido.fatura_url) return { ok: true, url: pedido.fatura_url, ja_existia: true }
 
+  // O `mode` tem de acompanhar a consulta: sem ele, procurar um documento de
+  // ensaio no espaço normal devolve 404.
   let doc
   try {
-    doc = await vendusFetch(`/documents/${pedido.fatura_documento_id}/?output=pdf_url`, chave)
+    doc = await vendusFetch(
+      `/documents/${pedido.fatura_documento_id}/?output=pdf_url&mode=${modoVendus()}`,
+      chave,
+    )
   } catch (e) {
-    // Documentos emitidos em modo de ensaio podem não ser consultáveis por esta
-    // via. Vale a pena dizê-lo: senão parece avaria nossa, e não é.
     if (/404/.test(e.message)) {
       throw new Error(
-        'O Vendus não encontra este documento para consulta (HTTP 404). ' +
-          'Acontece com documentos da série de ensaio — vê-se no backoffice do Vendus. ' +
-          'As faturas emitidas a partir de agora já guardam o endereço do PDF na emissão.',
+        `O Vendus não encontra o documento ${pedido.fatura_documento_id} no espaço "${modoVendus()}" (HTTP 404). ` +
+          'Se a fatura foi emitida noutro modo, é aí que ela está.',
       )
     }
     throw e
