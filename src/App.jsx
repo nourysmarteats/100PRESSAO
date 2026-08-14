@@ -19,6 +19,8 @@ const Staff = lazy(() => import('./pages/equipa/Staff'))
 const Operacional = lazy(() => import('./pages/equipa/Operacional'))
 const Ecra = lazy(() => import('./pages/equipa/Ecra'))
 const Admin = lazy(() => import('./pages/equipa/Admin'))
+const CaixaPdv = lazy(() => import('./pages/CaixaPdv'))
+const VisorCliente = lazy(() => import('./pages/VisorCliente'))
 
 const fallbackClaro = <div className="min-h-dvh bg-creme-50" />
 const fallbackEscuro = <div className="min-h-dvh bg-grafite-950" />
@@ -61,6 +63,11 @@ function App() {
 
         {/* Ecrã público (TV) — sem auth nem PIN, só mostra números de pedido */}
         <Route path="/ecran" element={interna(Ecra)} />
+
+        {/* PDV — caixa registadora (auth própria + PIN) */}
+        <Route path="/caixa" element={interna(CaixaPdv)} />
+        {/* Visor do cliente — tablet junto à caixa (sem auth) */}
+        <Route path="/visor" element={interna(VisorCliente)} />
 
         {/* Área da equipa — Supabase Auth + PIN de conveniência */}
         <Route element={interna(EquipaLayout)}>
