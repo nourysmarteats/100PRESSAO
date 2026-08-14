@@ -745,7 +745,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       )}
 
       {/* Grelha de produtos */}
-      <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1">
+      <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1 xl:grid-cols-3">
         {vendaveisDaCat.map((v) => {
           const qtd = carrinho[v.chave]?.quantidade || 0
           return (
@@ -772,7 +772,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
           )
         })}
         {!erroCarga && vendaveisDaCat.length === 0 && (
-          <p className="col-span-2 py-4 text-center text-sm text-creme-500/40">
+          <p className="col-span-2 py-4 text-center text-sm text-creme-500/40 xl:col-span-3">
             Sem produtos nesta categoria
           </p>
         )}
@@ -951,15 +951,18 @@ function Pdv({ aoBloquear }) {
         </div>
       </header>
 
-      {/* Dois painéis */}
+      {/* Dois painéis, meio a meio. O da venda manual estava fixo em 384 px, o
+          que o deixava estreito num ecrã de balcão enquanto sobrava espaço à
+          esquerda. `min-w-0` é o que impede um item de nome comprido de
+          empurrar a divisão. */}
       <div className="flex flex-1 overflow-hidden gap-0">
         {/* Painel esquerdo — pedidos activos */}
-        <div className="flex-1 overflow-y-auto border-r border-grafite-700 p-5">
+        <div className="min-w-0 flex-1 overflow-y-auto border-r border-grafite-700 p-5">
           <PainelPedidos />
         </div>
 
         {/* Painel direito — venda manual */}
-        <div className="w-96 shrink-0 overflow-y-auto p-5">
+        <div className="min-w-0 flex-1 overflow-y-auto p-5">
           <PainelVendaManual emitir={emitir} limpar={limpar} emitirConcluida={emitirConcluida} />
         </div>
       </div>
