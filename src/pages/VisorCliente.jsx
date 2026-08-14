@@ -1,13 +1,28 @@
 // Visor do cliente — tablet pequeno junto à caixa registadora.
-// Sem autenticação: só recebe broadcasts do canal 'pdv-visor' e mostra
-// o conteúdo do carrinho atual. Segue o mesmo padrão visual do Ecra.jsx.
+//
+// Sem autenticação: só recebe do canal 'pdv-visor'. Mostra o que o cliente
+// precisa mesmo de ver para conferir o que está a pagar — nº do pedido,
+// linhas, total, método de pagamento com instrução, troco e pedido de NIF.
+//
+// Ao arrancar (ou ao voltar de uma quebra de rede) pede o estado ao PDV: o
+// broadcast é efémero e antes disto um simples refresh do tablet deixava o
+// visor em branco a meio de uma venda.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../lib/supabase'
-import { fmt } from '../lib/pedidos'
+import { fmt, METODOS_PAGAMENTO } from '../lib/pedidos'
+import {
+  CANAL_VISOR,
+  EV_ESTADO,
+  EV_CONCLUIDA,
+  EV_PEDIR_ESTADO,
+  INSTRUCAO_METODO,
+} from '../lib/visor'
 import logoStamp from '../assets/logo-100pressao.png'
+
+const rotuloMetodo = (id) => METODOS_PAGAMENTO.find((m) => m.id === id)?.rotulo || ''
 
 function Relogio() {
   const [hora, setHora] = useState('')
@@ -22,28 +37,65 @@ function Relogio() {
 }
 
 function VisorCliente() {
-  const [carrinho, setCarrinho] = useState(null) // null = idle
-  const [obrigado, setObrigado] = useState(false)
+  const [estado, setEstado] = useState(null) // null = inactivo
+  const [conclusao, setConclusao] = useState(null) // { troco, numero } | null
+  const [ligado, setLigado] = useState(false)
+  const canalRef = useRef(null)
+  const temporizadorRef = useRef(null)
+
+  // Pede ao PDV o estado actual. Chamado ao ligar e sempre que a ligação volta.
+  const pedirEstado = useCallback(() => {
+    canalRef.current?.send({ type: 'broadcast', event: EV_PEDIR_ESTADO, payload: {} })
+  }, [])
 
   useEffect(() => {
     if (!supabase) return
     const canal = supabase
-      .channel('pdv-visor')
-      .on('broadcast', { event: 'carrinho' }, ({ payload }) => {
+      .channel(CANAL_VISOR)
+      .on('broadcast', { event: EV_ESTADO }, ({ payload }) => {
         const temItens = Array.isArray(payload?.itens) && payload.itens.length > 0
-        setCarrinho(temItens ? payload : null)
-        setObrigado(false)
+        setEstado(temItens ? payload : null)
+        if (temItens) {
+          setConclusao(null)
+          clearTimeout(temporizadorRef.current)
+        }
       })
-      .on('broadcast', { event: 'venda_concluida' }, () => {
-        setCarrinho(null)
-        setObrigado(true)
-        setTimeout(() => setObrigado(false), 4000)
+      .on('broadcast', { event: EV_CONCLUIDA }, ({ payload }) => {
+        setEstado(null)
+        setConclusao(payload || {})
+        clearTimeout(temporizadorRef.current)
+        // Com troco a devolver o cliente precisa de mais tempo para conferir.
+        const espera = payload?.troco > 0 ? 8000 : 4000
+        temporizadorRef.current = setTimeout(() => setConclusao(null), espera)
       })
-      .subscribe()
-    return () => supabase.removeChannel(canal)
-  }, [])
 
-  const idle = !carrinho && !obrigado
+    canal.subscribe((status) => {
+      const ok = status === 'SUBSCRIBED'
+      setLigado(ok)
+      if (ok) pedirEstado()
+    })
+    canalRef.current = canal
+
+    // Rede de segurança: se o tablet adormecer e acordar, o Supabase religa
+    // sozinho mas o estado que perdemos entretanto não volta. Ao reganhar
+    // visibilidade voltamos a pedir.
+    const aoVoltar = () => {
+      if (document.visibilityState === 'visible') pedirEstado()
+    }
+    document.addEventListener('visibilitychange', aoVoltar)
+    window.addEventListener('online', pedirEstado)
+
+    return () => {
+      clearTimeout(temporizadorRef.current)
+      document.removeEventListener('visibilitychange', aoVoltar)
+      window.removeEventListener('online', pedirEstado)
+      canalRef.current = null
+      supabase.removeChannel(canal)
+    }
+  }, [pedirEstado])
+
+  const idle = !estado && !conclusao
+  const instrucao = estado?.metodo ? INSTRUCAO_METODO[estado.metodo] : null
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-grafite-950 px-10 py-8">
@@ -54,6 +106,11 @@ function VisorCliente() {
           <span className="font-display text-2xl font-bold uppercase tracking-tight text-creme-50">
             100PRESSÃO
           </span>
+          {estado?.numero != null && (
+            <span className="rounded-full border border-ambar-500/40 px-4 py-1 font-display text-lg font-bold text-ambar-400">
+              Pedido nº {estado.numero}
+            </span>
+          )}
         </div>
         <Relogio />
       </header>
@@ -83,7 +140,7 @@ function VisorCliente() {
             </motion.div>
           )}
 
-          {obrigado && (
+          {conclusao && (
             <motion.div
               key="obrigado"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -94,25 +151,36 @@ function VisorCliente() {
               <p className="font-display text-7xl font-bold uppercase tracking-tight text-ambar-400">
                 Obrigado!
               </p>
-              <p className="mt-4 text-xl uppercase tracking-[0.3em] text-creme-500/50">
-                Volte sempre
-              </p>
+              {conclusao.troco > 0 ? (
+                <div className="mt-8 rounded-2xl border border-ambar-500/40 bg-ambar-500/5 px-10 py-6">
+                  <p className="text-lg uppercase tracking-[0.3em] text-creme-300">
+                    O seu troco
+                  </p>
+                  <p className="mt-2 font-display text-6xl font-bold text-creme-50">
+                    {fmt(conclusao.troco)}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-4 text-xl uppercase tracking-[0.3em] text-creme-500/50">
+                  Volte sempre
+                </p>
+              )}
             </motion.div>
           )}
 
-          {carrinho && (
+          {estado && (
             <motion.div
-              key="carrinho"
+              key="conta"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="w-full max-w-2xl"
             >
               <AnimatePresence>
-                <ul className="space-y-5">
-                  {carrinho.itens.map((item, i) => (
+                <ul className="max-h-[38vh] space-y-5 overflow-y-auto pr-1">
+                  {estado.itens.map((item) => (
                     <motion.li
-                      key={`${item.product_id}-${i}`}
+                      key={item.chave}
                       layout
                       initial={{ opacity: 0, x: -12 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -126,30 +194,92 @@ function VisorCliente() {
                         <span className="text-2xl font-semibold text-creme-50">{item.nome}</span>
                       </div>
                       <span className="font-display text-3xl font-bold text-creme-200">
-                        {fmt(item.preco * item.quantidade)}
+                        {fmt(item.valor)}
                       </span>
                     </motion.li>
                   ))}
                 </ul>
               </AnimatePresence>
 
+              {/* Total */}
               <div className="mt-8 flex items-center justify-between rounded-2xl border border-ambar-500/40 bg-ambar-500/5 px-6 py-5">
                 <span className="text-xl font-semibold uppercase tracking-widest text-creme-300">
                   Total
                 </span>
                 <motion.span
-                  key={carrinho.total}
+                  key={estado.total}
                   initial={{ scale: 1.15 }}
                   animate={{ scale: 1 }}
                   className="font-display text-6xl font-bold text-ambar-400"
                 >
-                  {fmt(carrinho.total)}
+                  {fmt(estado.total)}
                 </motion.span>
               </div>
+
+              {/* Instrução de pagamento — o que fazer a seguir */}
+              {instrucao && (
+                <motion.div
+                  key={estado.metodo}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-5 rounded-2xl border border-grafite-700 bg-grafite-900 px-6 py-4 text-center"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-creme-500/50">
+                    {rotuloMetodo(estado.metodo)}
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold text-creme-50">
+                    {estado.aProcessar ? 'A processar o pagamento…' : instrucao}
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Dinheiro entregue e troco, em directo */}
+              {estado.troco != null && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 flex items-stretch gap-4"
+                >
+                  <div className="flex-1 rounded-2xl border border-grafite-700 px-6 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-creme-500/50">
+                      Recebido
+                    </p>
+                    <p className="mt-1 font-display text-3xl font-bold text-creme-200">
+                      {fmt(estado.recebido)}
+                    </p>
+                  </div>
+                  <div className="flex-1 rounded-2xl border border-ambar-500/40 bg-ambar-500/5 px-6 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-ambar-500/70">
+                      Troco
+                    </p>
+                    <p className="mt-1 font-display text-3xl font-bold text-ambar-400">
+                      {fmt(estado.troco)}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Pedido de NIF — só no numerário, onde a fatura é opcional */}
+              {estado.pedirNif && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-4 rounded-2xl border border-creme-500/20 px-6 py-4 text-center text-xl font-semibold text-creme-200"
+                >
+                  Deseja fatura com contribuinte? Indique o seu NIF ao balcão.
+                </motion.p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      {/* Estado da ligação — discreto, mas o operador precisa de o ver */}
+      {!ligado && (
+        <p className="pointer-events-none fixed bottom-4 left-5 text-xs font-semibold uppercase tracking-widest text-red-400/60">
+          ● Sem ligação à caixa
+        </p>
+      )}
 
       {/* Link discreto para o PDV — para o operador navegar de volta */}
       <Link

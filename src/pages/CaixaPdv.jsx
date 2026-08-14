@@ -3,9 +3,11 @@
 // Dois painéis:
 //   Esquerda — pedidos activos do sistema (realtime via Supabase)
 //   Direita  — venda manual (picker de produtos + carrinho)
-// O carrinho é transmitido em tempo real ao /visor via Supabase Broadcast.
+// AMBOS os painéis escrevem no /visor através do canal partilhado em
+// lib/visor.js. Antes só a venda manual o fazia, o que deixava o cliente que
+// pediu pelo menu QR a olhar para um ecrã de boas-vindas enquanto pagava.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, supabasePublico } from '../lib/supabase'
 import {
@@ -16,6 +18,7 @@ import {
   exigeFatura,
   beep,
 } from '../lib/pedidos'
+import { useCanalVisor, linhaVisor, totalLinhas } from '../lib/visor'
 import { chamarApiFaturar } from '../lib/equipa'
 import logoStamp from '../assets/logo-100pressao.png'
 
@@ -47,6 +50,92 @@ function Relogio() {
     return () => clearInterval(id)
   }, [])
   return <span className="font-display text-xl font-bold text-creme-300">{hora}</span>
+}
+
+// ----------------------------
+// Pagamento em dinheiro — valor recebido e troco
+// ----------------------------
+// Notas e moedas mais usadas ao balcão. Poupam ao operador escrever o valor
+// à mão, que é onde os enganos acontecem com fila à espera.
+const NOTAS = [5, 10, 20, 50]
+
+function PagamentoDinheiro({
+  total,
+  recebido,
+  aoMudarRecebido,
+  aoConfirmar,
+  aoCancelar,
+  rotuloCancelar = 'Voltar',
+  ocupado,
+}) {
+  const valor = Number(String(recebido).replace(',', '.')) || 0
+  const troco = valor - total
+  const suficiente = valor >= total && valor > 0
+
+  // Sugere a nota imediatamente acima do total, mais as seguintes.
+  const sugestoes = useMemo(() => {
+    const arredondado = Math.ceil(total)
+    const lista = [arredondado, ...NOTAS.filter((n) => n > total)]
+    return [...new Set(lista)].slice(0, 4)
+  }, [total])
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-grafite-700 bg-grafite-900 p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-widest text-creme-500/60">
+          Valor recebido
+        </span>
+        <span className="font-display text-sm font-bold text-creme-500/60">A pagar {fmt(total)}</span>
+      </div>
+
+      <input
+        type="text"
+        inputMode="decimal"
+        value={recebido}
+        onChange={(e) => aoMudarRecebido(e.target.value.replace(/[^\d.,]/g, ''))}
+        placeholder="0,00"
+        autoFocus
+        aria-label="Valor recebido em dinheiro"
+        className="w-full rounded-xl border border-grafite-600 bg-grafite-800 px-4 py-3 text-center font-display text-3xl font-bold text-creme-50 outline-none focus:border-ambar-500"
+      />
+
+      <div className="flex flex-wrap gap-2">
+        {sugestoes.map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => aoMudarRecebido(n.toFixed(2).replace('.', ','))}
+            className="cursor-pointer rounded-full border border-grafite-600 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-creme-400 transition-colors hover:border-ambar-400 hover:text-ambar-400"
+          >
+            {fmt(n)}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+          suficiente ? 'bg-ambar-500/10 text-ambar-400' : 'bg-grafite-800 text-creme-500/40'
+        }`}
+      >
+        <span className="text-xs font-semibold uppercase tracking-widest">Troco</span>
+        <span className="font-display text-2xl font-bold">{suficiente ? fmt(troco) : '—'}</span>
+      </div>
+
+      <div className="flex gap-2">
+        <button type="button" onClick={aoCancelar} className={`${BTN_SECUNDARIO} flex-1 text-xs`}>
+          {rotuloCancelar}
+        </button>
+        <button
+          type="button"
+          onClick={aoConfirmar}
+          disabled={!suficiente || ocupado}
+          className={`${BTN_PRIMARIO} flex-1 text-xs`}
+        >
+          {ocupado ? 'A processar…' : 'Confirmar'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ----------------------------
@@ -158,6 +247,9 @@ function PinGate({ aoDesbloquear }) {
 // ----------------------------
 // Painel de pedidos activos
 // ----------------------------
+// Nota (Leandro, teste de 2026-08-14): pedidos que chegam por aqui vêm do menu
+// QR, com o cliente sentado à mesa. Não passam pelo visor de propósito — o
+// visor é do balcão, para quem está de pé à frente do operador.
 function PainelPedidos({ onFaturar }) {
   const [pedidos, setPedidos] = useState([])
   const [aProcessar, setAProcessar] = useState(null)
@@ -184,21 +276,21 @@ function PainelPedidos({ onFaturar }) {
     return () => supabase.removeChannel(canal)
   }, [carregar])
 
-  async function receberPagamento(pedido, metodo) {
+  async function receberPagamento(pedido, metodoPag) {
     setAProcessar(pedido.id)
     setAviso('')
     try {
       const { error } = await supabase
         .from('orders')
         .update({
-          metodo_pagamento: metodo,
+          metodo_pagamento: metodoPag,
           estado_pagamento: 'pago',
           estado: 'entregue',
         })
         .eq('id', pedido.id)
       if (error) throw new Error(error.message)
 
-      if (exigeFatura(metodo)) {
+      if (exigeFatura(metodoPag)) {
         try {
           const r = await chamarApiFaturar({ pedido_id: pedido.id })
           setAviso(`✓ Pago · Fatura ${r.numero || ''} emitida`)
@@ -245,10 +337,7 @@ function PainelPedidos({ onFaturar }) {
             const total = Number(p.total || 0)
             const ocupa = aProcessar === p.id
             return (
-              <li
-                key={p.id}
-                className="rounded-2xl border border-grafite-700 bg-grafite-900 p-4"
-              >
+              <li key={p.id} className="rounded-2xl border border-grafite-700 bg-grafite-900 p-4">
                 <div className="flex items-center justify-between">
                   <span className="font-display text-xl font-bold text-ambar-500">
                     nº {p.numero}
@@ -265,18 +354,18 @@ function PainelPedidos({ onFaturar }) {
                         <span>
                           {item.quantidade}× {nomeItemPedido(item)}
                         </span>
-                        <span className="text-creme-500/60">{fmt(item.preco_unitario * item.quantidade)}</span>
+                        <span className="text-creme-500/60">
+                          {fmt(item.preco_unitario * item.quantidade)}
+                        </span>
                       </li>
                     ))}
                   </ul>
                 )}
 
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="font-display text-2xl font-bold text-creme-50">
-                    {fmt(total)}
-                  </span>
+                  <span className="font-display text-2xl font-bold text-creme-50">{fmt(total)}</span>
                   {!ocupa && (
-                    <div className="flex gap-2 flex-wrap justify-end">
+                    <div className="flex flex-wrap justify-end gap-2">
                       {METODOS_PAGAMENTO.map((m) => (
                         <button
                           key={m.id}
@@ -312,76 +401,124 @@ function PainelPedidos({ onFaturar }) {
 // ----------------------------
 // Painel de venda manual
 // ----------------------------
-function PainelVendaManual() {
+function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   const [categorias, setCategorias] = useState([])
   const [produtos, setProdutos] = useState([])
+  const [variantes, setVariantes] = useState([])
+  const [combos, setCombos] = useState([])
+  const [erroCarga, setErroCarga] = useState('')
   const [catAtiva, setCatAtiva] = useState(null)
-  const [carrinho, setCarrinho] = useState({}) // { product_id: { nome, preco, quantidade } }
+  // Chave do carrinho: 'p:<id>' | 'v:<id>' | 'c:<id>' — um produto com
+  // variantes nunca se mistura com o produto base.
+  const [carrinho, setCarrinho] = useState({})
   const [metodo, setMetodo] = useState('dinheiro')
   const [pedirNif, setPedirNif] = useState(false)
   const [nif, setNif] = useState('')
+  const [recebido, setRecebido] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [aviso, setAviso] = useState('')
-  const canalVisorRef = useRef(null)
+  // Só devolvemos o visor ao estado neutro se este painel chegou a escrever
+  // nele — senão, esvaziar o carrinho manual apagava o pedido que o painel da
+  // esquerda tinha posto no ecrã do cliente.
+  const escreveuNoVisorRef = useRef(false)
   const db = supabasePublico || supabase
 
-  // Carregar categorias e produtos
+  // Carregar categorias, produtos, variantes e combos.
+  //
+  // A versão anterior pedia a coluna `visivel` na tabela `products` — coluna
+  // que não existe (só `categories` a tem). O Postgres devolvia erro, o
+  // `.data` vinha null e o painel ficava com as categorias e zero produtos,
+  // sem qualquer aviso. Daí o erro ser silencioso: agora falhas de
+  // carregamento aparecem no ecrã.
   useEffect(() => {
     if (!db) return
     async function carregar() {
-      const [rCat, rProd] = await Promise.all([
-        db.from('categories').select('id, nome, visivel').order('ordem'),
-        db.from('products').select('id, nome, preco, category_id, visivel, disponivel').order('nome'),
+      const [rCat, rProd, rVar, rCombos] = await Promise.all([
+        db.from('categories').select('id, nome, visivel, ordem').order('ordem'),
+        db
+          .from('products')
+          .select('id, nome, preco, category_id, disponivel')
+          .eq('disponivel', true)
+          .order('ordem'),
+        db
+          .from('product_variants')
+          .select('id, product_id, nome, preco, disponivel')
+          .eq('disponivel', true)
+          .order('ordem'),
+        db
+          .from('combos')
+          .select('id, nome, preco, category_id, disponivel')
+          .eq('disponivel', true)
+          .order('ordem'),
       ])
-      const cats = (rCat.data || []).filter((c) => c.visivel !== false)
-      const prods = (rProd.data || []).filter((p) => p.visivel !== false && p.disponivel !== false)
+
+      const falha = rCat.error || rProd.error
+      if (falha) {
+        setErroCarga(falha.message)
+        return
+      }
+      setErroCarga('')
+
+      // 'Ingredientes' é matéria-prima de stock, não se vende ao balcão.
+      const cats = (rCat.data || []).filter(
+        (c) => c.visivel !== false && c.nome?.toLowerCase() !== 'ingredientes',
+      )
+      const idsCats = new Set(cats.map((c) => c.id))
       setCategorias(cats)
-      setProdutos(prods)
-      if (cats.length > 0) setCatAtiva(cats[0].id)
+      setProdutos((rProd.data || []).filter((p) => idsCats.has(p.category_id)))
+      setVariantes(rVar.error ? [] : rVar.data || [])
+      setCombos(rCombos.error ? [] : (rCombos.data || []).filter((c) => idsCats.has(c.category_id)))
+      if (cats.length > 0) setCatAtiva((atual) => atual ?? cats[0].id)
     }
     carregar()
   }, [db])
 
-  // Canal de broadcast para o visor
+  // Espelha o carrinho no visor sempre que algo muda — itens, método, NIF,
+  // dinheiro entregue. É o que o cliente vê enquanto o operador marca.
   useEffect(() => {
-    const sb = supabasePublico || supabase
-    if (!sb) return
-    const canal = sb.channel('pdv-visor')
-    canal.subscribe()
-    canalVisorRef.current = canal
-    return () => sb.removeChannel(canal)
-  }, [])
-
-  // Broadcast do carrinho sempre que muda
-  useEffect(() => {
-    const canal = canalVisorRef.current
-    if (!canal) return
-    const itens = Object.values(carrinho)
-    canal.send({
-      type: 'broadcast',
-      event: 'carrinho',
-      payload: {
-        itens,
-        total: itens.reduce((s, i) => s + i.preco * i.quantidade, 0),
-      },
+    const linhas = Object.values(carrinho)
+    if (linhas.length === 0) {
+      if (escreveuNoVisorRef.current) {
+        escreveuNoVisorRef.current = false
+        limpar()
+      }
+      return
+    }
+    escreveuNoVisorRef.current = true
+    const itens = linhas.map((i) => linhaVisor(i.chave, i.nome, i.quantidade, i.preco * i.quantidade))
+    const total = totalLinhas(itens)
+    const valorRecebido = Number(String(recebido).replace(',', '.')) || 0
+    const temTroco = metodo === 'dinheiro' && valorRecebido >= total && valorRecebido > 0
+    emitir({
+      itens,
+      total,
+      origem: 'manual',
+      metodo,
+      pedirNif: metodo === 'dinheiro' && pedirNif,
+      recebido: temTroco ? valorRecebido : null,
+      troco: temTroco ? valorRecebido - total : null,
+      aProcessar: ocupado,
     })
-  }, [carrinho])
+  }, [carrinho, metodo, pedirNif, recebido, ocupado, emitir, limpar])
 
-  function adicionar(produto) {
+  // `vendavel` é a forma única de produto simples, variante e combo. O preço
+  // vem sempre da linha certa — o servidor revalida em criar_pedido, mas o
+  // operador e o cliente têm de ver o mesmo valor no ecrã.
+  function adicionar(vendavel) {
     setCarrinho((prev) => {
-      const atual = prev[produto.id] || { nome: produto.nome, preco: Number(produto.preco || 0), product_id: produto.id, quantidade: 0 }
-      return { ...prev, [produto.id]: { ...atual, quantidade: atual.quantidade + 1 } }
+      const atual = prev[vendavel.chave] || { ...vendavel, quantidade: 0 }
+      return { ...prev, [vendavel.chave]: { ...atual, quantidade: atual.quantidade + 1 } }
     })
   }
 
-  function remover(produtoId) {
+  function remover(chave) {
     setCarrinho((prev) => {
-      const atual = prev[produtoId]
+      const atual = prev[chave]
       if (!atual || atual.quantidade <= 1) {
-        const { [produtoId]: _, ...resto } = prev
+        const { [chave]: _, ...resto } = prev
         return resto
       }
-      return { ...prev, [produtoId]: { ...atual, quantidade: atual.quantidade - 1 } }
+      return { ...prev, [chave]: { ...atual, quantidade: atual.quantidade - 1 } }
     })
   }
 
@@ -389,6 +526,7 @@ function PainelVendaManual() {
     setCarrinho({})
     setNif('')
     setPedirNif(false)
+    setRecebido('')
   }
 
   const itensCarrinho = Object.values(carrinho)
@@ -415,9 +553,9 @@ function PainelVendaManual() {
 
       // 2. Criar pedido
       const itensRpc = itensCarrinho.map((i) => ({
-        product_id: i.product_id,
-        variant_id: null,
-        combo_id: null,
+        product_id: i.product_id || null,
+        variant_id: i.variant_id || null,
+        combo_id: i.combo_id || null,
         quantidade: i.quantidade,
       }))
       const { data: order, error: errOrder } = await sb.rpc('criar_pedido', {
@@ -452,8 +590,12 @@ function PainelVendaManual() {
         setAviso('✓ Venda concluída')
       }
 
-      // 5. Broadcast "venda_concluida" para o visor
-      canalVisorRef.current?.send({ type: 'broadcast', event: 'venda_concluida', payload: {} })
+      // 5. Agradecimento no visor, com o troco quando há dinheiro pelo meio
+      const valorRecebido = Number(String(recebido).replace(',', '.')) || 0
+      const troco =
+        metodo === 'dinheiro' && valorRecebido >= totalCarrinho ? valorRecebido - totalCarrinho : null
+      escreveuNoVisorRef.current = false
+      emitirConcluida({ troco })
       limparCarrinho()
     } catch (e) {
       setAviso(`Erro: ${e.message}`)
@@ -462,7 +604,45 @@ function PainelVendaManual() {
     setTimeout(() => setAviso(''), 6000)
   }
 
-  const produtosDaCat = produtos.filter((p) => String(p.category_id) === String(catAtiva))
+  // Lista de botões da categoria activa. Um produto com variantes desaparece
+  // e dá lugar às suas variantes — assim o Almoço PF já não pode ser vendido
+  // ao preço base de 8,40 € quando o prato real custa 12,90 €.
+  const vendaveisDaCat = useMemo(() => {
+    const daCat = produtos.filter((p) => String(p.category_id) === String(catAtiva))
+    const lista = []
+    daCat.forEach((p) => {
+      const suas = variantes.filter((v) => String(v.product_id) === String(p.id))
+      if (suas.length === 0) {
+        lista.push({
+          chave: `p:${p.id}`,
+          nome: p.nome,
+          preco: Number(p.preco || 0),
+          product_id: p.id,
+        })
+        return
+      }
+      suas.forEach((v) => {
+        lista.push({
+          chave: `v:${v.id}`,
+          nome: `${p.nome} · ${v.nome}`,
+          preco: Number(v.preco || 0),
+          product_id: p.id,
+          variant_id: v.id,
+        })
+      })
+    })
+    combos
+      .filter((c) => String(c.category_id) === String(catAtiva))
+      .forEach((c) => {
+        lista.push({
+          chave: `c:${c.id}`,
+          nome: `Combo ${c.nome}`,
+          preco: Number(c.preco || 0),
+          combo_id: c.id,
+        })
+      })
+    return lista
+  }, [produtos, variantes, combos, catAtiva])
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -488,15 +668,22 @@ function PainelVendaManual() {
         ))}
       </div>
 
+      {/* Falha de carregamento — visível, em vez de uma grelha vazia sem explicação */}
+      {erroCarga && (
+        <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          Não foi possível carregar a ementa: {erroCarga}
+        </p>
+      )}
+
       {/* Grelha de produtos */}
       <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1">
-        {produtosDaCat.map((p) => {
-          const qtd = carrinho[p.id]?.quantidade || 0
+        {vendaveisDaCat.map((v) => {
+          const qtd = carrinho[v.chave]?.quantidade || 0
           return (
             <button
-              key={p.id}
+              key={v.chave}
               type="button"
-              onClick={() => adicionar(p)}
+              onClick={() => adicionar(v)}
               className={`cursor-pointer rounded-xl border px-3 py-3 text-left transition-colors ${
                 qtd > 0
                   ? 'border-ambar-500/60 bg-ambar-500/10 text-creme-50'
@@ -504,18 +691,18 @@ function PainelVendaManual() {
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold leading-tight">{p.nome}</span>
+                <span className="text-sm font-semibold leading-tight">{v.nome}</span>
                 {qtd > 0 && (
                   <span className="ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ambar-500 font-display text-sm font-bold text-grafite-950">
                     {qtd}
                   </span>
                 )}
               </div>
-              <span className="mt-0.5 block text-xs text-creme-500/60">{fmt(p.preco)}</span>
+              <span className="mt-0.5 block text-xs text-creme-500/60">{fmt(v.preco)}</span>
             </button>
           )
         })}
-        {produtosDaCat.length === 0 && (
+        {!erroCarga && vendaveisDaCat.length === 0 && (
           <p className="col-span-2 py-4 text-center text-sm text-creme-500/40">
             Sem produtos nesta categoria
           </p>
@@ -529,7 +716,7 @@ function PainelVendaManual() {
         ) : (
           <ul className="space-y-2">
             {itensCarrinho.map((item) => (
-              <li key={item.product_id} className="flex items-center gap-2">
+              <li key={item.chave} className="flex items-center gap-2">
                 <span className="flex-1 text-sm text-creme-300">
                   {item.quantidade}× {item.nome}
                 </span>
@@ -538,14 +725,16 @@ function PainelVendaManual() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => remover(item.product_id)}
+                  onClick={() => remover(item.chave)}
+                  aria-label={`Retirar um ${item.nome}`}
                   className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-grafite-600 text-xs text-creme-500 hover:border-red-400 hover:text-red-400"
                 >
                   −
                 </button>
                 <button
                   type="button"
-                  onClick={() => adicionar({ id: item.product_id, nome: item.nome, preco: item.preco })}
+                  onClick={() => adicionar(item)}
+                  aria-label={`Juntar um ${item.nome}`}
                   className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-grafite-600 text-xs text-creme-500 hover:border-ambar-400 hover:text-ambar-400"
                 >
                   +
@@ -574,7 +763,10 @@ function PainelVendaManual() {
               <button
                 key={m.id}
                 type="button"
-                onClick={() => setMetodo(m.id)}
+                onClick={() => {
+                  setMetodo(m.id)
+                  setRecebido('')
+                }}
                 className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
                   metodo === m.id
                     ? 'bg-ambar-500 text-grafite-950'
@@ -616,23 +808,36 @@ function PainelVendaManual() {
             </p>
           )}
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={limparCarrinho}
-              className={`${BTN_PERIGO} flex-1 text-xs`}
-            >
-              Limpar
-            </button>
-            <button
-              type="button"
-              onClick={concluirVenda}
-              disabled={ocupado || !temItens}
-              className={`${BTN_PRIMARIO} flex-1`}
-            >
-              {ocupado ? 'A processar…' : 'Concluir venda'}
-            </button>
-          </div>
+          {/* Numerário passa pelo ecrã de troco; o resto fecha directamente. */}
+          {metodo === 'dinheiro' ? (
+            <PagamentoDinheiro
+              total={totalCarrinho}
+              recebido={recebido}
+              aoMudarRecebido={setRecebido}
+              aoConfirmar={concluirVenda}
+              aoCancelar={limparCarrinho}
+              rotuloCancelar="Limpar"
+              ocupado={ocupado}
+            />
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={limparCarrinho}
+                className={`${BTN_PERIGO} flex-1 text-xs`}
+              >
+                Limpar
+              </button>
+              <button
+                type="button"
+                onClick={concluirVenda}
+                disabled={ocupado || !temItens}
+                className={`${BTN_PRIMARIO} flex-1`}
+              >
+                {ocupado ? 'A processar…' : 'Concluir venda'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -643,6 +848,10 @@ function PainelVendaManual() {
 // PDV principal
 // ----------------------------
 function Pdv({ aoBloquear }) {
+  // Um único canal para o PDV inteiro — partilhado pelos dois painéis, para
+  // que o visor nunca receba dois estados em conflito.
+  const { emitir, limpar, emitirConcluida } = useCanalVisor()
+
   return (
     <div className="flex min-h-dvh flex-col bg-grafite-950">
       {/* Barra de topo */}
@@ -682,7 +891,7 @@ function Pdv({ aoBloquear }) {
 
         {/* Painel direito — venda manual */}
         <div className="w-96 shrink-0 overflow-y-auto p-5">
-          <PainelVendaManual />
+          <PainelVendaManual emitir={emitir} limpar={limpar} emitirConcluida={emitirConcluida} />
         </div>
       </div>
     </div>
