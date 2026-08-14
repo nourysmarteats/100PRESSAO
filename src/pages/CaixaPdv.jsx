@@ -19,14 +19,16 @@ import {
   beep,
 } from '../lib/pedidos'
 import { useCanalVisor, linhaVisor, totalLinhas } from '../lib/visor'
-import { chamarApiFaturar } from '../lib/equipa'
+import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor } from '../lib/equipa'
 import logoStamp from '../assets/logo-100pressao.png'
 
 // ----------------------------
 // Configuração do PIN
 // ----------------------------
-const CAIXA_KEY = 'pdv_pin_ok'
-const PIN_PADRAO = import.meta.env.VITE_CAIXA_PIN || '1707'
+// PIN partilhado de arranque, igual ao do EquipaLayout: só vale enquanto não
+// houver PINs pessoais configurados. Assim que houver, cada conta entra com o
+// seu, verificado no servidor.
+const PIN_PARTILHADO = '1707'
 
 // ----------------------------
 // Utilitários de estilo
@@ -151,13 +153,30 @@ function Login({ aoEntrar }) {
     e.preventDefault()
     setOcupado(true)
     setErro('')
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pass })
-    setOcupado(false)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass })
     if (error) {
+      setOcupado(false)
       setErro('Credenciais inválidas.')
-    } else {
-      aoEntrar()
+      return
     }
+
+    // Autenticar não chega: uma conta desativada no Admin continua a ter
+    // credenciais válidas. Sem esta verificação, desativar um funcionário
+    // deixava de o afastar da caixa — continuava a vender e a receber dinheiro.
+    // É a mesma regra do EquipaLayout, que este ecrã não pode contrariar.
+    const { data: perfil } = await supabase
+      .from('perfis')
+      .select('id, nome, ativo')
+      .eq('id', data.user.id)
+      .maybeSingle()
+    if (perfil && perfil.ativo === false) {
+      await supabase.auth.signOut()
+      setOcupado(false)
+      setErro('Conta desativada. Fala com a gerência.')
+      return
+    }
+    setOcupado(false)
+    aoEntrar()
   }
 
   return (
@@ -204,28 +223,65 @@ function Login({ aoEntrar }) {
 // ----------------------------
 // Gate de PIN
 // ----------------------------
-function PinGate({ aoDesbloquear }) {
+// O PIN é verificado no servidor pela RPC verificar_pin (SECURITY DEFINER,
+// com travão de força bruta) — o hash nunca chega ao browser. A versão anterior
+// comparava no browser contra VITE_CAIXA_PIN, e as variáveis VITE_ são
+// embutidas no bundle público: o PIN da caixa lia-se com o DevTools aberto.
+//
+// Só o PIN da própria conta desbloqueia. O PIN é um cadeado, não uma
+// identidade — a identidade vem do login, e é ela que assina o audit_log.
+function PinGate({ sessaoId, aoDesbloquear }) {
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState(false)
+  const [mensagem, setMensagem] = useState('')
+  // O pin_hash não é legível pelo browser — o estado dos PINs vem da RPC
+  // pin_estado, como no EquipaLayout.
+  const [estadoPin, setEstadoPin] = useState(null)
 
-  function verificar(valor) {
+  useEffect(() => {
+    supabase.rpc('pin_estado').then(({ data, error }) => {
+      const e = Array.isArray(data) ? data[0] : data
+      setEstadoPin(error || !e ? { tem_pin_proprio: false, existem_pins: false } : e)
+    })
+  }, [])
+
+  const usaProprio = !!estadoPin?.tem_pin_proprio
+  const temPins = !!estadoPin?.existem_pins
+
+  async function verificar(valor) {
     setPin(valor)
     setErro(false)
+    setMensagem('')
     if (valor.length < 4) return
-    if (valor === PIN_PADRAO) {
-      sessionStorage.setItem(CAIXA_KEY, 'sim')
+
+    if (usaProprio) {
+      const { data, error } = await supabase.rpc('verificar_pin', { p_pin: valor })
+      if (error) {
+        setMensagem(error.message || 'Erro a verificar o PIN.')
+        setErro(true)
+        setPin('')
+        return
+      }
+      const perfil = Array.isArray(data) ? data[0] : data
+      if (perfil?.id && perfil.id === sessaoId) {
+        aoDesbloquear()
+        return
+      }
+    } else if (!temPins && valor === PIN_PARTILHADO) {
+      // Antes de haver PINs pessoais configurados, vale o PIN de arranque —
+      // mesma tolerância que o EquipaLayout, para não trancar ninguém fora.
       aoDesbloquear()
-    } else {
-      setErro(true)
-      setTimeout(() => setPin(''), 600)
+      return
     }
+    setErro(true)
+    setTimeout(() => setPin(''), 600)
   }
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-grafite-950">
       <img src={logoStamp} alt="100PRESSÃO" className="h-24 w-24 rounded-full mix-blend-lighten" />
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-creme-500/60">
-        PIN do PDV
+        {usaProprio ? 'O teu PIN pessoal' : 'PIN do turno'}
       </p>
       <input
         type="password"
@@ -238,7 +294,7 @@ function PinGate({ aoDesbloquear }) {
         className={`w-40 rounded-xl border bg-grafite-800 px-4 py-4 text-center font-display text-3xl tracking-[0.5em] text-creme-50 outline-none transition-colors focus:border-ambar-500 ${erro ? 'border-red-500' : 'border-grafite-600'}`}
       />
       <p className="h-5 text-sm text-red-400" role="alert">
-        {erro ? 'PIN incorreto' : ''}
+        {mensagem || (erro ? 'PIN incorreto' : '')}
       </p>
     </div>
   )
@@ -568,14 +624,27 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       const orderId = Array.isArray(order) ? order[0]?.id : order?.id
       if (!orderId) throw new Error('Pedido criado sem ID.')
 
-      // 3. Marcar como pago + entregue imediatamente
-      const authSb = supabase // usar cliente autenticado para update
-      if (authSb) {
-        await authSb.from('orders').update({
+      // 3. Marcar como pago + entregue imediatamente.
+      //
+      // O erro deste update NÃO pode ser ignorado. A linha do pedido já existe
+      // e o gatilho de stock já descontou; se a marcação falhar em silêncio,
+      // fica uma venda cobrada que o sistema não sabe que foi paga, a
+      // faturação a seguir rebenta com "ainda não está pago", e o operador lê
+      // "✓ Venda concluída" na mesma. Dinheiro na gaveta, venda em limbo.
+      if (!supabase) throw new Error('Sessão expirada — volta a entrar para fechar a venda.')
+      const { error: errPago } = await supabase
+        .from('orders')
+        .update({
           estado_pagamento: 'pago',
           estado: 'entregue',
           metodo_pagamento: metodo,
-        }).eq('id', orderId)
+        })
+        .eq('id', orderId)
+      if (errPago) {
+        throw new Error(
+          `Venda nº ${(Array.isArray(order) ? order[0]?.numero : order?.numero) ?? orderId} criada mas NÃO marcada como paga: ${errPago.message}. ` +
+            'Fecha-a pelo Staff antes de continuar.',
+        )
       }
 
       // 4. Emitir fatura se necessário
@@ -902,28 +971,53 @@ function Pdv({ aoBloquear }) {
 // Componente raiz — orquestra estados
 // ----------------------------
 function CaixaPdv() {
-  // null = a verificar, false = sem auth, true = com auth
+  // null = a verificar, false = sem auth, objeto = sessão válida
+  const [sessao, setSessao] = useState(null)
   const [autenticado, setAutenticado] = useState(null)
-  const [desbloqueado, setDesbloqueado] = useState(
-    () => sessionStorage.getItem(CAIXA_KEY) === 'sim',
-  )
+  // O desbloqueio do turno é partilhado com o resto da equipa (mesma chave do
+  // EquipaLayout), para quem já desbloqueou o turno não ter de repetir o PIN ao
+  // passar do Staff para a caixa.
+  const [desbloqueado, setDesbloqueado] = useState(false)
 
   useEffect(() => {
     if (!supabase) {
       setAutenticado(false)
       return
     }
-    supabase.auth.getSession().then(({ data }) => {
-      setAutenticado(!!data?.session)
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((_, session) => {
-      setAutenticado(!!session)
-    })
+    const aplicar = (s) => {
+      setSessao(s || null)
+      setAutenticado(!!s)
+      setDesbloqueado(!!s && turnoDesbloqueadoPor() === s.user.id)
+    }
+    supabase.auth.getSession().then(({ data }) => aplicar(data?.session))
+    const { data: sub } = supabase.auth.onAuthStateChange((_, s) => aplicar(s))
     return () => sub.subscription.unsubscribe()
   }, [])
 
+  // Uma conta pode ser desativada com a caixa aberta. Revalidar de tempos a
+  // tempos fecha a janela entre o clique no Admin e o afastamento efetivo —
+  // senão a única barreira seria o próximo login, que pode ser só amanhã.
+  useEffect(() => {
+    if (!sessao) return
+    const rever = async () => {
+      const { data: perfil } = await supabase
+        .from('perfis')
+        .select('ativo')
+        .eq('id', sessao.user.id)
+        .maybeSingle()
+      if (perfil && perfil.ativo === false) {
+        definirTurno(null)
+        definirOperador(null)
+        await supabase.auth.signOut()
+      }
+    }
+    rever()
+    const id = setInterval(rever, 5 * 60 * 1000)
+    return () => clearInterval(id)
+  }, [sessao])
+
   function bloquear() {
-    sessionStorage.removeItem(CAIXA_KEY)
+    definirTurno(null)
     setDesbloqueado(false)
   }
 
@@ -939,7 +1033,18 @@ function CaixaPdv() {
 
   // Autenticado mas bloqueado → PIN
   if (!desbloqueado) {
-    return <PinGate aoDesbloquear={() => setDesbloqueado(true)} />
+    return (
+      <PinGate
+        sessaoId={sessao?.user?.id}
+        aoDesbloquear={() => {
+          // Quem está ao balcão passa a ficar identificado — é esta marca que
+          // o audit_log usa para saber quem fez cada venda.
+          definirTurno(sessao.user.id)
+          definirOperador({ id: sessao.user.id, nome: sessao.user.email || 'Equipa' })
+          setDesbloqueado(true)
+        }}
+      />
+    )
   }
 
   // Tudo ok → PDV
