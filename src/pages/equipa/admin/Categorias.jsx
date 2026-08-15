@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { registarAuditoria } from '../../../lib/equipa'
+import { TIPOS_CATEGORIA, TIPO_PADRAO, tipoCategoria, rotuloTipo } from '../../../lib/categorias'
 import {
+  CAMPO,
   CampoTexto,
   useAviso,
   useReordenacao,
@@ -13,7 +15,7 @@ import {
   CARTAO,
 } from './comuns'
 
-const CATEGORIA_VAZIA = { nome: '', ordem: 0, visivel: true }
+const CATEGORIA_VAZIA = { nome: '', ordem: 0, visivel: true, tipo: TIPO_PADRAO }
 
 function Categorias() {
   const [categorias, setCategorias] = useState([])
@@ -38,7 +40,7 @@ function Categorias() {
     setEmEdicao(c ? c.id : 'novo')
     setForm(
       c
-        ? { nome: c.nome, ordem: c.ordem, visivel: c.visivel !== false }
+        ? { nome: c.nome, ordem: c.ordem, visivel: c.visivel !== false, tipo: c.tipo || TIPO_PADRAO }
         : { ...CATEGORIA_VAZIA, ordem: (categorias.length + 1) * 10 },
     )
   }
@@ -49,6 +51,7 @@ function Categorias() {
       nome: form.nome.trim(),
       ordem: Number(form.ordem) || 0,
       visivel: form.visivel,
+      tipo: form.tipo || TIPO_PADRAO,
     }
     const novo = emEdicao === 'novo'
     const { error } = novo
@@ -115,6 +118,28 @@ function Categorias() {
             value={form.ordem}
             onChange={(e) => setForm((f) => ({ ...f, ordem: e.target.value }))}
           />
+          {/* O tipo decide que campos aparecem no cadastro dos produtos desta
+              categoria — é aqui que se evita pedir o teor alcoólico de um café. */}
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+              Tipo
+            </span>
+            <select
+              value={form.tipo}
+              onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}
+              className={CAMPO}
+            >
+              {TIPOS_CATEGORIA.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.rotulo}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-grafite-600/70">
+              {tipoCategoria(form.tipo).dica} Mudar o tipo não apaga nada — só muda o que se mostra.
+            </span>
+          </label>
+
           <label className="flex items-center gap-3 text-grafite-900">
             <input
               type="checkbox"
@@ -155,6 +180,9 @@ function Categorias() {
                 <SetasOrdem i={i} total={categorias.length} mover={mover} rotulo={c.nome} />
                 <p className="font-semibold text-grafite-900">
                   {c.nome}
+                  <span className="ml-3 text-xs font-normal uppercase tracking-widest text-grafite-600/70">
+                    {rotuloTipo(c.tipo)}
+                  </span>
                   {!visivel && (
                     <span className="ml-3 rounded-full border border-grafite-600/30 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-grafite-600/70">
                       Oculta

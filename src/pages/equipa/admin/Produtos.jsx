@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import { precoOnlineRegra, precoPlataformaRegra, desvia } from '../../../lib/precos'
+import { mostraCampo, campoForaDoTipo, rotuloTipo } from '../../../lib/categorias'
 import { registarAuditoria } from '../../../lib/equipa'
 import {
   CampoTexto,
@@ -229,6 +230,25 @@ function PrecosRegra({ preco, online, plataforma, aoAplicar, compacto = false })
   )
 }
 
+// Envolve um campo cuja presença depende do tipo da categoria. Quando o campo
+// não pertence ao tipo mas tem valor, aparece na mesma com uma nota — esconder
+// um valor que o cliente vê no cardápio, sem ninguém o poder corrigir, seria
+// trocar um incómodo por um problema.
+function CampoDoTipo({ tipo, campo, valor, nomeTipo, children }) {
+  if (!mostraCampo(tipo, campo, valor)) return null
+  const fora = campoForaDoTipo(tipo, campo, valor)
+  return (
+    <div className={fora ? 'rounded-lg border border-ambar-500/40 bg-ambar-500/5 p-2' : undefined}>
+      {children}
+      {fora && (
+        <p className="mt-1 text-xs text-ambar-600">
+          Preenchido, mas não é habitual em «{nomeTipo}». Apaga para o campo deixar de aparecer.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function FichaTecnica({ produtoId, preco, aoAvisar }) {
   const [ingredientes, setIngredientes] = useState([])
   const [stockItens, setStockItens] = useState([])
@@ -403,6 +423,11 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
     (desvia(p.preco_online, precoOnlineRegra(p.preco)) ||
       desvia(p.preco_plataforma, precoPlataformaRegra(p.preco)))
   const nFora = produtos.filter(foraDaRegra).length
+
+  // O tipo da categoria escolhida no formulário decide os campos específicos.
+  const tipoAtivo =
+    categorias.find((c) => String(c.id) === String(form.category_id))?.tipo || 'outro'
+  const nomeTipoAtivo = rotuloTipo(tipoAtivo)
 
   const carregar = useCallback(async () => {
     const [rProd, rCat] = await Promise.all([
@@ -660,6 +685,11 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
                 </option>
               ))}
             </select>
+            {/* Dizer porque é que os campos mudaram — senão parece que
+                desapareceram sozinhos. */}
+            <span className="mt-1 block text-xs text-grafite-600/70">
+              Tipo «{nomeTipoAtivo}» — define os campos específicos abaixo. Muda-se em Categorias.
+            </span>
           </label>
           <div className="sm:col-span-2">
             <CampoTexto rotulo="Descrição" value={form.descricao} onChange={alterar('descricao')} />
@@ -705,36 +735,50 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
             para comparar com Uber/Glovo no site (as plataformas cobram do lado delas).
           </p>
           <CampoTexto rotulo="Ordem" type="number" value={form.ordem} onChange={alterar('ordem')} />
-          <CampoTexto
-            rotulo="Estilo (cerveja)"
-            value={form.estilo}
-            onChange={alterar('estilo')}
-            placeholder="Ex.: IPA"
-          />
-          <CampoTexto
-            rotulo="ABV % (cerveja)"
-            type="number"
-            step="0.1"
-            min="0"
-            value={form.abv}
-            onChange={alterar('abv')}
-          />
-          <CampoTexto
-            rotulo="Alergénios (petisco)"
-            value={form.alergenios}
-            onChange={alterar('alergenios')}
-            placeholder="Ex.: Glúten, lacticínios"
-          />
-          <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
-              Origem (petisco)
-            </span>
-            <select value={form.origem} onChange={alterar('origem')} className={CAMPO}>
-              <option value="">—</option>
-              <option value="Portugues">Português</option>
-              <option value="Brasileiro">Brasileiro</option>
-            </select>
-          </label>
+
+          <CampoDoTipo tipo={tipoAtivo} campo="estilo" valor={form.estilo} nomeTipo={nomeTipoAtivo}>
+            <CampoTexto
+              rotulo="Estilo"
+              value={form.estilo}
+              onChange={alterar('estilo')}
+              placeholder="Ex.: IPA"
+            />
+          </CampoDoTipo>
+          <CampoDoTipo tipo={tipoAtivo} campo="abv" valor={form.abv} nomeTipo={nomeTipoAtivo}>
+            <CampoTexto
+              rotulo="ABV %"
+              type="number"
+              step="0.1"
+              min="0"
+              value={form.abv}
+              onChange={alterar('abv')}
+            />
+          </CampoDoTipo>
+          <CampoDoTipo
+            tipo={tipoAtivo}
+            campo="alergenios"
+            valor={form.alergenios}
+            nomeTipo={nomeTipoAtivo}
+          >
+            <CampoTexto
+              rotulo="Alergénios"
+              value={form.alergenios}
+              onChange={alterar('alergenios')}
+              placeholder="Ex.: Glúten, lacticínios"
+            />
+          </CampoDoTipo>
+          <CampoDoTipo tipo={tipoAtivo} campo="origem" valor={form.origem} nomeTipo={nomeTipoAtivo}>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                Origem
+              </span>
+              <select value={form.origem} onChange={alterar('origem')} className={CAMPO}>
+                <option value="">—</option>
+                <option value="Portugues">Português</option>
+                <option value="Brasileiro">Brasileiro</option>
+              </select>
+            </label>
+          </CampoDoTipo>
 
           {emEdicao !== 'novo' ? (
             <>
