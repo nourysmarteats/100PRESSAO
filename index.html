@@ -25,17 +25,42 @@
       src/lib/horario.js — o horário real é editável no /admin e pode
       divergir deste JSON-LD; atualizar aqui manualmente se mudar de forma
       permanente (não é lido do Supabase em build-time).
+
+      @type mudou de BarOrPub para Restaurant (2026-08-15): a casa serve
+      pequeno-almoço, almoço PF e petiscos, não só bebida. Restaurant é o tipo
+      que o Google usa para os rich results de restauração (horário, ementa,
+      preço) e é o que melhor corresponde à realidade do negócio.
+
+      FALTA (só o Leandro consegue confirmar):
+        - "geo": lat/long exatos da loja. Copiar do Google Business Profile.
+          Deixado de fora de propósito — coordenadas erradas fazem mais mal do
+          que a ausência delas nas buscas locais.
+        - "sameAs": URLs finais do Instagram / Facebook / Google Business.
+        - "geo" e "sameAs" continuam por preencher (ver acima).
     -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "BarOrPub",
+        "@type": "Restaurant",
+        "additionalType": "https://schema.org/BarOrPub",
         "name": "100PRESSÃO",
-        "@id": "https://www.100pressao.pt",
+        "alternateName": ["100 Pressão", "100PRESSÃO Draft House", "100 Pressao Carnaxide"],
+        "description": "Cervejaria artesanal e petiscos luso-brasileiros no Mercado Municipal de Carnaxide, Oeiras.",
+        "@id": "https://www.100pressao.pt/#restaurante",
         "url": "https://www.100pressao.pt",
         "telephone": "+351935995011",
         "email": "geral@100pressao.pt",
         "priceRange": "€€",
+        "image": [
+          "https://www.100pressao.pt/og-image.jpg",
+          "https://www.100pressao.pt/og-100pressao.png"
+        ],
+        "logo": "https://www.100pressao.pt/icon-512.png",
+        "hasMap": "https://www.google.com/maps/place//data=!4m2!3m1!1s0xd1ecc607dc2c889:0x1946af38520f51d0",
+        "hasMenu": "https://www.100pressao.pt/cardapio",
+        "acceptsReservations": "False",
+        "currenciesAccepted": "EUR",
+        "paymentAccepted": "Dinheiro, Multibanco, MB WAY, Cartão de crédito",
         "address": {
           "@type": "PostalAddress",
           "streetAddress": "Praceta Eugénio de Castro, Loja 6",
@@ -44,15 +69,56 @@
           "addressRegion": "Oeiras",
           "addressCountry": "PT"
         },
+        "areaServed": [
+          { "@type": "City", "name": "Carnaxide" },
+          { "@type": "City", "name": "Oeiras" },
+          { "@type": "City", "name": "Linda-a-Velha" },
+          { "@type": "City", "name": "Algés" },
+          { "@type": "City", "name": "Queijas" }
+        ],
         "openingHoursSpecification": [
           {
             "@type": "OpeningHoursSpecification",
-            "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+            "dayOfWeek": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
             "opens": "08:00",
-            "closes": "12:00"
+            "closes": "22:00"
           }
         ],
-        "servesCuisine": ["Portuguesa", "Brasileira"]
+        "servesCuisine": ["Portuguesa", "Brasileira", "Petiscos", "Cerveja artesanal"],
+        "potentialAction": {
+          "@type": "OrderAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://www.100pressao.pt/restaurante",
+            "actionPlatform": [
+              "https://schema.org/DesktopWebPlatform",
+              "https://schema.org/MobileWebPlatform"
+            ]
+          },
+          "deliveryMethod": [
+            "https://schema.org/OnSitePickup",
+            "https://schema.org/ParcelService"
+          ]
+        }
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": "https://www.100pressao.pt/#website",
+        "url": "https://www.100pressao.pt",
+        "name": "100PRESSÃO",
+        "inLanguage": "pt-PT",
+        "publisher": { "@id": "https://www.100pressao.pt/#restaurante" }
       }
     </script>
     <!--

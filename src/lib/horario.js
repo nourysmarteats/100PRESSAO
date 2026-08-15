@@ -16,11 +16,13 @@ export const DIAS_SEMANA = [
   ['domingo', 'Domingo'],
 ]
 
-// Fallback = horário que estava fixo no código antes do item 7 da v2
-export const HORARIO_FALLBACK = [{ dias: 'Segunda a Sexta', horas: '8:00 – 12:00' }]
+// Fallback: o que se mostra enquanto a base não responde, e se ela falhar. Tem
+// de acompanhar o horário real — um rodapé a anunciar um horário antigo manda
+// clientes a uma porta fechada. Atualizado em 2026-08-15 (todos os dias, 8–22).
+export const HORARIO_FALLBACK = [{ dias: 'Segunda a Domingo', horas: '8:00 – 22:00' }]
 
 // Agrupa dias consecutivos com o mesmo horário em linhas legíveis:
-// { segunda..sexta: "8:00 – 12:00" } → [{ dias: "Segunda a Sexta", horas: … }]
+// { segunda..domingo: "8:00 – 22:00" } → [{ dias: "Segunda a Domingo", horas: … }]
 export function resumirHorario(horario) {
   if (!horario) return null
   const linhas = []

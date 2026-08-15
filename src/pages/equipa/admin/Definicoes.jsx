@@ -129,7 +129,7 @@ function Definicoes() {
                 <input
                   value={horario[chave] || ''}
                   onChange={(e) => setHorario((h) => ({ ...h, [chave]: e.target.value }))}
-                  placeholder="Ex.: 8:00 – 12:00 (vazio = encerrado)"
+                  placeholder="Ex.: 8:00 – 22:00 (vazio = encerrado)"
                   aria-label={`Horário de ${rotulo}`}
                   className={`${CAMPO} mt-0 flex-1`}
                 />
