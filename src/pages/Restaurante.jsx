@@ -14,6 +14,7 @@ import { supabasePublico as supabase } from '../lib/supabase'
 import { fmt, ROTULO_ESTADO } from '../lib/pedidos'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
+import { servidoHoje } from '../lib/dias'
 import FormularioFeedback from '../components/FormularioFeedback'
 import logoStamp from '../assets/logo-100pressao.png'
 
@@ -140,13 +141,20 @@ function Restaurante() {
           .map((c) => c.id),
       )
       if (!rCat.error) setCategorias(rCat.data.filter((c) => !ocultas.has(c.id)))
-      if (!rProd.error) setProdutos(rProd.data.filter((p) => !ocultas.has(p.category_id)))
+      // Além das categorias ocultas, sai o que hoje não se cozinha — senão o
+      // cliente encomenda e paga um prato que não existe hoje.
+      if (!rProd.error)
+        setProdutos(
+          rProd.data.filter((p) => !ocultas.has(p.category_id) && servidoHoje(p.dias_semana)),
+        )
       if (!rCombos.error) setCombos(rCombos.data.filter((c) => !ocultas.has(c.category_id)))
       if (!rVar.error) {
         const porProduto = {}
-        rVar.data.forEach((v) => {
-          ;(porProduto[v.product_id] = porProduto[v.product_id] || []).push(v)
-        })
+        rVar.data
+          .filter((v) => servidoHoje(v.dias_semana))
+          .forEach((v) => {
+            ;(porProduto[v.product_id] = porProduto[v.product_id] || []).push(v)
+          })
         setVariantes(porProduto)
       }
     }

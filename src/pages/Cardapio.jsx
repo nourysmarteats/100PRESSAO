@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabasePublico as supabase } from '../lib/supabase'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
+import { servidoHoje } from '../lib/dias'
 import EncomendaWhatsApp from '../components/EncomendaWhatsApp'
 import { SEO_PAGES } from '../seo/pages'
 
@@ -136,6 +137,10 @@ function Cardapio() {
           .order('ordem'),
       ])
       if (!ativo) return
+      // Pratos que não se fazem hoje saem da ementa. Sem dias marcados fica
+      // tudo como estava — só o Almoço PF, que roda, os tem preenchidos.
+      if (rProd.data) rProd.data = rProd.data.filter((p) => servidoHoje(p.dias_semana))
+      if (rVar.data) rVar.data = rVar.data.filter((v) => servidoHoje(v.dias_semana))
       // Categorias ocultas (visivel=false) saem do cardápio, junto com os
       // seus produtos; visivel !== false tolera a coluna ainda não existir
       const ocultas = new Set(

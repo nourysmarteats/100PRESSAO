@@ -3,6 +3,7 @@ import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import { precoOnlineRegra, precoPlataformaRegra, desvia } from '../../../lib/precos'
 import { mostraCampo, campoForaDoTipo, rotuloTipo } from '../../../lib/categorias'
+import { DIAS_SEMANA, rotuloDias, servidoHoje } from '../../../lib/dias'
 import { registarAuditoria } from '../../../lib/equipa'
 import {
   CampoTexto,
@@ -25,6 +26,7 @@ const PRODUTO_VAZIO = {
   preco: '',
   preco_online: '',
   preco_plataforma: '',
+  dias_semana: [],
   estilo: '',
   abv: '',
   alergenios: '',
@@ -37,7 +39,14 @@ const PRODUTO_VAZIO = {
 // Variantes de tamanho/preço (item 8 da v2) — sub-itens do produto
 function Variantes({ produtoId, aoAvisar }) {
   const [variantes, setVariantes] = useState([])
-  const [nova, setNova] = useState({ nome: '', preco: '', preco_online: '', preco_plataforma: '' })
+  const [nova, setNova] = useState({
+    nome: '',
+    preco: '',
+    preco_online: '',
+    preco_plataforma: '',
+    dias_semana: [],
+  })
+  const [aEditarDias, setAEditarDias] = useState(null)
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase
@@ -60,6 +69,7 @@ function Variantes({ produtoId, aoAvisar }) {
       preco: Number(nova.preco),
       preco_online: nova.preco_online === '' ? null : Number(nova.preco_online),
       preco_plataforma: nova.preco_plataforma === '' ? null : Number(nova.preco_plataforma),
+      dias_semana: nova.dias_semana.length ? nova.dias_semana : null,
       ordem: (variantes.length + 1) * 10,
     })
     if (error) {
@@ -67,7 +77,7 @@ function Variantes({ produtoId, aoAvisar }) {
       return
     }
     registarAuditoria('variante_criada', { produto_id: produtoId, nome: nova.nome, preco: nova.preco })
-    setNova({ nome: '', preco: '', preco_online: '', preco_plataforma: '' })
+    setNova({ nome: '', preco: '', preco_online: '', preco_plataforma: '', dias_semana: [] })
     carregar()
   }
 
@@ -76,6 +86,21 @@ function Variantes({ produtoId, aoAvisar }) {
       .from('product_variants')
       .update({ disponivel: !v.disponivel })
       .eq('id', v.id)
+    carregar()
+  }
+
+  // Vazio grava NULL: "todos os dias" é a ausência de restrição, não uma lista
+  // de sete — é assim que o servidor e a base de dados o entendem.
+  async function guardarDias(v, dias) {
+    const { error } = await supabase
+      .from('product_variants')
+      .update({ dias_semana: dias.length ? dias : null })
+      .eq('id', v.id)
+    if (error) {
+      aoAvisar('Erro ao guardar os dias.')
+      return
+    }
+    registarAuditoria('variante_dias', { nome: v.nome, dias })
     carregar()
   }
 
@@ -99,7 +124,7 @@ function Variantes({ produtoId, aoAvisar }) {
           {variantes.map((v) => (
             <li
               key={v.id}
-              className={`flex items-center justify-between gap-3 rounded-lg border border-creme-300 bg-creme-50 px-3 py-2 ${
+              className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border border-creme-300 bg-creme-50 px-3 py-2 ${
                 v.disponivel ? '' : 'opacity-50'
               }`}
             >
@@ -108,8 +133,27 @@ function Variantes({ produtoId, aoAvisar }) {
                 {v.preco_online != null && (
                   <span className="text-grafite-600/70"> · online {fmt(v.preco_online)}</span>
                 )}
+                {v.dias_semana?.length > 0 && (
+                  <span
+                    className={`ml-2 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest ${
+                      servidoHoje(v.dias_semana)
+                        ? 'bg-ambar-500/15 text-ambar-600'
+                        : 'border border-creme-300 text-grafite-600/70'
+                    }`}
+                  >
+                    {rotuloDias(v.dias_semana)}
+                    {servidoHoje(v.dias_semana) ? ' · hoje' : ''}
+                  </span>
+                )}
               </span>
               <span className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAEditarDias(aEditarDias === v.id ? null : v.id)}
+                  className={BOTAO_SECUNDARIO}
+                >
+                  Dias
+                </button>
                 <button type="button" onClick={() => alternar(v)} className={BOTAO_SECUNDARIO}>
                   {v.disponivel ? 'Desativar' : 'Ativar'}
                 </button>
@@ -117,6 +161,15 @@ function Variantes({ produtoId, aoAvisar }) {
                   Apagar
                 </button>
               </span>
+              {aEditarDias === v.id && (
+                <div className="w-full border-t border-creme-300 pt-2">
+                  <DiasSemana
+                    valor={v.dias_semana || []}
+                    aoMudar={(d) => guardarDias(v, d)}
+                    rotulo={`Dias — ${v.nome}`}
+                  />
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -162,6 +215,13 @@ function Variantes({ produtoId, aoAvisar }) {
         <button type="button" onClick={adicionar} className={BOTAO_SECUNDARIO}>
           + Variante
         </button>
+      </div>
+      <div className="mt-2">
+        <DiasSemana
+          valor={nova.dias_semana}
+          aoMudar={(d) => setNova((n) => ({ ...n, dias_semana: d }))}
+          rotulo="Dias da variante nova"
+        />
       </div>
       <div className="mt-1.5">
         <PrecosRegra
@@ -234,6 +294,55 @@ function PrecosRegra({ preco, online, plataforma, aoAplicar, compacto = false })
 // não pertence ao tipo mas tem valor, aparece na mesma com uma nota — esconder
 // um valor que o cliente vê no cardápio, sem ninguém o poder corrigir, seria
 // trocar um incómodo por um problema.
+// Dias em que o item é servido. Nenhum marcado = todos os dias, que é o que
+// mantém a ementa inteira a funcionar sem ninguém tocar em nada: só os pratos
+// que rodam levam dias.
+function DiasSemana({ valor, aoMudar, rotulo = 'Dias em que é servido' }) {
+  const dias = Array.isArray(valor) ? valor : []
+  const alternar = (n) =>
+    aoMudar(dias.includes(n) ? dias.filter((d) => d !== n) : [...dias, n].sort((a, b) => a - b))
+
+  return (
+    <div>
+      <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">{rotulo}</span>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {DIAS_SEMANA.map((d) => {
+          const on = dias.includes(d.n)
+          return (
+            <button
+              key={d.n}
+              type="button"
+              onClick={() => alternar(d.n)}
+              aria-pressed={on}
+              className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
+                on
+                  ? 'bg-ambar-500 text-grafite-950'
+                  : 'border border-creme-300 text-grafite-600 hover:border-ambar-500'
+              }`}
+            >
+              {d.curto}
+            </button>
+          )
+        })}
+        {dias.length > 0 && (
+          <button
+            type="button"
+            onClick={() => aoMudar([])}
+            className="cursor-pointer px-2 text-xs text-grafite-600/70 underline-offset-2 hover:underline"
+          >
+            limpar
+          </button>
+        )}
+      </div>
+      <span className="mt-1 block text-xs text-grafite-600/70">
+        {dias.length === 0
+          ? 'Nenhum dia marcado = servido todos os dias.'
+          : `Servido: ${rotuloDias(dias)}.`}
+      </span>
+    </div>
+  )
+}
+
 function CampoDoTipo({ tipo, campo, valor, nomeTipo, children }) {
   if (!mostraCampo(tipo, campo, valor)) return null
   const fora = campoForaDoTipo(tipo, campo, valor)
@@ -479,6 +588,7 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
             preco: p.preco,
             preco_online: p.preco_online ?? '',
             preco_plataforma: p.preco_plataforma ?? '',
+            dias_semana: p.dias_semana || [],
             estilo: p.estilo || '',
             abv: p.abv ?? '',
             alergenios: p.alergenios || '',
@@ -500,6 +610,9 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
       preco: Number(form.preco),
       preco_online: form.preco_online === '' ? null : Number(form.preco_online),
       preco_plataforma: form.preco_plataforma === '' ? null : Number(form.preco_plataforma),
+      // Vazio grava NULL: "todos os dias" não é uma lista de sete, é a ausência
+      // de restrição — e é assim que a base de dados e o servidor o entendem.
+      dias_semana: (form.dias_semana || []).length ? form.dias_semana : null,
       estilo: form.estilo.trim() || null,
       abv: form.abv === '' ? null : Number(form.abv),
       alergenios: form.alergenios.trim() || null,
@@ -735,6 +848,13 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
             para comparar com Uber/Glovo no site (as plataformas cobram do lado delas).
           </p>
           <CampoTexto rotulo="Ordem" type="number" value={form.ordem} onChange={alterar('ordem')} />
+
+          <div className="sm:col-span-2">
+            <DiasSemana
+              valor={form.dias_semana}
+              aoMudar={(d) => setForm((f) => ({ ...f, dias_semana: d }))}
+            />
+          </div>
 
           <CampoDoTipo tipo={tipoAtivo} campo="estilo" valor={form.estilo} nomeTipo={nomeTipoAtivo}>
             <CampoTexto

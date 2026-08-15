@@ -19,6 +19,7 @@ import {
   beep,
 } from '../lib/pedidos'
 import { useCanalVisor, linhaVisor, totalLinhas } from '../lib/visor'
+import { servidoHoje } from '../lib/dias'
 import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor } from '../lib/equipa'
 import logoStamp from '../assets/logo-100pressao.png'
 
@@ -521,8 +522,12 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       )
       const idsCats = new Set(cats.map((c) => c.id))
       setCategorias(cats)
-      setProdutos((rProd.data || []).filter((p) => idsCats.has(p.category_id)))
-      setVariantes(rVar.error ? [] : rVar.data || [])
+      // O balcão vende o mesmo que a ementa do dia: um prato fora da rotação
+      // não deve estar ao alcance de um clique com o cliente à frente.
+      setProdutos(
+        (rProd.data || []).filter((p) => idsCats.has(p.category_id) && servidoHoje(p.dias_semana)),
+      )
+      setVariantes(rVar.error ? [] : (rVar.data || []).filter((v) => servidoHoje(v.dias_semana)))
       setCombos(rCombos.error ? [] : (rCombos.data || []).filter((c) => idsCats.has(c.category_id)))
       if (cats.length > 0) setCatAtiva((atual) => atual ?? cats[0].id)
     }
