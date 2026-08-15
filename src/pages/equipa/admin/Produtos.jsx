@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
+import { precoOnlineRegra, precoPlataformaRegra, desvia } from '../../../lib/precos'
 import { registarAuditoria } from '../../../lib/equipa'
 import {
   CampoTexto,
@@ -161,6 +162,17 @@ function Variantes({ produtoId, aoAvisar }) {
           + Variante
         </button>
       </div>
+      <div className="mt-1.5">
+        <PrecosRegra
+          compacto
+          preco={nova.preco}
+          online={nova.preco_online}
+          plataforma={nova.preco_plataforma}
+          aoAplicar={(o, pl) =>
+            setNova((n) => ({ ...n, preco_online: String(o), preco_plataforma: String(pl) }))
+          }
+        />
+      </div>
       <p className="mt-1.5 text-xs text-grafite-600/70">
         Sem variantes, vale o preço do produto. Com variantes, o cliente escolhe
         uma na ementa. Online/plataforma vazios usam o preço local.
@@ -174,6 +186,49 @@ const nfq = (n) => Number(n ?? 0).toLocaleString('pt-PT', { maximumFractionDigit
 // Ficha técnica: ingredientes (itens de stock) que compõem o produto e a
 // quantidade de cada um. Descontam do stock a cada venda (tabela stock_receitas
 // + gatilho, já existentes). Mostra o custo do prato e a margem face ao preço.
+// Os três preços têm de andar juntos: corrigir o de balcão não ajusta os
+// outros dois, e foi assim que sete produtos ficaram fora da regra sem ninguém
+// dar por isso. Mostra o que a regra dá e preenche com um clique — os valores
+// continuam editáveis, para poder arredondar (1,00 € cobra-se melhor que
+// 0,99 €).
+function PrecosRegra({ preco, online, plataforma, aoAplicar, compacto = false }) {
+  const base = Number(String(preco).replace(',', '.'))
+  if (!Number.isFinite(base) || base <= 0) return null
+
+  const esperadoOnline = precoOnlineRegra(base)
+  const esperadoPlataforma = precoPlataformaRegra(base)
+  const foraOnline = desvia(online, esperadoOnline)
+  const foraPlataforma = desvia(plataforma, esperadoPlataforma)
+  const vazios = online === '' || online == null || plataforma === '' || plataforma == null
+  const podeAplicar = foraOnline || foraPlataforma || vazios
+
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${compacto ? '' : 'sm:col-span-2'}`}
+    >
+      <span className="text-grafite-600/70">
+        Regra: online{' '}
+        <strong className={foraOnline ? 'text-ambar-600' : 'text-grafite-900'}>
+          {fmt(esperadoOnline)}
+        </strong>
+        {' · '}plataforma{' '}
+        <strong className={foraPlataforma ? 'text-ambar-600' : 'text-grafite-900'}>
+          {fmt(esperadoPlataforma)}
+        </strong>
+      </span>
+      {podeAplicar && (
+        <button
+          type="button"
+          onClick={() => aoAplicar(esperadoOnline, esperadoPlataforma)}
+          className="cursor-pointer rounded-full border border-ambar-500/50 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-widest text-ambar-600 transition-colors hover:border-ambar-500 hover:bg-ambar-500/10"
+        >
+          Aplicar
+        </button>
+      )}
+    </div>
+  )
+}
+
 function FichaTecnica({ produtoId, preco, aoAvisar }) {
   const [ingredientes, setIngredientes] = useState([])
   const [stockItens, setStockItens] = useState([])
@@ -340,6 +395,14 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
   // índices deixam de corresponder, e arrastar moveria o produto errado — por
   // isso a reordenação desaparece enquanto se procura.
   const aProcurar = termo.length > 0
+
+  // Fora da regra = os derivados não batem com base +10% / +30%. Marcados na
+  // lista para não ser preciso abrir 37 produtos à procura dos que escaparam.
+  const foraDaRegra = (p) =>
+    Number(p.preco) > 0 &&
+    (desvia(p.preco_online, precoOnlineRegra(p.preco)) ||
+      desvia(p.preco_plataforma, precoPlataformaRegra(p.preco)))
+  const nFora = produtos.filter(foraDaRegra).length
 
   const carregar = useCallback(async () => {
     const [rProd, rCat] = await Promise.all([
@@ -516,6 +579,11 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
           {aProcurar
             ? `${visiveis.length} de ${produtos.length} produtos`
             : `${produtos.length} produtos · ${categorias.length} categorias`}
+          {nFora > 0 && (
+            <span className="ml-1 rounded-full bg-ambar-500/15 px-2 py-0.5 text-xs font-semibold text-ambar-600">
+              {nFora} fora da regra de preços
+            </span>
+          )}
         </label>
         <div className="flex flex-1 flex-wrap items-center justify-end gap-3">
           <div className="relative min-w-56 flex-1 sm:max-w-xs">
@@ -622,6 +690,14 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
             value={form.preco_plataforma}
             onChange={alterar('preco_plataforma')}
             placeholder="ref. Uber/Glovo"
+          />
+          <PrecosRegra
+            preco={form.preco}
+            online={form.preco_online}
+            plataforma={form.preco_plataforma}
+            aoAplicar={(o, pl) =>
+              setForm((f) => ({ ...f, preco_online: String(o), preco_plataforma: String(pl) }))
+            }
           />
           <p className="text-xs leading-relaxed text-grafite-600/70 sm:col-span-2">
             <strong>Local</strong> = mesa/balcão (o preço de sempre). <strong>Online</strong> =
@@ -745,6 +821,14 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
                   {fmt(p.preco)}
                   {p.estilo ? ` · ${p.estilo}` : ''}
                   {p.abv != null ? ` · ${Number(p.abv).toFixed(1)}%` : ''}
+                  {foraDaRegra(p) && (
+                    <span
+                      title={`Regra: online ${fmt(precoOnlineRegra(p.preco))} · plataforma ${fmt(precoPlataformaRegra(p.preco))}`}
+                      className="ml-2 rounded-full bg-ambar-500/15 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-ambar-600"
+                    >
+                      preços fora da regra
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
