@@ -37,7 +37,7 @@ const PRODUTO_VAZIO = {
 }
 
 // Variantes de tamanho/preço (item 8 da v2) — sub-itens do produto
-function Variantes({ produtoId, aoAvisar }) {
+function Variantes({ produtoId, aoAvisar, aoPendente }) {
   const [variantes, setVariantes] = useState([])
   const [nova, setNova] = useState({
     nome: '',
@@ -66,8 +66,23 @@ function Variantes({ produtoId, aoAvisar }) {
     carregar()
   }, [carregar])
 
+  // Os campos da variante vivem dentro do formulário do produto, e o botão
+  // grande lá em baixo diz "Guardar". É natural escrever a variante e carregar
+  // nele — e aí o produto grava, o formulário fecha, e a variante escrita
+  // desaparece sem aviso nenhum.
+  const pendente = nova.nome.trim() !== '' || nova.preco !== ''
+  useEffect(() => {
+    aoPendente?.(pendente)
+    return () => aoPendente?.(false)
+  }, [pendente, aoPendente])
+
   async function adicionar() {
-    if (!nova.nome.trim() || nova.preco === '') return
+    // Antes saía em silêncio: quem carregasse com um campo por preencher não
+    // recebia variante nem explicação.
+    if (!nova.nome.trim() || nova.preco === '') {
+      aoAvisar('A variante precisa de nome e de preço local.')
+      return
+    }
     const { error } = await supabase.from('product_variants').insert({
       product_id: produtoId,
       nome: nova.nome.trim(),
@@ -78,7 +93,9 @@ function Variantes({ produtoId, aoAvisar }) {
       ordem: (variantes.length + 1) * 10,
     })
     if (error) {
-      aoAvisar('Erro ao criar a variante. Migração SQL v2 aplicada?')
+      // A mensagem antiga culpava sempre uma migração de julho e deitava fora
+      // o erro real, que é a única coisa útil quando isto falha.
+      aoAvisar(`Erro ao criar a variante: ${error.message}`)
       return
     }
     registarAuditoria('variante_criada', { produto_id: produtoId, nome: nova.nome, preco: nova.preco })
@@ -311,10 +328,20 @@ function Variantes({ produtoId, aoAvisar }) {
           aria-label="Preço plataforma da variante"
           className={`${CAMPO} mt-0 w-24`}
         />
-        <button type="button" onClick={adicionar} className={BOTAO_SECUNDARIO}>
+        <button
+          type="button"
+          onClick={adicionar}
+          className={pendente ? BOTAO_PRIMARIO : BOTAO_SECUNDARIO}
+        >
           + Variante
         </button>
       </div>
+      {pendente && (
+        <p className="mt-1.5 text-xs font-semibold text-ambar-600">
+          Carrega em «+ Variante» para a acrescentar — o «Guardar» lá em baixo grava o produto, não
+          a variante.
+        </p>
+      )}
       {/* Junto aos campos de preço, não depois dos dias: é aqui que se olha ao
           escrever o valor local. */}
       <div className="mt-1.5">
@@ -607,6 +634,7 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
   const [emEdicao, setEmEdicao] = useState(null) // null | 'novo' | id
   const [form, setForm] = useState(PRODUTO_VAZIO)
   const [precoOriginal, setPrecoOriginal] = useState(null)
+  const [variantePendente, setVariantePendente] = useState(false)
   const [selecionados, setSelecionados] = useState(() => new Set())
   const [busca, setBusca] = useState('')
   const { mostrarAviso, Aviso } = useAviso()
@@ -704,6 +732,15 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
 
   async function guardar(e) {
     e.preventDefault()
+    // Guardar o produto com uma variante escrita por acrescentar apagava-a em
+    // silêncio: o formulário fecha e o que estava nos campos vai com ele. Vale
+    // mais interromper aqui do que deixar perder o trabalho outra vez.
+    if (variantePendente) {
+      mostrarAviso(
+        'Tens uma variante escrita por acrescentar. Carrega em «+ Variante» primeiro, ou limpa os campos.',
+      )
+      return
+    }
     const registo = {
       nome: form.nome.trim(),
       category_id: form.category_id,
@@ -1003,7 +1040,11 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
 
           {emEdicao !== 'novo' ? (
             <>
-              <Variantes produtoId={emEdicao} aoAvisar={mostrarAviso} />
+              <Variantes
+                produtoId={emEdicao}
+                aoAvisar={mostrarAviso}
+                aoPendente={setVariantePendente}
+              />
               <FichaTecnica produtoId={emEdicao} preco={form.preco} aoAvisar={mostrarAviso} />
             </>
           ) : (
