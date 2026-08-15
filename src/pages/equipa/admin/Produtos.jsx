@@ -47,6 +47,11 @@ function Variantes({ produtoId, aoAvisar }) {
     dias_semana: [],
   })
   const [aEditarDias, setAEditarDias] = useState(null)
+  // Uma variante criada não se podia editar: para corrigir um preço era apagar
+  // e recriar, perdendo a ficha técnica e os dias. Nos PF, onde os preços ainda
+  // estão a assentar, isso é o caminho garantido para perder trabalho.
+  const [aEditar, setAEditar] = useState(null) // id
+  const [edicao, setEdicao] = useState(null)
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase
@@ -78,6 +83,48 @@ function Variantes({ produtoId, aoAvisar }) {
     }
     registarAuditoria('variante_criada', { produto_id: produtoId, nome: nova.nome, preco: nova.preco })
     setNova({ nome: '', preco: '', preco_online: '', preco_plataforma: '', dias_semana: [] })
+    carregar()
+  }
+
+  function abrirEdicao(v) {
+    if (aEditar === v.id) {
+      setAEditar(null)
+      return
+    }
+    setAEditar(v.id)
+    setEdicao({
+      nome: v.nome,
+      preco: v.preco ?? '',
+      preco_online: v.preco_online ?? '',
+      preco_plataforma: v.preco_plataforma ?? '',
+    })
+  }
+
+  async function guardarEdicao(v) {
+    if (!edicao.nome.trim() || edicao.preco === '') {
+      aoAvisar('Nome e preço local são obrigatórios.')
+      return
+    }
+    const { error } = await supabase
+      .from('product_variants')
+      .update({
+        nome: edicao.nome.trim(),
+        preco: Number(edicao.preco),
+        preco_online: edicao.preco_online === '' ? null : Number(edicao.preco_online),
+        preco_plataforma:
+          edicao.preco_plataforma === '' ? null : Number(edicao.preco_plataforma),
+      })
+      .eq('id', v.id)
+    if (error) {
+      aoAvisar('Erro ao guardar a variante.')
+      return
+    }
+    registarAuditoria('variante_editada', {
+      nome: edicao.nome,
+      antes: v.preco,
+      depois: Number(edicao.preco),
+    })
+    setAEditar(null)
     carregar()
   }
 
@@ -147,6 +194,9 @@ function Variantes({ produtoId, aoAvisar }) {
                 )}
               </span>
               <span className="flex gap-2">
+                <button type="button" onClick={() => abrirEdicao(v)} className={BOTAO_SECUNDARIO}>
+                  {aEditar === v.id ? 'Fechar' : 'Editar'}
+                </button>
                 <button
                   type="button"
                   onClick={() => setAEditarDias(aEditarDias === v.id ? null : v.id)}
@@ -161,6 +211,55 @@ function Variantes({ produtoId, aoAvisar }) {
                   Apagar
                 </button>
               </span>
+              {aEditar === v.id && edicao && (
+                <div className="w-full space-y-2 border-t border-creme-300 pt-2">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <input
+                      value={edicao.nome}
+                      onChange={(e) => setEdicao((n) => ({ ...n, nome: e.target.value }))}
+                      aria-label="Nome da variante"
+                      className={`${CAMPO} mt-0 min-w-32 flex-1`}
+                    />
+                    {[
+                      ['preco', 'Local €'],
+                      ['preco_online', 'Online €'],
+                      ['preco_plataforma', 'Plat. €'],
+                    ].map(([campo, rotulo]) => (
+                      <input
+                        key={campo}
+                        value={edicao[campo]}
+                        onChange={(e) => setEdicao((n) => ({ ...n, [campo]: e.target.value }))}
+                        placeholder={rotulo}
+                        aria-label={`${rotulo} da variante`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className={`${CAMPO} mt-0 w-24`}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => guardarEdicao(v)}
+                      className={BOTAO_PRIMARIO}
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                  <PrecosRegra
+                    compacto
+                    preco={edicao.preco}
+                    online={edicao.preco_online}
+                    plataforma={edicao.preco_plataforma}
+                    aoAplicar={(o, pl) =>
+                      setEdicao((n) => ({
+                        ...n,
+                        preco_online: String(o),
+                        preco_plataforma: String(pl),
+                      }))
+                    }
+                  />
+                </div>
+              )}
               {aEditarDias === v.id && (
                 <div className="w-full border-t border-creme-300 pt-2">
                   <DiasSemana
@@ -216,13 +315,8 @@ function Variantes({ produtoId, aoAvisar }) {
           + Variante
         </button>
       </div>
-      <div className="mt-2">
-        <DiasSemana
-          valor={nova.dias_semana}
-          aoMudar={(d) => setNova((n) => ({ ...n, dias_semana: d }))}
-          rotulo="Dias da variante nova"
-        />
-      </div>
+      {/* Junto aos campos de preço, não depois dos dias: é aqui que se olha ao
+          escrever o valor local. */}
       <div className="mt-1.5">
         <PrecosRegra
           compacto
@@ -232,6 +326,13 @@ function Variantes({ produtoId, aoAvisar }) {
           aoAplicar={(o, pl) =>
             setNova((n) => ({ ...n, preco_online: String(o), preco_plataforma: String(pl) }))
           }
+        />
+      </div>
+      <div className="mt-2">
+        <DiasSemana
+          valor={nova.dias_semana}
+          aoMudar={(d) => setNova((n) => ({ ...n, dias_semana: d }))}
+          rotulo="Dias da variante nova"
         />
       </div>
       <p className="mt-1.5 text-xs text-grafite-600/70">
