@@ -463,6 +463,10 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   const [produtos, setProdutos] = useState([])
   const [variantes, setVariantes] = useState([])
   const [combos, setCombos] = useState([])
+  // Produtos que têm variantes, sirvam elas hoje ou não. Ver comentário na
+  // carga: sem isto, um Prato Feito sem prato do dia voltava a ser vendável
+  // pelo preço do pai — que é justamente o valor que não corresponde a nada.
+  const [comVariantes, setComVariantes] = useState(() => new Set())
   const [erroCarga, setErroCarga] = useState('')
   const [catAtiva, setCatAtiva] = useState(null)
   // Chave do carrinho: 'p:<id>' | 'v:<id>' | 'c:<id>' — um produto com
@@ -497,10 +501,12 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
           .select('id, nome, preco, category_id, disponivel')
           .eq('disponivel', true)
           .order('ordem'),
+        // Sem o filtro de disponivel: distinguir "não tem variantes" de "tem,
+        // mas nenhuma serve hoje". Sem essa distinção o produto-pai volta a
+        // aparecer, e vende-se pelo preço dele.
         db
           .from('product_variants')
-          .select('id, product_id, nome, preco, disponivel')
-          .eq('disponivel', true)
+          .select('id, product_id, nome, preco, disponivel, dias_semana')
           .order('ordem'),
         db
           .from('combos')
@@ -527,7 +533,9 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       setProdutos(
         (rProd.data || []).filter((p) => idsCats.has(p.category_id) && servidoHoje(p.dias_semana)),
       )
-      setVariantes(rVar.error ? [] : (rVar.data || []).filter((v) => servidoHoje(v.dias_semana)))
+      const todas = rVar.error ? [] : rVar.data || []
+      setVariantes(todas.filter((v) => v.disponivel && servidoHoje(v.dias_semana)))
+      setComVariantes(new Set(todas.map((v) => v.product_id)))
       setCombos(rCombos.error ? [] : (rCombos.data || []).filter((c) => idsCats.has(c.category_id)))
       if (cats.length > 0) setCatAtiva((atual) => atual ?? cats[0].id)
     }
@@ -686,6 +694,8 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
     const lista = []
     daCat.forEach((p) => {
       const suas = variantes.filter((v) => String(v.product_id) === String(p.id))
+      // Tem variantes mas nenhuma hoje: não se vende, nem pelo preço do pai.
+      if (suas.length === 0 && comVariantes.has(p.id)) return
       if (suas.length === 0) {
         lista.push({
           chave: `p:${p.id}`,
@@ -716,7 +726,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
         })
       })
     return lista
-  }, [produtos, variantes, combos, catAtiva])
+  }, [produtos, variantes, combos, catAtiva, comVariantes])
 
   return (
     <div className="flex h-full flex-col gap-4">

@@ -130,17 +130,24 @@ function Cardapio() {
           .select('*, combo_items(quantidade, products(nome))')
           .eq('disponivel', true)
           .order('ordem'),
-        supabase
-          .from('product_variants')
-          .select('*')
-          .eq('disponivel', true)
-          .order('ordem'),
+        // Sem filtrar por disponivel: é preciso distinguir "não tem variantes"
+        // de "tem, mas nenhuma serve hoje" — ver abaixo.
+        supabase.from('product_variants').select('*').order('ordem'),
       ])
       if (!ativo) return
       // Pratos que não se fazem hoje saem da ementa. Sem dias marcados fica
       // tudo como estava — só o Almoço PF, que roda, os tem preenchidos.
-      if (rProd.data) rProd.data = rProd.data.filter((p) => servidoHoje(p.dias_semana))
-      if (rVar.data) rVar.data = rVar.data.filter((v) => servidoHoje(v.dias_semana))
+      //
+      // Um produto com variantes tem de sair inteiro quando nenhuma serve hoje.
+      // Sem isto o Prato Feito ao domingo aparecia como item único ao preço do
+      // produto-pai — 8,40 €, um valor que não corresponde a prato nenhum.
+      const temVariantes = new Set((rVar.data || []).map((v) => v.product_id))
+      if (rVar.data) rVar.data = rVar.data.filter((v) => v.disponivel && servidoHoje(v.dias_semana))
+      const comHoje = new Set((rVar.data || []).map((v) => v.product_id))
+      if (rProd.data)
+        rProd.data = rProd.data.filter(
+          (p) => servidoHoje(p.dias_semana) && (!temVariantes.has(p.id) || comHoje.has(p.id)),
+        )
       // Categorias ocultas (visivel=false) saem do cardápio, junto com os
       // seus produtos; visivel !== false tolera a coluna ainda não existir
       const ocultas = new Set(
@@ -413,8 +420,18 @@ function Cardapio() {
       <SEOHead {...SEO_PAGES.cardapio} manifest="/cardapio.webmanifest" />
       <div className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
         <h1 className="font-display text-4xl font-bold uppercase tracking-tight text-grafite-900 sm:text-5xl">
-          Ementa
+          Pedir à Mesa
         </h1>
+        {/* Saída para a ementa pública: quem chega aqui pelo QR e só quer ver o
+            que há não deve ter de dar o nome primeiro. É também o link interno
+            que aponta para a página indexável. */}
+        <p className="mt-3 text-grafite-600">
+          Só queres ver o que há?{' '}
+          <a href="/ementa" className="text-cobre-600 underline underline-offset-4">
+            Vê a ementa completa
+          </a>
+          .
+        </p>
 
         {/* Aviso operacional configurado no admin (tempo real) */}
         {banner && (

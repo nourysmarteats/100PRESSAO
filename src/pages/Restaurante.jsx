@@ -79,6 +79,11 @@ function Restaurante() {
   const [produtos, setProdutos] = useState([])
   const [combos, setCombos] = useState([])
   const [variantes, setVariantes] = useState({})
+  // Produtos que têm variantes definidas, sirvam elas hoje ou não. Um produto
+  // com variantes nunca pode ser vendido pelo preço do pai — e quando nenhuma
+  // serve hoje, o que tem de acontecer é desaparecer, não passar a vender-se
+  // sozinho. O Prato Feito ao domingo seria vendido a 9,24 € sem proteína.
+  const [comVariantes, setComVariantes] = useState(() => new Set())
   const [carrinho, setCarrinho] = useState({})
   const [fase, setFase] = useState('menu') // menu | checkout | pagamento | confirmado
 
@@ -132,7 +137,9 @@ function Restaurante() {
         supabase.from('categories').select('*').order('ordem'),
         supabase.from('products').select('*, categories(id, nome)').eq('disponivel', true).order('ordem'),
         supabase.from('combos').select('*, combo_items(quantidade, products(nome))').eq('disponivel', true).order('ordem'),
-        supabase.from('product_variants').select('*').eq('disponivel', true).order('ordem'),
+        // Sem filtrar por disponivel: é preciso distinguir "não tem variantes"
+        // de "tem, mas nenhuma serve hoje". A lista é pequena.
+        supabase.from('product_variants').select('*').order('ordem'),
       ])
       if (!ativo) return
       const ocultas = new Set(
@@ -151,11 +158,12 @@ function Restaurante() {
       if (!rVar.error) {
         const porProduto = {}
         rVar.data
-          .filter((v) => servidoHoje(v.dias_semana))
+          .filter((v) => v.disponivel && servidoHoje(v.dias_semana))
           .forEach((v) => {
             ;(porProduto[v.product_id] = porProduto[v.product_id] || []).push(v)
           })
         setVariantes(porProduto)
+        setComVariantes(new Set(rVar.data.map((v) => v.product_id)))
       }
     }
     carregar()
@@ -205,6 +213,8 @@ function Restaurante() {
           )
         produtos
           .filter((p) => p.category_id === cat.id)
+          // Tem variantes mas nenhuma hoje → não se vende hoje.
+          .filter((p) => !comVariantes.has(p.id) || (variantes[p.id] || []).length > 0)
           .forEach((p) => {
             const opcoes = (variantes[p.id] || []).map((v) => ({
               id: v.id,
@@ -225,7 +235,7 @@ function Restaurante() {
         return { id: cat.id, nome: cat.nome, itens }
       })
       .filter((s) => s.itens.length > 0)
-  }, [categorias, produtos, combos, variantes])
+  }, [categorias, produtos, combos, variantes, comVariantes])
 
   const seccoesVisiveis = useMemo(() => {
     const termo = semAcentos(busca).trim()
