@@ -243,6 +243,23 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   // que o cliente se deu ao trabalho de escrever.
   const fiscalId = nif || pedido.fatura_nif || null
 
+  // Até aqui só ia o NIF, e a fatura ficava no Vendus à espera de que alguém a
+  // fosse buscar à mão: o cliente pagava, o documento era emitido, e ele nunca
+  // o recebia. Confirmado na encomenda nº 6, a primeira fatura real da casa.
+  //
+  // É o `send_email` que manda o Vendus enviá-la, e sem `email` no cliente não
+  // teria para onde. O nome vai junto para o documento não sair anónimo a quem
+  // se identificou. Nas vendas à mesa estes campos são nulos e o corpo fica
+  // exatamente como estava.
+  const email = (pedido.cliente_email || '').trim() || null
+  const nome = (pedido.cliente_nome || '').trim() || null
+
+  const cliente = {
+    ...(fiscalId ? { fiscal_id: fiscalId } : {}),
+    ...(nome ? { name: nome } : {}),
+    ...(email ? { email } : {}),
+  }
+
   const corpo = {
     type: 'FR', // Fatura-Recibo — já está pago
     mode: modoVendus(),
@@ -252,7 +269,8 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
     items,
     payments: [{ id: metodo.id, amount: Number(pedido.total) }],
     register_id: registerId,
-    ...(fiscalId ? { client: { fiscal_id: fiscalId } } : {}),
+    ...(Object.keys(cliente).length ? { client: cliente } : {}),
+    ...(email ? { send_email: 'yes' } : {}),
   }
 
   const doc = await vendusFetch('/documents/', vendusKey, {
