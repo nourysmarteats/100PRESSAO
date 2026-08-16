@@ -2,6 +2,18 @@
 <html lang="pt">
   <head>
     <meta charset="UTF-8" />
+    <!-- Verificação de propriedade do Google Search Console.
+         NÃO acrescentar data-rh a esta tag: o pré-renderizador em
+         scripts/vite-plugin-seo.js remove todas as tags marcadas com data-rh
+         antes de injetar as suas, e o react-helmet-async faz o mesmo ao
+         hidratar. Sem esse atributo, a tag sobrevive aos dois e fica presente
+         em todas as páginas geradas — que é o que o Google precisa.
+         Método por ficheiro .html não serve aqui: o cleanUrls do Vercel
+         redireciona qualquer URL terminado em .html e a verificação falha. -->
+    <meta
+      name="google-site-verification"
+      content="3SopkH8BRI1EvWmwxBBMDTZOF-wSGbeTHV4Z3NRkGcs"
+    />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <!-- rel="manifest" é injetado por rota via SEOHead (react-helmet-async) —
