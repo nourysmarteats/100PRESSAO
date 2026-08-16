@@ -1,0 +1,70 @@
+{
+  "_nota": "Snapshot da ementa extraído do Supabase em 2026-08-15. Serve de recurso caso o Supabase esteja inacessível durante o build no Vercel — a página /ementa nunca fica vazia. Para refrescar: npm run ementa:sync. Preços deliberadamente ausentes (decisão do Leandro, 15/08/2026): os valores em base de dados parecem ser de custo e não de venda.",
+  "_extraido_em": "2026-08-15",
+  "categorias": [
+    {
+      "categoria": "Entrada",
+      "tipo": "comida",
+      "itens": [
+        { "nome": "Azeitonas Temperadas", "descricao": "Porção de azeitonas temperadas com alho, orégão e azeite", "origem": "Portugues" },
+        { "nome": "Tremoços", "descricao": "Porção de tremoços temperado com salsa, alho e azeite", "origem": "Portugues" }
+      ]
+    },
+    {
+      "categoria": "Petiscos",
+      "tipo": "comida",
+      "itens": [
+        { "nome": "Tábua da Casa", "descricao": "Queijo da Serra e Azeitão, presunto, chouriço, paio e uma marmelada teimosa — tudo na mesma tábua, para partilhar sem pressa. Clássico português, feito para durar a conversa toda. Harmoniza com Blonde ou Tripel.", "origem": "Portugues", "alergenios": "Leite, Glúten" },
+        { "nome": "Pastéis de Bacalhau", "descricao": "Bacalhau desfiado e puré de batata, fritos na hora até dourar. O clássico português que não perdoa atalhos — por dentro macio, por fora estaladiço. Harmoniza com Pilsner ou Lager bem gelada.", "origem": "Portugues", "alergenios": "Peixe, Ovo" },
+        { "nome": "Moelas Estufadas", "descricao": "Moelas de frango estufadas devagar em vinho branco, tomate e colorau, até ficarem tenras a valer. Um clássico de tasca, feito para molhar pão e não ter pressa nenhuma. Harmoniza com Amber Ale.", "origem": "Portugues", "alergenios": "Sulfitos" },
+        { "nome": "Rissóis de Gambas", "descricao": "Recheio cremoso de gambas envolto em massa fina, panado e frito até dourar. Um clássico da pastelaria portuguesa, com o mar a falar mais alto. Harmoniza com Witbier ou Pilsner cítrica.", "origem": "Portugues", "alergenios": "Crustáceos, Glúten, Leite, Ovo" },
+        { "nome": "Pica-Pau", "descricao": "Cubos de vaca salteados em lume vivo, com alho, vinho branco e mostarda, servidos com pepinos de conserva. Petisco de partilha, para comer com palitos e sem cerimónia. Harmoniza com IPA ou Pale Ale.", "origem": "Portugues", "alergenios": "Mostarda, Sulfitos" },
+        { "nome": "Batatas Fritas com Cheddar e Bacon", "descricao": "Batatas fritas duas vezes até ficarem estaladiças, cobertas com cheddar cremoso e bacon crocante. Boteco brasileiro moderno, feito para partilhar e repetir. Harmoniza com Amber Lager ou Red Ale.", "origem": "Brasileiro", "alergenios": "Leite" },
+        { "nome": "Bolinhas de Feijoada", "descricao": "Feijoada desfiada, moldada em bolinhas e frita até dourar por igual. O sabor da feijoada brasileira, em formato de petisco de balcão. Harmoniza com Amber Ale ou Bock.", "origem": "Brasileiro", "alergenios": "Glúten, Ovo" },
+        { "nome": "Bolinhas de Mandioca com Carne e Queijo", "descricao": "Mandioca amassada, recheada com carne picada e queijo derretido, panada e frita na hora. Conforto brasileiro em cada dentada. Harmoniza com Pilsner brasileira ou Golden Ale.", "origem": "Brasileiro", "alergenios": "Leite, Glúten, Ovo" },
+        { "nome": "Calabresa Acebolada", "descricao": "Linguiça calabresa grelhada e envolta em cebola caramelizada, servida bem quente na travessa de ferro. Simples, direto, feito para comer com as mãos. Harmoniza com Red Ale ou Vienna Lager.", "origem": "Brasileiro" },
+        { "nome": "Pastéis de Vento (Sortidos)", "descricao": "Massa finíssima que incha ao fritar, recheada de queijo, carne ou camarão. Um sortido para experimentar os três, sem escolher só um. Harmoniza com Pilsner ou Lager gelada.", "origem": "Brasileiro", "alergenios": "Glúten, Leite, Crustáceos" },
+        { "nome": "Coxinha de Frango", "descricao": "Frango desfiado com requeijão, empanado e frito. 5 unidades. Harmoniza com Pressão da Casa.", "origem": "Brasileiro", "alergenios": "Glúten, Leite, Ovo" }
+      ]
+    },
+    {
+      "categoria": "Almoço PF",
+      "tipo": "comida",
+      "itens": [
+        { "nome": "Prato Feito", "descricao": "Arroz branco, feijão preto temperado, farofa crocante e couve ou salada, mais a proteína à escolha, bebida e café. Pode substituir um componente da base por batatas fritas ou salada, sem custo.", "variantes": ["Bife Acebolado", "Frango Grelhado", "Bacalhau à Brás", "Filet de Peixe", "Peito de Frango à Milanesa", "Carne de Porco à Alentejana", "Bacalhau à Gomes de Sá", "Frango Assado", "Maminha na Chapa"] },
+        { "nome": "Bitoque da Casa", "descricao": "Bife de vaca grelhado, ovo estrelado, batatas fritas, arroz e molho da casa. Inclui bebida e café. Sempre disponível, fora da rotação semanal do PF.", "alergenios": "Ovo, Mostarda, Sulfitos" }
+      ]
+    },
+    {
+      "categoria": "Pequeno Almoço",
+      "tipo": "comida",
+      "itens": [
+        { "nome": "Café Expresso", "descricao": "Café moído na hora e extraído sob pressão. Nas suas variações: italiano, curto, normal, cheio e sem princípio.", "origem": "Portugues" },
+        { "nome": "Café Machiato", "descricao": "Café expresso com um toque de leite" },
+        { "nome": "Americano" },
+        { "nome": "Cappuccino", "descricao": "Café, leite e canela a gosto" },
+        { "nome": "Galão", "descricao": "Café com leite, em copo alto" },
+        { "nome": "Chás variados", "descricao": "Camomila, chá preto, erva-cidreira" },
+        { "nome": "Sumo de Laranja Natural (200 ml)" },
+        { "nome": "Sumo de Manga ou Maracujá Natural" },
+        { "nome": "Tosta Simples", "descricao": "Pão artesanal com manteiga", "alergenios": "Glúten, Leite" },
+        { "nome": "Tosta Mista", "descricao": "Pão artesanal, fiambre e queijo", "origem": "Portugues", "alergenios": "Glúten, Leite" },
+        { "nome": "Croissant Simples", "alergenios": "Glúten, Leite, Ovo" },
+        { "nome": "Croissant Misto", "descricao": "Fiambre e queijo", "alergenios": "Glúten, Leite, Ovo" },
+        { "nome": "Pão de Queijo", "descricao": "À unidade, quentinho", "origem": "Brasileiro", "alergenios": "Leite, Ovo" },
+        { "nome": "Torrada de Broa", "descricao": "Manteiga e queijo fresco", "origem": "Portugues", "alergenios": "Glúten, Leite" },
+        { "nome": "Ovos Mexidos", "descricao": "Com coentros", "alergenios": "Ovo" },
+        { "nome": "Fruta Fresca da Época" },
+        { "nome": "Abacaxi com Hortelã", "origem": "Brasileiro" },
+        { "nome": "Bolo da Dona Célia", "descricao": "À fatia. Sabores: laranja, lima, baunilha ou chocolate.", "alergenios": "Glúten, Leite, Ovo" }
+      ]
+    },
+    {
+      "categoria": "Bebidas",
+      "tipo": "bebida",
+      "itens": [
+        { "nome": "Água das Pedras" }
+      ]
+    }
+  ]
+}

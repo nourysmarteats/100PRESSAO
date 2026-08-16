@@ -8,7 +8,10 @@ const SITE_URL = 'https://www.100pressao.pt'
 const DEFAULT_OG_IMAGE = '/og-image.jpg'
 
 function SEOHead({ title, description, path, image, manifest = '/site.webmanifest' }) {
-  const canonical = `${SITE_URL}${path === '/' ? '' : path}`
+  // A raiz canoniza como ".../" (com barra) — tem de bater certo com o
+  // canonical pré-renderizado em scripts/vite-plugin-seo.js e com o sitemap,
+  // senão o Google vê dois URLs diferentes para a mesma página.
+  const canonical = `${SITE_URL}${path}`
   const ogImage = image ?? DEFAULT_OG_IMAGE
 
   return (
@@ -24,7 +27,17 @@ function SEOHead({ title, description, path, image, manifest = '/site.webmanifes
           duplicaria isto. */}
       <link rel="manifest" href={manifest} />
 
+      {/* Tem de espelhar o que scripts/vite-plugin-seo.js escreve no HTML
+          estático: ao hidratar, o Helmet remove todas as tags data-rh="true"
+          e substitui-as pelas suas. Uma tag que exista só no pré-render
+          desaparece do DOM renderizado (que é o que o Google indexa). */}
+      <meta
+        name="robots"
+        content="index, follow, max-image-preview:large, max-snippet:-1"
+      />
+
       <meta property="og:type" content="website" />
+      <meta property="og:site_name" content="100PRESSÃO" />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:url" content={canonical} />

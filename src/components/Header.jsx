@@ -6,10 +6,21 @@ import logoStamp from '../assets/logo-100pressao.png'
 // Partilhado com o rodapé (Footer importa daqui), para as duas navegações
 // nunca divergirem. "Encomendar" fica ao lado da "Ementa" por serem as duas
 // acções comerciais: ver o que há, e pedir para casa.
+//
+// "Ementa" passou a apontar para /ementa (2026-08-15), a página pública e
+// estática, em vez de /cardapio, que é o sistema de pedidos à mesa e só mostra
+// o menu depois de pedir nome e lugar. Além de ser o que o visitante espera ao
+// clicar em "Ementa", dá à página indexável os links internos de que precisa
+// para o Google a considerar importante. O /cardapio continua acessível pelo QR
+// das mesas e pelo botão dentro da própria ementa.
+//
+// externo: true → o alvo é HTML estático fora do React Router, tem de ser um
+// <a> normal. Um <Link> faria o router tentar resolver a rota e cair no
+// redirecionamento para "/".
 export const NAV_LINKS = [
   { to: '/', label: 'Início' },
   { to: '/quem-somos', label: 'Quem Somos' },
-  { to: '/cardapio', label: 'Ementa' },
+  { to: '/ementa', label: 'Ementa', externo: true },
   { to: '/restaurante', label: 'Encomendar' },
   { to: '/contacto', label: 'Contacto' },
   { to: '/faca-parte', label: 'Faça Parte' },
@@ -51,17 +62,22 @@ function Header() {
         {/* Com 6 itens já não cabe a 768px ao lado do logótipo — o menu completo
             passa a aparecer só a partir de lg; abaixo disso fica o hambúrguer. */}
         <nav className="hidden items-center gap-6 lg:flex xl:gap-8" aria-label="Navegação principal">
-          {NAV_LINKS.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              className={({ isActive }) =>
-                `text-sm font-semibold uppercase tracking-widest transition-colors duration-200 hover:${corAtiva} ${isActive ? corAtiva : corBase}`
-              }
-            >
-              {l.label}
-            </NavLink>
-          ))}
+          {NAV_LINKS.map((l) => {
+            const classe = `text-sm font-semibold uppercase tracking-widest transition-colors duration-200 hover:${corAtiva}`
+            return l.externo ? (
+              <a key={l.to} href={l.to} className={`${classe} ${corBase}`}>
+                {l.label}
+              </a>
+            ) : (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={({ isActive }) => `${classe} ${isActive ? corAtiva : corBase}`}
+              >
+                {l.label}
+              </NavLink>
+            )
+          })}
         </nav>
 
         {/* Mobile: hambúrguer */}
@@ -100,19 +116,28 @@ function Header() {
             className={`overflow-hidden lg:hidden ${escuro ? 'bg-grafite-950/95' : 'border-b border-creme-300 bg-creme-50'}`}
           >
             <ul className="space-y-1 px-6 py-4">
-              {NAV_LINKS.map((l) => (
-                <li key={l.to}>
-                  <NavLink
-                    to={l.to}
-                    onClick={() => setAberto(false)}
-                    className={({ isActive }) =>
-                      `block py-3 text-base font-semibold uppercase tracking-widest ${isActive ? corAtiva : corBase}`
-                    }
-                  >
-                    {l.label}
-                  </NavLink>
-                </li>
-              ))}
+              {NAV_LINKS.map((l) => {
+                const classe = 'block py-3 text-base font-semibold uppercase tracking-widest'
+                return (
+                  <li key={l.to}>
+                    {l.externo ? (
+                      <a href={l.to} className={`${classe} ${corBase}`}>
+                        {l.label}
+                      </a>
+                    ) : (
+                      <NavLink
+                        to={l.to}
+                        onClick={() => setAberto(false)}
+                        className={({ isActive }) =>
+                          `${classe} ${isActive ? corAtiva : corBase}`
+                        }
+                      >
+                        {l.label}
+                      </NavLink>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </motion.nav>
         )}

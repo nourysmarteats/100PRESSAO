@@ -1,9 +1,20 @@
+# 100PRESSÃO — https://www.100pressao.pt
+# Áreas internas (equipa, PDV, ecrãs) fora do índice. O sitemap é gerado no
+# build por scripts/vite-plugin-seo.js a partir de ROTAS_INDEXAVEIS.
+
 User-agent: *
 Allow: /
+
+# Área da equipa e backoffice
 Disallow: /admin
 Disallow: /staff
 Disallow: /operacional
-Disallow: /ecran
+Disallow: /equipa
 Disallow: /equipa/
+
+# Ecrãs e terminais do balcão (não são páginas de conteúdo)
+Disallow: /ecran
+Disallow: /caixa
+Disallow: /visor
 
 Sitemap: https://www.100pressao.pt/sitemap.xml

@@ -20,23 +20,29 @@
     />
     <!--
       Dados estruturados (schema.org) — site-wide, por isso ficam estáticos
-      aqui em vez de por rota via Helmet. Morada e telefone confirmados em
-      src/pages/Contacto.jsx (2026-07-12). Horário usa o fallback de
-      src/lib/horario.js — o horário real é editável no /admin e pode
-      divergir deste JSON-LD; atualizar aqui manualmente se mudar de forma
-      permanente (não é lido do Supabase em build-time).
+      aqui em vez de por rota via Helmet.
+
+      Os valores abaixo espelham src/lib/marca.js, que é a fonte única de
+      verdade para morada, contactos, coordenadas, horário e redes sociais.
+      Se mudar alguma coisa, muda-se lá E aqui (este ficheiro é HTML estático e
+      não consegue importar o módulo). Ver o comentário em marca.js.
 
       @type mudou de BarOrPub para Restaurant (2026-08-15): a casa serve
       pequeno-almoço, almoço PF e petiscos, não só bebida. Restaurant é o tipo
       que o Google usa para os rich results de restauração (horário, ementa,
       preço) e é o que melhor corresponde à realidade do negócio.
 
-      FALTA (só o Leandro consegue confirmar):
-        - "geo": lat/long exatos da loja. Copiar do Google Business Profile.
-          Deixado de fora de propósito — coordenadas erradas fazem mais mal do
-          que a ausência delas nas buscas locais.
-        - "sameAs": URLs finais do Instagram / Facebook / Google Business.
-        - "geo" e "sameAs" continuam por preencher (ver acima).
+      Horário corrigido (2026-08-15): dizia 2ª a 6ª, 08:00–12:00 — era o
+      fallback antigo do código e estava a ser anunciado ao Google como horário
+      real. O correto, confirmado pelo Leandro e coincidente com a tabela
+      `definicoes`, é 8:00–22:00 todos os dias.
+
+      Coordenadas: vêm da chave `entrega` em `definicoes`, onde já eram usadas
+      para calcular o raio de entrega — são as coordenadas operacionais reais.
+
+      sameAs: só perfis confirmados no Footer. NÃO acrescentar o Instagram
+      @100pressao.pt nem a página de Facebook do "100 PRESSÃO" do Funchal —
+      é outra empresa com o mesmo nome (ver marca.js).
     -->
     <script type="application/ld+json">
       {
@@ -57,8 +63,18 @@
         ],
         "logo": "https://www.100pressao.pt/icon-512.png",
         "hasMap": "https://www.google.com/maps/place//data=!4m2!3m1!1s0xd1ecc607dc2c889:0x1946af38520f51d0",
-        "hasMenu": "https://www.100pressao.pt/cardapio",
+        "hasMenu": "https://www.100pressao.pt/ementa",
         "acceptsReservations": "False",
+        "sameAs": [
+          "https://www.instagram.com/100pressao2026",
+          "https://www.facebook.com/profile.php?id=61591461314419",
+          "https://www.tiktok.com/@100pressao2026"
+        ],
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": 38.7262329,
+          "longitude": -9.2369446
+        },
         "currenciesAccepted": "EUR",
         "paymentAccepted": "Dinheiro, Multibanco, MB WAY, Cartão de crédito",
         "address": {

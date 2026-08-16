@@ -1,13 +1,17 @@
 import { Link } from 'react-router-dom'
 import { NAV_LINKS } from './Header'
+import { REDES_SOCIAIS } from '../lib/marca'
 import { useHorario } from '../lib/horario'
 import logoStamp from '../assets/logo-100pressao.png'
 import InstalarApp from './InstalarApp'
 
+// URLs vindas de src/lib/marca.js — a mesma lista alimenta o "sameAs" do
+// JSON-LD. Se divergirem, o Google recebe sinais contraditórios sobre que
+// perfis são desta casa (e há um homónimo no Funchal a disputar o nome).
 const REDES = [
   {
     nome: 'Instagram',
-    url: 'https://www.instagram.com/100pressao2026',
+    url: REDES_SOCIAIS.instagram,
     icone: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
         <rect x="3" y="3" width="18" height="18" rx="5" />
@@ -18,7 +22,7 @@ const REDES = [
   },
   {
     nome: 'Facebook',
-    url: 'https://www.facebook.com/profile.php?id=61591461314419',
+    url: REDES_SOCIAIS.facebook,
     icone: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
         <path d="M13.5 21v-7h2.4l.4-3h-2.8V9.1c0-.9.3-1.5 1.6-1.5h1.3V4.9c-.2 0-1-.1-1.9-.1-1.9 0-3.2 1.2-3.2 3.3V11H9v3h2.3v7h2.2Z" />
@@ -27,7 +31,7 @@ const REDES = [
   },
   {
     nome: 'TikTok',
-    url: 'https://www.tiktok.com/@100pressao2026',
+    url: REDES_SOCIAIS.tiktok,
     icone: (
       <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
         <path d="M16.6 4c.3 1.7 1.4 3 3.4 3.2v2.6c-1.3 0-2.4-.4-3.4-1v5.7c0 3.1-2.1 5.5-5.3 5.5C8.3 20 6 17.9 6 15.1c0-2.7 2.1-4.9 5-4.9.3 0 .6 0 .9.1v2.7a2.3 2.3 0 0 0-3.2 2.1c0 1.3 1 2.3 2.4 2.3 1.5 0 2.5-1.1 2.5-2.8V4h3Z" />
@@ -178,9 +182,16 @@ function Footer() {
           <ul className="mt-4 space-y-2">
             {NAV_LINKS.map((l) => (
               <li key={l.to}>
-                <Link to={l.to} className="transition-colors hover:text-creme-50">
-                  {l.label}
-                </Link>
+                {/* externo = HTML estático fora do router (ver NAV_LINKS) */}
+                {l.externo ? (
+                  <a href={l.to} className="transition-colors hover:text-creme-50">
+                    {l.label}
+                  </a>
+                ) : (
+                  <Link to={l.to} className="transition-colors hover:text-creme-50">
+                    {l.label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>
