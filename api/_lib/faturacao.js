@@ -16,6 +16,22 @@
 
 const VENDUS_BASE = 'https://www.vendus.pt/ws/v1.1'
 
+// Cópia de nifValido() de src/lib/nif.js. Duplicada de propósito: as funções
+// sob api/ são empacotadas sozinhas pelo Vercel, e importar de src/ punha a
+// emissão de faturas dependente de o empacotamento resolver um caminho para
+// fora da pasta. É o mesmo critério de exigeFatura(), que também vive dos dois
+// lados. Se uma mudar, a outra tem de mudar com ela.
+function nifPortuguesValido(valor) {
+  const n = String(valor ?? '').replace(/\D/g, '')
+  if (!/^[1-9]\d{8}$/.test(n)) return false
+  const soma = n
+    .slice(0, 8)
+    .split('')
+    .reduce((acc, d, i) => acc + Number(d) * (9 - i), 0)
+  const resto = soma % 11
+  return Number(n[8]) === (resto < 2 ? 0 : 11 - resto)
+}
+
 // Testes e produção são espaços separados no Vendus. Um documento emitido em
 // 'tests' não é encontrado por uma consulta que não diga em que espaço procurar
 // — daí o 404 ao tentar obter o PDF das faturas FR T01P2026/3 e /4.
@@ -242,6 +258,17 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   // encomenda desde o checkout — sem isto, faturar automaticamente perdia o NIF
   // que o cliente se deu ao trabalho de escrever.
   const fiscalId = nif || pedido.fatura_nif || null
+
+  // Espelha nifValido() em src/lib/nif.js — o browser não é fonte de verdade
+  // para um documento fiscal, e o NIF também pode chegar por outro caminho que
+  // não o formulário. Recusar aqui dá uma mensagem clara no painel; deixar
+  // passar dá um erro da Vendus depois da venda estar feita.
+  if (fiscalId && !nifPortuguesValido(fiscalId)) {
+    throw new Error(
+      `O NIF ${fiscalId} não é válido (dígito de controlo errado). ` +
+        'Corrija-o antes de emitir a fatura.',
+    )
+  }
 
   // Até aqui só ia o NIF, e a fatura ficava no Vendus à espera de que alguém a
   // fosse buscar à mão: o cliente pagava, o documento era emitido, e ele nunca

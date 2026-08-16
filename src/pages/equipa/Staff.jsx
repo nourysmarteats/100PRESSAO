@@ -12,6 +12,7 @@ import {
   obterPedidosAtivos,
 } from '../../lib/pedidos'
 import { chamarApiFaturar } from '../../lib/equipa'
+import { nifOpcionalValido } from '../../lib/nif'
 import { useAviso } from './admin/comuns'
 
 function Kpi({ rotulo, valor, destaque }) {
@@ -76,7 +77,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar, estafetas, valoresEstafet
   // cliente. O NIF é sempre opcional, mas se for escrito tem de ser válido.
   const faturaObrigatoria = exigeFatura(metodo)
   const vaiFaturar = faturaObrigatoria || querFatura
-  const nifValido = nif === '' || /^\d{9}$/.test(nif)
+  const nifOk = nifOpcionalValido(nif)
   // O momento de fechar a conta é o último passo antes de 'entregue': ao balcão
   // é quando está pronto; numa entrega é quando já vai a caminho, porque só
   // então o dinheiro muda de mãos.
@@ -213,13 +214,13 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar, estafetas, valoresEstafet
               value={nif}
               onChange={(e) => setNif(e.target.value.replace(/\D/g, '').slice(0, 9))}
               className={`mt-2 w-full rounded-lg border px-3 py-2 text-sm text-grafite-900 outline-none ${
-                nifValido ? 'border-creme-300 focus:border-ambar-500' : 'border-red-500'
+                nifOk ? 'border-creme-300 focus:border-ambar-500' : 'border-red-500'
               }`}
             />
           )}
           <button
             type="button"
-            disabled={!metodo || ocupado || !nifValido}
+            disabled={!metodo || ocupado || !nifOk}
             onClick={async () => {
               setOcupado(true)
               await aoEntregar(pedido.id, metodo, { querFatura: vaiFaturar, nif: nif || undefined })

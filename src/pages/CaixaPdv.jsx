@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, supabasePublico } from '../lib/supabase'
+import { nifOpcionalValido } from '../lib/nif'
 import {
   fmt,
   METODOS_PAGAMENTO,
@@ -475,6 +476,10 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   const [metodo, setMetodo] = useState('dinheiro')
   const [pedirNif, setPedirNif] = useState(false)
   const [nif, setNif] = useState('')
+  // O NIF é opcional ao balcão, mas escrito tem de ser válido: a fatura é
+  // emitida logo a seguir à venda e um NIF inválido só falharia depois de o
+  // cliente já ter pago e saído.
+  const nifOk = nifOpcionalValido(nif)
   const [recebido, setRecebido] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [aviso, setAviso] = useState('')
@@ -874,14 +879,23 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
                   + Emitir fatura com NIF
                 </button>
               ) : (
-                <input
-                  type="text"
-                  value={nif}
-                  onChange={(e) => setNif(e.target.value.replace(/\D/g, '').slice(0, 9))}
-                  placeholder="NIF (opcional)"
-                  autoFocus
-                  className="w-full rounded-xl border border-grafite-600 bg-grafite-800 px-3 py-2 text-sm text-creme-50 outline-none focus:border-ambar-500"
-                />
+                <>
+                  <input
+                    type="text"
+                    value={nif}
+                    onChange={(e) => setNif(e.target.value.replace(/\D/g, '').slice(0, 9))}
+                    placeholder="NIF (opcional)"
+                    autoFocus
+                    className={`w-full rounded-xl border bg-grafite-800 px-3 py-2 text-sm text-creme-50 outline-none ${
+                      nifOk ? 'border-grafite-600 focus:border-ambar-500' : 'border-red-500'
+                    }`}
+                  />
+                  {!nifOk && (
+                    <span className="mt-1 block text-xs text-red-400">
+                      {nif.length < 9 ? 'O NIF tem 9 dígitos.' : 'Este NIF não é válido.'}
+                    </span>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -915,7 +929,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
               <button
                 type="button"
                 onClick={concluirVenda}
-                disabled={ocupado || !temItens}
+                disabled={ocupado || !temItens || !nifOk}
                 className={`${BTN_PRIMARIO} flex-1`}
               >
                 {ocupado ? 'A processar…' : 'Concluir venda'}

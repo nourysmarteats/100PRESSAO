@@ -15,6 +15,7 @@ import { fmt, ROTULO_ESTADO } from '../lib/pedidos'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
 import { servidoHoje } from '../lib/dias'
+import { nifValido } from '../lib/nif'
 import FormularioFeedback from '../components/FormularioFeedback'
 import logoStamp from '../assets/logo-100pressao.png'
 
@@ -379,7 +380,7 @@ function Restaurante() {
     (tipo === 'levar' || morada.trim()) &&
     metodo &&
     (metodo !== 'pix' || cpf.replace(/\D/g, '').length === 11) &&
-    (!querFatura || /^\d{9}$/.test(nif)) &&
+    (!querFatura || nifValido(nif)) &&
     idade &&
     aceito
 
@@ -832,9 +833,9 @@ function Restaurante() {
                     className={CAMPO}
                     placeholder="9 dígitos"
                   />
-                  {nif !== '' && !/^\d{9}$/.test(nif) && (
+                  {nif !== '' && !nifValido(nif) && (
                     <span className="mt-1 block text-xs font-normal normal-case tracking-normal text-red-600">
-                      O NIF tem 9 dígitos.
+                      {nif.length < 9 ? 'O NIF tem 9 dígitos.' : 'Este NIF não é válido — confirme os dígitos.'}
                     </span>
                   )}
                 </label>
