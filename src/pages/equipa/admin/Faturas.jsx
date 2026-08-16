@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt, METODOS_PAGAMENTO } from '../../../lib/pedidos'
 import { chamarApiFaturar } from '../../../lib/equipa'
+import { nifOpcionalValido } from '../../../lib/nif'
 import { CARTAO, BOTAO_SECUNDARIO, useAviso } from './comuns'
 
 const rotuloMetodo = (id) =>
@@ -109,6 +110,12 @@ function Faturas() {
   const [pedidos, setPedidos] = useState(null)
   const [erro, setErro] = useState('')
   const [aEmitir, setAEmitir] = useState(null)
+  // NIFs corrigidos à mão, por pedido. Um cliente engana-se a escrever o NIF,
+  // a fatura é recusada, e até aqui só se resolvia mexendo na base de dados —
+  // quem está ao balcão ficava sem saída. Só existe enquanto não há documento:
+  // depois de emitido, o NIF já não se corrige por aqui, corrige-se com nota
+  // de crédito.
+  const [nifs, setNifs] = useState({})
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
@@ -211,10 +218,15 @@ function Faturas() {
   async function reemitir(p) {
     setAEmitir(p.id)
     try {
-      const r = await chamarApiFaturar({ pedido_id: p.id, nif: p.fatura_nif || undefined })
+      const nif = (nifs[p.id] ?? p.fatura_nif ?? '').replace(/\D/g, '')
+      const r = await chamarApiFaturar({ pedido_id: p.id, nif: nif || undefined })
       mostrarAviso(
         r.ja_existia ? 'Já existia fatura para este pedido.' : `Fatura ${r.numero || ''} emitida ✓`,
       )
+      setNifs((atual) => {
+        const { [p.id]: _usado, ...resto } = atual
+        return resto
+      })
     } catch (e) {
       mostrarAviso(e.message)
     }
@@ -337,11 +349,40 @@ function Faturas() {
                   </span>
                 )}
 
-                {p.fatura_pedida && (
-                  <p className="mt-1 text-xs text-grafite-600">
-                    NIF: {p.fatura_nif || 'não indicado'}
-                  </p>
-                )}
+                {estadoFatura(p) === 'emitida'
+                  ? p.fatura_pedida && (
+                      <p className="mt-1 text-xs text-grafite-600">
+                        NIF: {p.fatura_nif || 'não indicado'}
+                      </p>
+                    )
+                  : (
+                      <label className="mt-2 block text-xs text-grafite-600">
+                        NIF
+                        <input
+                          value={nifs[p.id] ?? p.fatura_nif ?? ''}
+                          onChange={(e) =>
+                            setNifs((atual) => ({
+                              ...atual,
+                              [p.id]: e.target.value.replace(/\D/g, '').slice(0, 9),
+                            }))
+                          }
+                          inputMode="numeric"
+                          placeholder="sem NIF — consumidor final"
+                          className={`mt-1 w-48 rounded-lg border px-2 py-1 text-sm outline-none ${
+                            nifOpcionalValido(nifs[p.id] ?? p.fatura_nif ?? '')
+                              ? 'border-creme-300 focus:border-ambar-500'
+                              : 'border-red-500'
+                          }`}
+                        />
+                        {!nifOpcionalValido(nifs[p.id] ?? p.fatura_nif ?? '') && (
+                          <span className="mt-1 block text-xs text-red-600">
+                            {(nifs[p.id] ?? p.fatura_nif ?? '').length < 9
+                              ? 'O NIF tem 9 dígitos.'
+                              : 'Este NIF não é válido — confirme os dígitos.'}
+                          </span>
+                        )}
+                      </label>
+                    )}
 
                 {/* A razão da recusa vive aqui: é onde alguém vem procurar por
                     que motivo uma fatura não saiu. */}
@@ -378,7 +419,10 @@ function Faturas() {
                   {estadoFatura(p) !== 'emitida' && (
                     <button
                       type="button"
-                      disabled={aEmitir === p.id}
+                      disabled={
+                        aEmitir === p.id ||
+                        !nifOpcionalValido(nifs[p.id] ?? p.fatura_nif ?? '')
+                      }
                       onClick={() => reemitir(p)}
                       className={BOTAO_SECUNDARIO}
                     >
