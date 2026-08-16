@@ -254,10 +254,14 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   const email = (pedido.cliente_email || '').trim() || null
   const nome = (pedido.cliente_nome || '').trim() || null
 
+  // O `send_email` vive DENTRO do cliente, não ao nível do documento. Posto
+  // no sítio errado, o Vendus recusa o pedido inteiro com "P001: O campo
+  // send_email não é permitido" e a encomenda fica paga e por faturar — foi o
+  // que aconteceu à nº 7. A recusa é do documento todo, não só do campo.
   const cliente = {
     ...(fiscalId ? { fiscal_id: fiscalId } : {}),
     ...(nome ? { name: nome } : {}),
-    ...(email ? { email } : {}),
+    ...(email ? { email, send_email: 'yes' } : {}),
   }
 
   const corpo = {
@@ -270,7 +274,6 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
     payments: [{ id: metodo.id, amount: Number(pedido.total) }],
     register_id: registerId,
     ...(Object.keys(cliente).length ? { client: cliente } : {}),
-    ...(email ? { send_email: 'yes' } : {}),
   }
 
   const doc = await vendusFetch('/documents/', vendusKey, {
