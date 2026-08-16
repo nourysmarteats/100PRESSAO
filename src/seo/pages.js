@@ -121,6 +121,27 @@ export const SEO_PAGES = {
 // Google desde 2023 — só lastmod é lido.
 // ---------------------------------------------------------------------------
 
+// Rotas internas (equipa/PDV). Não são conteúdo e não entram no sitemap, mas
+// TÊM de ser pré-renderizadas na mesma.
+//
+// Porquê (2026-08-16): com "cleanUrls": true, o Vercel resolve cada pedido pela
+// árvore de ficheiros do dist. As rotas com HTML próprio (/cardapio, /contacto,
+// …) passaram a servir o respetivo .html; as que não tinham ficheiro nenhum
+// deixaram de ser apanhadas pelo rewrite para index.html e passaram a devolver
+// 404 — foi assim que o /admin desapareceu, poucos minutos depois do deploy de
+// SEO. O site público não deu sinal porque essas páginas todas têm ficheiro.
+//
+// A correção é dar-lhes ficheiro também: um shell igual ao index.html, com
+// noindex. Deixa de depender da ordem de avaliação dos rewrites do Vercel.
+const ROTAS_INTERNAS = [
+  { path: '/admin', noindex: true, title: 'Gestão | 100PRESSÃO', description: 'Área reservada à equipa.' },
+  { path: '/staff', noindex: true, title: 'Staff | 100PRESSÃO', description: 'Área reservada à equipa.' },
+  { path: '/operacional', noindex: true, title: 'Operacional | 100PRESSÃO', description: 'Área reservada à equipa.' },
+  { path: '/ecran', noindex: true, title: 'Ecrã | 100PRESSÃO', description: 'Área reservada à equipa.' },
+  { path: '/caixa', noindex: true, title: 'Caixa | 100PRESSÃO', description: 'Área reservada à equipa.' },
+  { path: '/visor', noindex: true, title: 'Visor | 100PRESSÃO', description: 'Área reservada à equipa.' },
+]
+
 const ORDEM_ROTAS = [
   'inicio',
   'home',
@@ -139,8 +160,11 @@ const ORDEM_ROTAS = [
 
 const ROTAS = ORDEM_ROTAS.map((chave) => SEO_PAGES[chave])
 
-/** Rotas cujo <head> é injetado no index.html do Vite (exclui as standalone). */
-export const ROTAS_PRERENDER = ROTAS.filter((r) => !r.standalone)
+/**
+ * Rotas cujo <head> é injetado no index.html do Vite (exclui as standalone).
+ * Inclui as rotas internas: sem ficheiro no dist, o cleanUrls devolve-lhes 404.
+ */
+export const ROTAS_PRERENDER = [...ROTAS.filter((r) => !r.standalone), ...ROTAS_INTERNAS]
 
-/** Rotas que entram no sitemap.xml (exclui as noindex). */
+/** Rotas que entram no sitemap.xml (exclui as noindex e as internas). */
 export const ROTAS_INDEXAVEIS = ROTAS.filter((r) => !r.noindex)

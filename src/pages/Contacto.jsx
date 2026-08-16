@@ -62,7 +62,7 @@ function Contacto() {
                 >
                   Praceta Eugénio de Castro, Loja 6
                   <br />
-                  2790-072 Carnaxide
+                  2790-063 Carnaxide
                 </a>
               </div>
             </div>

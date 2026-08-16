@@ -22,10 +22,16 @@ export const MARCA = {
   email: 'geral@100pressao.pt',
 }
 
+// Código postal corrigido de 2790-072 para 2790-063 (16/08/2026). O site tinha
+// 2790-072 em todo o lado, mas a ficha do Uber Eats — que hoje aparece no Google
+// à frente do site — usa 2790-063, e o Leandro confirmou que este é o correcto.
+// Divergências de NAP (Name, Address, Phone) entre o site, o Google Business
+// Profile e os directórios são das coisas que mais penalizam SEO local: o Google
+// vê duas moradas para o mesmo negócio e desconfia das duas.
 export const MORADA = {
   rua: 'Praceta Eugénio de Castro, Loja 6',
   localidade: 'Carnaxide',
-  codigoPostal: '2790-072',
+  codigoPostal: '2790-063',
   regiao: 'Oeiras',
   pais: 'PT',
 }
