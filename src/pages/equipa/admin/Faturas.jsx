@@ -178,10 +178,27 @@ function Faturas() {
       })
       const json = await r.json()
       if (!r.ok) throw new Error(json.erro || 'Erro no servidor.')
-      // Nunca abrir um endereço que não seja externo: um caminho relativo levava
-      // o operador para fora do painel, para a loja, em vez de abrir o PDF.
+
+      // Caminho normal: o servidor foi buscar o ficheiro ao Vendus com a chave
+      // e manda-o em base64. Monta-se aqui e abre-se a partir da memória do
+      // browser — não há endereço nenhum a pedir autenticação, que era o que
+      // dava a janela de "Sign in" do vendus.pt.
+      if (json.pdf_base64) {
+        const bytes = Uint8Array.from(atob(json.pdf_base64), (c) => c.charCodeAt(0))
+        const endereco = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+        window.open(endereco, '_blank', 'noopener')
+        // Libertar de imediato fechava o separador que acabou de abrir; um
+        // minuto chega para o browser ler o ficheiro e não deixa isto a ocupar
+        // memória durante todo o turno.
+        setTimeout(() => URL.revokeObjectURL(endereco), 60000)
+        return
+      }
+
+      // Endereço público, se algum dia o Vendus devolver um. Continua a ter de
+      // ser externo: um caminho relativo levava o operador para fora do painel,
+      // para a loja, em vez de abrir o PDF.
       if (!/^https?:\/\//i.test(String(json.url || ''))) {
-        throw new Error('O endereço devolvido para o PDF não é válido.')
+        throw new Error('O Vendus não devolveu o PDF nem um endereço que se possa abrir.')
       }
       window.open(json.url, '_blank', 'noopener')
     } catch (e) {

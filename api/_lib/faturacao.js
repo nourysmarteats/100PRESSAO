@@ -352,12 +352,63 @@ function comoEndereco(v, profundidade = 0) {
   return null
 }
 
+// Ser um endereço válido não chega — tem de ser um endereço que o browser
+// consiga abrir SOZINHO. Os da API não são: respondem só a quem apresente a
+// chave, e num separador dão uma janela de autenticação em vez do PDF. Foi
+// exatamente isso que aconteceu ao abrir
+// www.vendus.pt/ws/v1.1/documents/365222900.pdf?mode=tests.
+//
+// Guardar um endereço destes em `fatura_url` seria repetir o erro que trouxe
+// tudo isto: um campo cuja única razão de existir é ser aberto, cheio com algo
+// que não abre. Quando o endereço é da API, o PDF vai-se buscar pelo servidor
+// (obterPdf) e entrega-se em bytes.
+const ENDERECO_API = /\/ws\/v\d/i
+
+const enderecoAbrivel = (v) => {
+  const e = comoEndereco(v)
+  return e && !ENDERECO_API.test(e) ? e : null
+}
+
 const urlDoDocumento = (doc) =>
-  comoEndereco(doc?.output_data) ||
-  comoEndereco(doc?.output) ||
-  comoEndereco(doc?.output_url) ||
-  comoEndereco(doc?.pdf_url) ||
-  comoEndereco(doc?.url) ||
+  enderecoAbrivel(doc?.output_data) ||
+  enderecoAbrivel(doc?.output) ||
+  enderecoAbrivel(doc?.output_url) ||
+  enderecoAbrivel(doc?.pdf_url) ||
+  enderecoAbrivel(doc?.url) ||
+  null
+
+// O ficheiro em si, quando se pede output:'pdf'. Vem em base64, na mesma forma
+// {type,data,content} do endereço. Confirma-se que descodifica mesmo para um
+// PDF (assinatura "%PDF-") antes de o dar como bom: sem isso, qualquer texto
+// em base64 passaria por ficheiro e o operador abria um separador vazio.
+function comoPdfBase64(v, profundidade = 0) {
+  if (v && typeof v === 'object' && profundidade < 3) {
+    return comoPdfBase64(v.content ?? v.data ?? v.pdf, profundidade + 1)
+  }
+  if (typeof v !== 'string') return null
+  let s = v.trim()
+  if (!s) return null
+  if (profundidade < 3 && (s.startsWith('{') || s.startsWith('['))) {
+    try {
+      return comoPdfBase64(JSON.parse(s), profundidade + 1)
+    } catch {
+      return null
+    }
+  }
+  s = s.replace(/^data:application\/pdf;base64,/i, '').replace(/\s+/g, '')
+  if (s.length < 100 || !/^[A-Za-z0-9+/]+={0,2}$/.test(s)) return null
+  try {
+    const buf = Buffer.from(s, 'base64')
+    return buf.subarray(0, 5).toString('latin1') === '%PDF-' ? s : null
+  } catch {
+    return null
+  }
+}
+
+const pdfDoDocumento = (doc) =>
+  comoPdfBase64(doc?.output_data) ||
+  comoPdfBase64(doc?.output) ||
+  comoPdfBase64(doc?.content) ||
   null
 
 // Vai buscar o PDF de uma fatura já emitida e guarda-o na encomenda. Serve as
@@ -376,10 +427,10 @@ export async function obterPdf(admin, pedidoId) {
 
   // Revalidar o que está guardado em vez de o devolver por estar preenchido.
   // As faturas emitidas antes desta validação existir têm aqui um objeto JSON,
-  // não um endereço; devolvê-lo tal e qual mandava o operador para a loja. Se
-  // não prestar, ignora-se e vai-se buscar de novo ao Vendus — é assim que
-  // estas linhas se corrigem sozinhas, sem ninguém ter de lhes tocar à mão.
-  const guardado = comoEndereco(pedido.fatura_url)
+  // não um endereço; devolvê-lo tal e qual mandava o operador para a loja. Só
+  // se aproveita se for abrível — endereço da API não conta, que dava a janela
+  // de autenticação. Não prestando, vai-se buscar o ficheiro ao Vendus.
+  const guardado = enderecoAbrivel(pedido.fatura_url)
   if (guardado) {
     // Aproveita-se para deixar guardada a forma limpa, e não a original.
     if (guardado !== pedido.fatura_url) {
@@ -388,12 +439,18 @@ export async function obterPdf(admin, pedidoId) {
     return { ok: true, url: guardado, ja_existia: true }
   }
 
+  // Pede-se o ficheiro (output=pdf), não um endereço (output=pdf_url). O
+  // endereço que o Vendus devolvia era da própria API e só respondia a quem
+  // tivesse a chave — inútil para abrir num separador. Assim o PDF atravessa
+  // o servidor, que tem a chave, e chega ao painel já em bytes; a chave nunca
+  // sai daqui.
+  //
   // O `mode` tem de acompanhar a consulta: sem ele, procurar um documento de
   // ensaio no espaço normal devolve 404.
   let doc
   try {
     doc = await vendusFetch(
-      `/documents/${pedido.fatura_documento_id}/?output=pdf_url&mode=${modoVendus()}`,
+      `/documents/${pedido.fatura_documento_id}/?output=pdf&mode=${modoVendus()}`,
       chave,
     )
   } catch (e) {
@@ -405,20 +462,28 @@ export async function obterPdf(admin, pedidoId) {
     }
     throw e
   }
-  const url = urlDoDocumento(doc)
-  if (!url) {
-    // Sem os logs do Vercel acessíveis, a amostra do que veio é a única forma
-    // de perceber o que o Vendus está a devolver. Cortada, porque pode ser o
-    // PDF inteiro em base64.
-    const amostra = JSON.stringify({ output: doc?.output, output_data: doc?.output_data }).slice(
-      0,
-      200,
-    )
-    throw new Error(`O Vendus não devolveu um endereço de PDF. Recebido: ${amostra}`)
+  // O ficheiro é o caminho normal. Se por algum motivo vier antes um endereço
+  // público, também serve — e esse guarda-se, porque poupa a viagem à API da
+  // próxima vez. O da API nunca chega aqui: `enderecoAbrivel` recusa-o.
+  const pdf = pdfDoDocumento(doc)
+  if (pdf) {
+    return { ok: true, pdf_base64: pdf, nome: `fatura-${pedido.fatura_documento_id}.pdf` }
   }
 
-  await admin.from('orders').update({ fatura_url: url }).eq('id', pedidoId)
-  return { ok: true, url }
+  const url = urlDoDocumento(doc)
+  if (url) {
+    await admin.from('orders').update({ fatura_url: url }).eq('id', pedidoId)
+    return { ok: true, url }
+  }
+
+  // Sem os logs do Vercel acessíveis, a amostra do que veio é a única forma
+  // de perceber o que o Vendus está a devolver. Cortada, porque pode ser o
+  // PDF inteiro em base64.
+  const amostra = JSON.stringify({ output: doc?.output, output_data: doc?.output_data }).slice(
+    0,
+    200,
+  )
+  throw new Error(`O Vendus não devolveu o PDF nem um endereço aberto. Recebido: ${amostra}`)
 }
 
 // Regista a falha na própria encomenda. A razão tem de ficar onde alguém a vá
