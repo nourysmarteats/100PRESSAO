@@ -17,6 +17,7 @@ import Definicoes from './admin/Definicoes'
 import RestauranteOnline from './admin/RestauranteOnline'
 import QrCode from './admin/QrCode'
 import Estafetas from './admin/Estafetas'
+import Colaboradores from './admin/Colaboradores'
 import Equipa from './admin/Equipa'
 import Auditoria from './admin/Auditoria'
 import Feedback from './admin/Feedback'
@@ -36,6 +37,7 @@ const SECCOES = [
   { id: 'restaurante-online', rotulo: 'Restaurante Online', Componente: RestauranteOnline },
   { id: 'qrcode', rotulo: 'QR Code', Componente: QrCode },
   { id: 'estafetas', rotulo: 'Estafetas', Componente: Estafetas },
+  { id: 'colaboradores', rotulo: 'Colaboradores', Componente: Colaboradores },
   { id: 'definicoes', rotulo: 'Avisos & Horário', Componente: Definicoes },
   { id: 'feedback', rotulo: 'Feedback', Componente: Feedback },
   { id: 'equipa', rotulo: 'Equipa', Componente: Equipa },
