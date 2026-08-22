@@ -42,6 +42,7 @@ function Candidaturas() {
   const [ocupado, setOcupado] = useState(false)
   const [nota, setNota] = useState('')
   const [tabelaEmFalta, setTabelaEmFalta] = useState(false)
+  const [cfg, setCfg] = useState(null)
 
   const carregar = useCallback(async () => {
     const { data, error } = await supabase
@@ -64,9 +65,45 @@ function Candidaturas() {
     setDocumentos(por)
   }, [])
 
+  const carregarCfg = useCallback(async () => {
+    const { data } = await supabase
+      .from('definicoes')
+      .select('valor')
+      .eq('chave', 'candidaturas')
+      .maybeSingle()
+    if (data?.valor) setCfg(data.valor)
+  }, [])
+
   useEffect(() => {
     carregar()
-  }, [carregar])
+    carregarCfg()
+  }, [carregar, carregarCfg])
+
+  // Abrir e fechar o portal é uma decisão de negócio, não de infraestrutura.
+  // Enquanto viveu só na base de dados, dependia de mim — que é exactamente
+  // o género de dependência que não devia existir.
+  async function guardarCfg(patch) {
+    const novo = { ...(cfg || {}), ...patch }
+    setCfg(novo)
+    setOcupado(true)
+    const { error } = await supabase
+      .from('definicoes')
+      .update({ valor: novo, atualizado_em: new Date().toISOString() })
+      .eq('chave', 'candidaturas')
+    setOcupado(false)
+    if (error) {
+      setNota(`Erro ao guardar: ${error.message}`)
+      carregarCfg()
+      return
+    }
+    setNota(
+      patch.portal_aberto === true
+        ? 'Portal aberto. 100pressao.pt/colaborador passa a receber candidaturas.'
+        : patch.portal_aberto === false
+          ? 'Portal fechado. Quem lá for vê a mensagem de encerrado.'
+          : 'Guardado.',
+    )
+  }
 
   const filtradas = useMemo(
     () => (lista || []).filter((c) => !filtro || c.estado === filtro),
@@ -168,6 +205,69 @@ function Candidaturas() {
         <p className="mt-3 rounded-lg border border-cobre-600/30 bg-cobre-600/5 p-3 text-sm text-grafite-700">
           {nota}
         </p>
+      )}
+
+      {/* Interruptor do portal */}
+      {cfg && (
+        <div
+          className={`mt-4 rounded-xl border p-4 ${
+            cfg.portal_aberto
+              ? 'border-emerald-500/30 bg-emerald-500/5'
+              : 'border-creme-300 bg-creme-100/60'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-semibold text-grafite-900">
+                {cfg.portal_aberto ? 'Portal aberto ao público' : 'Portal fechado'}
+              </p>
+              <p className="text-xs text-grafite-600/70">
+                {cfg.portal_aberto ? (
+                  <>
+                    Qualquer pessoa em{' '}
+                    <code className="rounded bg-creme-100 px-1">100pressao.pt/colaborador</code>{' '}
+                    pode candidatar-se.
+                  </>
+                ) : (
+                  <>
+                    Quem lá for vê a mensagem de encerrado. Acrescenta{' '}
+                    <code className="rounded bg-creme-100 px-1">?ver=1</code> ao endereço para
+                    veres o formulário na mesma.
+                  </>
+                )}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={() => guardarCfg({ portal_aberto: !cfg.portal_aberto })}
+              className={
+                cfg.portal_aberto
+                  ? 'cursor-pointer rounded-lg border border-creme-300 px-4 py-2 font-display text-xs font-bold uppercase tracking-widest text-grafite-700 disabled:opacity-60'
+                  : `${BOTAO} disabled:opacity-60`
+              }
+            >
+              {cfg.portal_aberto ? 'Fechar portal' : 'Abrir ao público'}
+            </button>
+          </div>
+
+          <label className="mt-3 flex flex-wrap items-center gap-2 text-xs text-grafite-600/70">
+            <span className="font-semibold uppercase tracking-widest text-grafite-600/60">
+              Tecto diário
+            </span>
+            <input
+              type="number"
+              min="1"
+              value={cfg.tecto_diario ?? 50}
+              onChange={(e) => setCfg({ ...cfg, tecto_diario: Number(e.target.value) })}
+              onBlur={() => guardarCfg({ tecto_diario: Number(cfg.tecto_diario) || 50 })}
+              className="w-20 rounded-lg border border-creme-300 bg-creme-50 px-2 py-1 text-sm text-grafite-900"
+            />
+            candidaturas por dia. Ao bater no tecto o portal recusa até ao dia
+            seguinte — é o que impede um script de encher isto de noite.
+            Enquanto não houver Turnstile, é a defesa que temos.
+          </label>
+        </div>
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
