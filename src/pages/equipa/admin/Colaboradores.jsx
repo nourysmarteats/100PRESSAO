@@ -13,6 +13,7 @@ import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import { nifValido } from '../../../lib/nif'
 import { registarAuditoria } from '../../../lib/equipa'
+import Candidaturas from './Candidaturas'
 import {
   ESTADOS,
   LIMIARES,
@@ -784,6 +785,9 @@ function Colaboradores() {
           </div>
         )}
       </section>
+
+      {/* ── Candidaturas ── */}
+      <Candidaturas />
 
       {/* ── Colaboradores ── */}
       <section>

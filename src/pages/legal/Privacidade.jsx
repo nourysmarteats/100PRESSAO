@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import AvisoPrivacidadeRecrutamento from '../../components/AvisoPrivacidadeRecrutamento'
 import { PaginaLegal, Seccao } from './PaginaLegal'
 
 const SEO = {
@@ -117,7 +119,22 @@ function Privacidade() {
         </p>
       </Seccao>
 
-      <Seccao titulo="9. Alterações">
+      <Seccao titulo="9. Candidaturas a colaborador">
+        <p>
+          Se te candidatares a trabalhar connosco em{' '}
+          <Link to="/colaborador" className="text-cobre-600 underline-offset-4 hover:underline">
+            100pressao.pt/colaborador
+          </Link>
+          , tratamos os teus dados nos termos abaixo. É um tratamento distinto
+          dos restantes descritos nesta política, com finalidade, base legal e
+          prazo próprios.
+        </p>
+        <div className="mt-4">
+          <AvisoPrivacidadeRecrutamento compacto />
+        </div>
+      </Seccao>
+
+      <Seccao titulo="10. Alterações">
         <p>
           Podemos atualizar esta política sempre que necessário. A data no topo
           indica a última revisão.

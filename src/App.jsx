@@ -10,6 +10,7 @@ const Restaurante = lazy(() => import('./pages/Restaurante'))
 const InstalarPWA = lazy(() => import('./pages/InstalarPWA'))
 const Contacto = lazy(() => import('./pages/Contacto'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
+const Colaborador = lazy(() => import('./pages/Colaborador'))
 const Privacidade = lazy(() => import('./pages/legal/Privacidade'))
 const Cookies = lazy(() => import('./pages/legal/Cookies'))
 const Termos = lazy(() => import('./pages/legal/Termos'))
@@ -50,6 +51,8 @@ function App() {
           <Route path="/app" element={pagina(InstalarPWA)} />
           <Route path="/contacto" element={pagina(Contacto)} />
           <Route path="/faca-parte" element={pagina(FacaParte)} />
+          <Route path="/colaborador" element={pagina(Colaborador)} />
+          <Route path="/colaboradores" element={<Navigate to="/colaborador" replace />} />
           {/* Páginas legais */}
           <Route path="/privacidade" element={pagina(Privacidade)} />
           <Route path="/cookies" element={pagina(Cookies)} />

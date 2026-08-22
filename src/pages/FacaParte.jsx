@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import SEOHead from '../components/SEOHead'
 import { SEO_PAGES } from '../seo/pages'
@@ -32,17 +33,16 @@ function FacaParte() {
               Trabalhar Connosco
             </h2>
             <p className="mt-4 leading-relaxed text-grafite-600">
-              Gostas de cerveja bem tirada, de balcão cheio e de gente? De momento
-              não temos vagas abertas, mas estamos sempre atentos a quem partilha
-              o nosso espírito. Envia-nos uma apresentação para{' '}
-              <a
-                href="mailto:geral@100pressao.pt"
-                className="text-cobre-600 underline-offset-4 hover:underline"
-              >
-                geral@100pressao.pt
-              </a>{' '}
-              e falamos.
+              Gostas de cerveja bem tirada, de balcão cheio e de gente? Deixa-nos
+              a tua candidatura e falamos. Lemos todas — e respondemos, mesmo
+              quando a resposta é não.
             </p>
+            <Link
+              to="/colaborador"
+              className="mt-5 inline-block rounded-xl bg-cobre-600 px-6 py-3 font-display text-sm font-bold uppercase tracking-widest text-creme-50 transition hover:bg-cobre-700"
+            >
+              Candidatar-me
+            </Link>
           </motion.section>
 
           <motion.section

@@ -65,6 +65,16 @@ export const SEO_PAGES = {
     description:
       'Trabalhar connosco ou tornar-se parceiro/franquia da 100PRESSÃO em Carnaxide. Saiba como.',
   },
+  colaborador: {
+    // Portal de candidaturas. noindex enquanto `portal_aberto` for falso em
+    // definicoes.candidaturas — abrir ao Google antes de abrir às pessoas
+    // encheria isto de candidaturas que ninguém pediu.
+    path: '/colaborador',
+    noindex: true,
+    title: 'Trabalhar na 100PRESSÃO | Candidaturas',
+    description:
+      'Candidata-te a trabalhar na 100PRESSÃO, no Mercado Municipal de Carnaxide.',
+  },
   restaurante: {
     path: '/restaurante',
     title: 'Encomendar Online em Carnaxide | 100PRESSÃO',
@@ -152,6 +162,7 @@ const ORDEM_ROTAS = [
   'cardapio',
   'app',
   'facaParte',
+  'colaborador',
   'privacidade',
   'cookies',
   'termos',

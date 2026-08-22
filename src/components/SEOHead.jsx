@@ -7,7 +7,7 @@ const SITE_URL = 'https://www.100pressao.pt'
 // (WhatsApp, Facebook, etc.). Gerada em public/og-image.jpg.
 const DEFAULT_OG_IMAGE = '/og-image.jpg'
 
-function SEOHead({ title, description, path, image, manifest = '/site.webmanifest' }) {
+function SEOHead({ title, description, path, image, noindex = false, manifest = '/site.webmanifest' }) {
   // A raiz canoniza como ".../" (com barra) — tem de bater certo com o
   // canonical pré-renderizado em scripts/vite-plugin-seo.js e com o sitemap,
   // senão o Google vê dois URLs diferentes para a mesma página.
@@ -33,7 +33,11 @@ function SEOHead({ title, description, path, image, manifest = '/site.webmanifes
           desaparece do DOM renderizado (que é o que o Google indexa). */}
       <meta
         name="robots"
-        content="index, follow, max-image-preview:large, max-snippet:-1"
+        content={
+          noindex
+            ? 'noindex, nofollow'
+            : 'index, follow, max-image-preview:large, max-snippet:-1'
+        }
       />
 
       <meta property="og:type" content="website" />
