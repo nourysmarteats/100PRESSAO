@@ -1,4 +1,4 @@
--- 2026-08-21 — POR APLICAR.
+-- 2026-08-21 — APLICADA em 2026-08-21 (migração colaboradores_recibos_verdes).
 --
 -- Colaboradores a recibos verdes: pagamento mensal e controlo da dependência
 -- económica, por entidade do grupo e consolidado.
@@ -263,5 +263,5 @@ values (
   now()
 )
 on conflict (chave) do update
-  set valor = excluded.valor || public.definicoes.valor,
+  set valor = excluded.valor || definicoes.valor,
       atualizado_em = now();
