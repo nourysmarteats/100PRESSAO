@@ -9,8 +9,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import {
+  ESTADOS,
   LIMIARES,
+  VINCULOS,
+  VINCULOS_COM_FUNDAMENTO,
   apurar,
+  entraNoApuramento,
+  fundamentoValido,
+  vinculoExigeFundamento,
   dependencia,
   declaracaoDesatualizada,
   distribuicaoMecanica,
@@ -346,6 +352,56 @@ test('simulação sem declaração não devolve fração nem custo', () => {
   assert.equal(s.fracaoDepois, null)
   assert.equal(s.custoDepois, null)
   assert.equal(s.passaTeto, false)
+})
+
+// ── Vínculo contratual ────────────────────────────────────────────────────
+
+test('os vínculos que exigem fundamento são os precários, e só esses', () => {
+  assert.deepEqual(VINCULOS_COM_FUNDAMENTO, [
+    'termo_certo',
+    'muito_curta_duracao',
+    'prestacao_servicos',
+  ])
+  assert.equal(vinculoExigeFundamento('termo_certo'), true)
+  assert.equal(vinculoExigeFundamento('prestacao_servicos'), true)
+  assert.equal(vinculoExigeFundamento('contrato_trabalho'), false)
+  assert.equal(vinculoExigeFundamento('intermitente'), false)
+  assert.equal(vinculoExigeFundamento(null), false)
+})
+
+test('fundamento telegráfico não passa — o CHECK da base de dados pede 15 caracteres', () => {
+  assert.equal(fundamentoValido('termo_certo', 'abertura'), false)
+  assert.equal(fundamentoValido('termo_certo', '   '), false)
+  assert.equal(fundamentoValido('termo_certo', null), false)
+  assert.equal(
+    fundamentoValido('termo_certo', 'Início de laboração do estabelecimento, art. 140.º/2/b'),
+    true,
+  )
+  assert.equal(fundamentoValido('contrato_trabalho', null), true, 'sem termo não precisa')
+})
+
+test('só a prestação de serviços entra no apuramento de dependência', () => {
+  assert.equal(entraNoApuramento('prestacao_servicos'), true)
+  assert.equal(entraNoApuramento('contrato_trabalho'), false)
+  assert.equal(entraNoApuramento('termo_certo'), false)
+  assert.equal(entraNoApuramento('intermitente'), false)
+})
+
+test('vínculo por definir continua a contar — na dúvida, vigia-se', () => {
+  assert.equal(entraNoApuramento(null), true)
+  assert.equal(entraNoApuramento(''), true)
+  assert.equal(entraNoApuramento(undefined), true)
+})
+
+test('as listas de vínculos e estados têm rótulos para todas as chaves', () => {
+  for (const [chave, v] of Object.entries(VINCULOS)) {
+    assert.ok(v.rotulo?.length > 0, `${chave} sem rótulo`)
+    assert.ok(v.curto?.length > 0, `${chave} sem rótulo curto`)
+  }
+  assert.deepEqual(Object.keys(ESTADOS), ['candidato', 'activo', 'suspenso', 'inactivo'])
+  for (const chave of VINCULOS_COM_FUNDAMENTO) {
+    assert.ok(VINCULOS[chave], `${chave} exige fundamento mas não está em VINCULOS`)
+  }
 })
 
 // ── Limiares configuráveis ────────────────────────────────────────────────

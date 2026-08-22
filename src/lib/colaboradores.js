@@ -76,6 +76,53 @@ export const LIMIARES = {
   tolerancia_art_53: 18750,
 }
 
+// ── Vínculo contratual ────────────────────────────────────────────────────
+//
+// A natureza do vínculo não é uma conta, mas é a decisão de que tudo o resto
+// depende. A contribuição de entidade contratante só existe para prestação
+// de serviços; num contrato de trabalho não há fração nenhuma a vigiar,
+// porque já se está a descontar TSU. Vive aqui, e não no ecrã, porque a base
+// de dados tem os mesmos valores num CHECK e as duas listas têm de concordar.
+
+export const VINCULOS = {
+  contrato_trabalho: { rotulo: 'Contrato de trabalho sem termo', curto: 'Sem termo' },
+  termo_certo: { rotulo: 'Contrato a termo certo', curto: 'Termo certo' },
+  muito_curta_duracao: { rotulo: 'Contrato de muito curta duração', curto: 'Curta duração' },
+  intermitente: { rotulo: 'Trabalho intermitente', curto: 'Intermitente' },
+  tempo_parcial: { rotulo: 'Trabalho a tempo parcial', curto: 'Tempo parcial' },
+  prestacao_servicos: { rotulo: 'Prestação de serviços (recibos verdes)', curto: 'Recibos verdes' },
+}
+
+// Vínculos que a lei manda fundamentar por escrito. Um contrato a termo sem
+// fundamento converte-se em contrato sem termo; uma prestação de serviços sem
+// justificação é o primeiro ponto que a ACT levanta. O CHECK na base de dados
+// espelha esta lista — se mexeres numa, mexe na outra.
+export const VINCULOS_COM_FUNDAMENTO = ['termo_certo', 'muito_curta_duracao', 'prestacao_servicos']
+
+export function vinculoExigeFundamento(vinculo) {
+  return VINCULOS_COM_FUNDAMENTO.includes(vinculo)
+}
+
+export function fundamentoValido(vinculo, texto) {
+  if (!vinculoExigeFundamento(vinculo)) return true
+  return typeof texto === 'string' && texto.trim().length >= 15
+}
+
+// Quem entra no apuramento de dependência económica. Um trabalhador por conta
+// de outrem não entra: não há entidade contratante nenhuma a apurar sobre ele.
+// Vínculo por definir devolve true de propósito — enquanto ninguém decidiu,
+// o mais prudente é continuar a contar.
+export function entraNoApuramento(vinculo) {
+  return vinculo == null || vinculo === '' || vinculo === 'prestacao_servicos'
+}
+
+export const ESTADOS = {
+  candidato: 'Candidato',
+  activo: 'Activo',
+  suspenso: 'Suspenso',
+  inactivo: 'Inactivo',
+}
+
 // Rendimento anual mínimo para haver entidade contratante.
 export function minimoAbrangencia(limiares = LIMIARES) {
   return Number(limiares.ias_anual || 0) * Number(limiares.minimo_multiplo_ias || 0)

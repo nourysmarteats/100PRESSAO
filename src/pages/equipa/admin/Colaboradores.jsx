@@ -14,9 +14,14 @@ import { fmt } from '../../../lib/pedidos'
 import { nifValido } from '../../../lib/nif'
 import { registarAuditoria } from '../../../lib/equipa'
 import {
+  ESTADOS,
   LIMIARES,
+  VINCULOS,
   apurar,
+  entraNoApuramento,
+  fundamentoValido,
   simular,
+  vinculoExigeFundamento,
   declaracaoDesatualizada,
   pct,
 } from '../../../lib/colaboradores'
@@ -66,12 +71,26 @@ const COLAB_VAZIO = {
   perfil_id: '',
   estafeta_id: '',
   inicio_atividade: '',
+  funcao: '',
+  vinculo: '',
+  vinculo_fundamento: '',
+  estado: 'activo',
+  data_inicio: '',
+  data_fim: '',
   isento_art_53: false,
   isento_ss_art157: false,
   isencao_ss_fundamento: '',
   taxa_retencao_irs: 0,
-  ativo: true,
   notas: '',
+}
+
+// Cores dos estados. `candidato` fica neutro de propósito: ainda não é
+// ninguém no sistema, e um verde ali daria a ideia errada.
+const CORES_ESTADO = {
+  candidato: 'border-cobre-600/30 bg-cobre-600/10 text-cobre-700',
+  activo: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700',
+  suspenso: 'border-ambar-500/40 bg-ambar-500/15 text-ambar-700',
+  inactivo: 'border-creme-300 bg-creme-100 text-grafite-600/60',
 }
 const PAGAMENTO_VAZIO = {
   colaborador_id: '',
@@ -97,6 +116,35 @@ function Etiqueta({ nivel: n, children }) {
   )
 }
 
+function Contador({ rotulo, valor, alerta }) {
+  return (
+    <div
+      className={`rounded-lg border p-3 ${
+        alerta ? 'border-ambar-500/40 bg-ambar-500/10' : 'border-creme-300 bg-creme-100/60'
+      }`}
+    >
+      <p className="font-display text-xl font-bold text-grafite-900">{valor}</p>
+      <p className="text-[0.65rem] uppercase tracking-widest text-grafite-600/60">{rotulo}</p>
+    </div>
+  )
+}
+
+function Chip({ activo, aoClicar, children }) {
+  return (
+    <button
+      type="button"
+      onClick={aoClicar}
+      className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-widest transition ${
+        activo
+          ? 'border-cobre-600 bg-cobre-600 text-creme-100'
+          : 'border-creme-300 bg-creme-100 text-grafite-600 hover:border-cobre-600/50'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 function Colaboradores() {
   const [ano, setAno] = useState(anoAtual)
   const [entidades, setEntidades] = useState([])
@@ -108,6 +156,8 @@ function Colaboradores() {
   const [estafetaApurado, setEstafetaApurado] = useState({})
   const [limiares, setLimiares] = useState(LIMIARES)
   const [tabelaEmFalta, setTabelaEmFalta] = useState(false)
+  const [filtroEstado, setFiltroEstado] = useState('activo')
+  const [filtroVinculo, setFiltroVinculo] = useState('')
 
   const [formEntidade, setFormEntidade] = useState(null) // null | 'nova' | id
   const [entidade, setEntidade] = useState(ENTIDADE_VAZIA)
@@ -197,6 +247,40 @@ function Colaboradores() {
     })
   }, [colabs, rendimentos, pagamentos, entidadesAtivas, limiares, estafetaApurado])
 
+  // Um trabalhador por conta de outrem não tem entidade contratante a apurar:
+  // já se lhe desconta TSU. Mostrá-lo no painel de dependência com 0% seria
+  // dizer que está seguro, quando na verdade está noutra conversa.
+  const paraApuramento = useMemo(
+    () => porColaborador.filter((x) => entraNoApuramento(x.colaborador.vinculo)),
+    [porColaborador],
+  )
+
+  const contadores = useMemo(() => {
+    const lista = colabs || []
+    const conta = (f) => lista.filter(f).length
+    return {
+      total: lista.length,
+      activos: conta((c) => (c.estado || 'activo') === 'activo'),
+      suspensos: conta((c) => c.estado === 'suspenso'),
+      inactivos: conta((c) => c.estado === 'inactivo'),
+      candidatos: conta((c) => c.estado === 'candidato'),
+      semVinculo: conta((c) => !c.vinculo && c.estado !== 'inactivo'),
+      prestadores: conta((c) => c.vinculo === 'prestacao_servicos'),
+      custoAno: paraApuramento.reduce((acc, x) => acc + (x.custoTotal || 0), 0),
+      semDeclaracao: paraApuramento.filter((x) => !x.rendimento).length,
+    }
+  }, [colabs, paraApuramento])
+
+  const colabsFiltrados = useMemo(() => {
+    return (colabs || []).filter((c) => {
+      const estado = c.estado || 'activo'
+      if (filtroEstado && estado !== filtroEstado) return false
+      if (filtroVinculo === '__sem__' && c.vinculo) return false
+      if (filtroVinculo && filtroVinculo !== '__sem__' && c.vinculo !== filtroVinculo) return false
+      return true
+    })
+  }, [colabs, filtroEstado, filtroVinculo])
+
   // Simulação do pagamento que está a ser escrito no formulário
   const simulacao = useMemo(() => {
     if (!pagamento.colaborador_id || !pagamento.entidade_id || !pagamento.valor_base) return null
@@ -258,6 +342,16 @@ function Colaboradores() {
     const nif = colab.nif.replace(/\D/g, '')
     if (!colab.nome.trim()) return mostrarAviso('O colaborador precisa de nome.')
     if (nif && !nifValido(nif)) return mostrarAviso('NIF inválido (dígito de controlo errado).')
+    // O mesmo travão existe como CHECK na base de dados. Aqui é só para o
+    // aviso chegar antes do erro de SQL.
+    if (!fundamentoValido(colab.vinculo, colab.vinculo_fundamento)) {
+      return mostrarAviso(
+        `${VINCULOS[colab.vinculo].rotulo} exige fundamento escrito — pelo menos uma frase que diga porquê.`,
+      )
+    }
+    if (colab.data_fim && colab.data_inicio && colab.data_fim < colab.data_inicio) {
+      return mostrarAviso('A data de fim é anterior à de início.')
+    }
     setOcupado(true)
     const registo = {
       nome: colab.nome.trim(),
@@ -267,11 +361,16 @@ function Colaboradores() {
       perfil_id: colab.perfil_id || null,
       estafeta_id: colab.estafeta_id || null,
       inicio_atividade: colab.inicio_atividade || null,
+      funcao: colab.funcao.trim() || null,
+      vinculo: colab.vinculo || null,
+      vinculo_fundamento: colab.vinculo_fundamento.trim() || null,
+      estado: colab.estado,
+      data_inicio: colab.data_inicio || null,
+      data_fim: colab.data_fim || null,
       isento_art_53: !!colab.isento_art_53,
       isento_ss_art157: !!colab.isento_ss_art157,
       isencao_ss_fundamento: colab.isencao_ss_fundamento.trim() || null,
       taxa_retencao_irs: Number(colab.taxa_retencao_irs) || 0,
-      ativo: !!colab.ativo,
       notas: colab.notas.trim() || null,
     }
     const { error } =
@@ -428,7 +527,7 @@ function Colaboradores() {
             >
               <option value="">—</option>
               {(colabs || [])
-                .filter((c) => c.ativo)
+                .filter((c) => (c.estado || 'activo') !== 'inactivo')
                 .map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nome}
@@ -655,15 +754,25 @@ function Colaboradores() {
           pelo colaborador — a fração vale o que valer essa declaração.
         </p>
 
+        {porColaborador.length > paraApuramento.length && (
+          <p className="mt-2 text-xs text-grafite-600/70">
+            {porColaborador.length - paraApuramento.length} de{' '}
+            {porColaborador.length} não aparecem aqui por terem contrato de
+            trabalho — nesses não há entidade contratante a apurar.
+          </p>
+        )}
+
         {colabs === null ? (
           <p className="mt-3 text-sm text-grafite-600/70">A carregar…</p>
-        ) : porColaborador.length === 0 ? (
+        ) : paraApuramento.length === 0 ? (
           <p className={`${CARTAO} mt-3 p-6 text-grafite-600`}>
-            Ainda não há colaboradores registados.
+            {porColaborador.length === 0
+              ? 'Ainda não há colaboradores registados.'
+              : 'Nenhum colaborador em prestação de serviços. Não há dependência económica a vigiar.'}
           </p>
         ) : (
           <div className="mt-4 space-y-4">
-            {porColaborador.map((x) => (
+            {paraApuramento.map((x) => (
               <FichaColaborador
                 key={x.colaborador.id}
                 dados={x}
@@ -692,6 +801,52 @@ function Colaboradores() {
           >
             Novo colaborador
           </button>
+        </div>
+
+        {/* Contadores. Poucos e accionáveis — um painel cheio de números que
+            ninguém usa é ruído a fingir de informação. */}
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Contador rotulo="Activos" valor={contadores.activos} />
+          <Contador rotulo="Prestadores de serviços" valor={contadores.prestadores} />
+          <Contador
+            rotulo="Sem vínculo definido"
+            valor={contadores.semVinculo}
+            alerta={contadores.semVinculo > 0}
+          />
+          <Contador
+            rotulo={`Contribuição estimada ${ano}`}
+            valor={fmt(contadores.custoAno)}
+            alerta={contadores.custoAno > 0}
+          />
+        </div>
+
+        {/* Filtros */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-widest text-grafite-600/60">
+            Estado
+          </span>
+          <Chip activo={filtroEstado === ''} aoClicar={() => setFiltroEstado('')}>
+            todos ({contadores.total})
+          </Chip>
+          {Object.entries(ESTADOS).map(([k, r]) => (
+            <Chip key={k} activo={filtroEstado === k} aoClicar={() => setFiltroEstado(k)}>
+              {r.toLowerCase()}
+            </Chip>
+          ))}
+          <span className="ml-3 text-xs font-semibold uppercase tracking-widest text-grafite-600/60">
+            Vínculo
+          </span>
+          <Chip activo={filtroVinculo === ''} aoClicar={() => setFiltroVinculo('')}>
+            todos
+          </Chip>
+          <Chip activo={filtroVinculo === '__sem__'} aoClicar={() => setFiltroVinculo('__sem__')}>
+            por definir
+          </Chip>
+          {Object.entries(VINCULOS).map(([k, v]) => (
+            <Chip key={k} activo={filtroVinculo === k} aoClicar={() => setFiltroVinculo(k)}>
+              {v.curto.toLowerCase()}
+            </Chip>
+          ))}
         </div>
 
         {formColab && (
@@ -799,6 +954,93 @@ function Colaboradores() {
                 className={CAMPO}
               />
             </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                Função
+              </span>
+              <input
+                value={colab.funcao}
+                onChange={(e) => setColab((c) => ({ ...c, funcao: e.target.value }))}
+                className={CAMPO}
+                placeholder="ex.: cozinha, balcão, contabilidade"
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                Estado
+              </span>
+              <select
+                value={colab.estado}
+                onChange={(e) => setColab((c) => ({ ...c, estado: e.target.value }))}
+                className={CAMPO}
+              >
+                {Object.entries(ESTADOS).map(([k, r]) => (
+                  <option key={k} value={k}>{r}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                Vínculo
+              </span>
+              <select
+                value={colab.vinculo}
+                onChange={(e) => setColab((c) => ({ ...c, vinculo: e.target.value }))}
+                className={CAMPO}
+              >
+                <option value="">Por definir</option>
+                {Object.entries(VINCULOS).map(([k, v]) => (
+                  <option key={k} value={k}>{v.rotulo}</option>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs text-grafite-600/70">
+                Só a prestação de serviços entra no apuramento de dependência
+                económica. Quem tem contrato de trabalho já desconta TSU e não
+                aparece nesse painel.
+              </span>
+            </label>
+            {vinculoExigeFundamento(colab.vinculo) && (
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                  Fundamento do vínculo (obrigatório)
+                </span>
+                <textarea
+                  rows={2}
+                  value={colab.vinculo_fundamento}
+                  onChange={(e) => setColab((c) => ({ ...c, vinculo_fundamento: e.target.value }))}
+                  className={CAMPO}
+                  placeholder="ex.: início de laboração do estabelecimento, art. 140.º/2/b do Código do Trabalho"
+                />
+                <span className="mt-1 block text-xs text-grafite-600/70">
+                  Um contrato a termo sem fundamento escrito converte-se em
+                  contrato sem termo. Uma prestação de serviços sem justificação
+                  é o primeiro ponto que a ACT levanta. Escreve-se aqui, hoje,
+                  enquanto a razão ainda está fresca.
+                </span>
+              </label>
+            )}
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                Início
+              </span>
+              <input
+                type="date"
+                value={colab.data_inicio}
+                onChange={(e) => setColab((c) => ({ ...c, data_inicio: e.target.value }))}
+                className={CAMPO}
+              />
+            </label>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">
+                Fim
+              </span>
+              <input
+                type="date"
+                value={colab.data_fim}
+                onChange={(e) => setColab((c) => ({ ...c, data_fim: e.target.value }))}
+                className={CAMPO}
+              />
+            </label>
             <label className="block sm:col-span-2">
               <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Notas</span>
               <input
@@ -827,15 +1069,6 @@ function Colaboradores() {
                   className="h-4 w-4 accent-ambar-500"
                 />
                 Isento de contribuir (art. 157.º CRC)
-              </label>
-              <label className="flex items-center gap-2 text-sm text-grafite-700">
-                <input
-                  type="checkbox"
-                  checked={colab.ativo}
-                  onChange={(e) => setColab((c) => ({ ...c, ativo: e.target.checked }))}
-                  className="h-4 w-4 accent-ambar-500"
-                />
-                Ativo
               </label>
             </div>
             {colab.isento_ss_art157 && (
@@ -870,22 +1103,43 @@ function Colaboradores() {
           </form>
         )}
 
+        {colabsFiltrados.length === 0 && (colabs || []).length > 0 && (
+          <p className="mt-3 text-sm text-grafite-600/70">
+            Nenhum colaborador com este filtro.
+          </p>
+        )}
+
         <ul className="mt-3 space-y-2">
-          {(colabs || []).map((c) => (
+          {colabsFiltrados.map((c) => (
             <li key={c.id} className={`${CARTAO} flex flex-wrap items-center justify-between gap-3 p-4`}>
               <div>
-                <p className="font-semibold text-grafite-900">
+                <p className="flex flex-wrap items-center gap-2 font-semibold text-grafite-900">
                   {c.nome}
-                  {!c.ativo && (
-                    <span className="ml-2 text-xs uppercase tracking-widest text-grafite-600/60">
-                      inativo
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest ${
+                      CORES_ESTADO[c.estado || 'activo']
+                    }`}
+                  >
+                    {ESTADOS[c.estado || 'activo']}
+                  </span>
+                  {c.vinculo ? (
+                    <span className="rounded-full border border-creme-300 bg-creme-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-grafite-600">
+                      {VINCULOS[c.vinculo].curto}
                     </span>
+                  ) : (
+                    c.estado !== 'inactivo' && (
+                      <span className="rounded-full border border-ambar-500/40 bg-ambar-500/15 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-ambar-700">
+                        vínculo por definir
+                      </span>
+                    )
                   )}
                 </p>
                 <p className="text-xs text-grafite-600/70">
                   {[
+                    c.funcao,
                     c.nif && `NIF ${c.nif}`,
                     c.isento_art_53 && 'art. 53.º',
+                    c.isento_ss_art157 && 'isento art. 157.º',
                     c.estafeta_id && 'também estafeta',
                     c.email,
                   ]
@@ -905,11 +1159,16 @@ function Colaboradores() {
                     perfil_id: c.perfil_id || '',
                     estafeta_id: c.estafeta_id || '',
                     inicio_atividade: c.inicio_atividade || '',
+                    funcao: c.funcao || '',
+                    vinculo: c.vinculo || '',
+                    vinculo_fundamento: c.vinculo_fundamento || '',
+                    estado: c.estado || 'activo',
+                    data_inicio: c.data_inicio || '',
+                    data_fim: c.data_fim || '',
                     isento_art_53: !!c.isento_art_53,
                     isento_ss_art157: !!c.isento_ss_art157,
                     isencao_ss_fundamento: c.isencao_ss_fundamento || '',
                     taxa_retencao_irs: c.taxa_retencao_irs ?? 0,
-                    ativo: c.ativo !== false,
                     notas: c.notas || '',
                   })
                 }}
