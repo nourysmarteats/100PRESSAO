@@ -3,10 +3,12 @@
 // nunca pode chegar ao browser. Requer env vars no projeto Vercel:
 //   VITE_SUPABASE_URL (já existe) e SUPABASE_SERVICE_ROLE_KEY (adicionar).
 import { createClient } from '@supabase/supabase-js'
-import { createHash } from 'node:crypto'
 
-const hashPin = (userId, pin) =>
-  createHash('sha256').update(`${userId}:${pin}`).digest('hex')
+// O PIN deixou de ser transformado aqui. O hash (bcrypt, com sal) é feito
+// dentro da funcao definir_pin, na base de dados: o PIN em claro nao chega a
+// ser guardado em variavel nenhuma deste lado, e o algoritmo vive num sitio
+// so. Ver docs/sql/2026-08-27-seguranca-bloco-1.sql.
+const PIN_SEIS_DIGITOS = /^\d{6}$/
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -49,8 +51,8 @@ export default async function handler(req, res) {
       if (!email?.includes('@')) return res.status(400).json({ erro: 'Email inválido.' })
       if (!password || password.length < 8)
         return res.status(400).json({ erro: 'Password precisa de 8+ caracteres.' })
-      if (!/^\d{4}$/.test(pin || ''))
-        return res.status(400).json({ erro: 'PIN tem de ter 4 dígitos.' })
+      if (!PIN_SEIS_DIGITOS.test(pin || ''))
+        return res.status(400).json({ erro: 'PIN tem de ter 6 dígitos.' })
       if (!['admin', 'staff'].includes(papel))
         return res.status(400).json({ erro: 'Papel inválido.' })
       if (!nome?.trim()) return res.status(400).json({ erro: 'Nome em falta.' })
@@ -67,13 +69,24 @@ export default async function handler(req, res) {
         email,
         nome: nome.trim(),
         papel,
-        pin_hash: hashPin(novo.user.id, pin),
         ativo: true,
       })
       if (erroPerfil) {
         // rollback para não deixar conta órfã sem perfil
         await admin.auth.admin.deleteUser(novo.user.id)
         return res.status(500).json({ erro: 'Falha a criar o perfil — conta revertida. A migração SQL v2 já foi aplicada?' })
+      }
+
+      // O PIN entra num segundo passo, pela função que o cifra. Se falhar, a
+      // conta é revertida: melhor não existir do que existir sem cadeado.
+      const { error: erroPin } = await admin.rpc('definir_pin', {
+        p_user: novo.user.id,
+        p_pin: pin,
+      })
+      if (erroPin) {
+        await admin.auth.admin.deleteUser(novo.user.id)
+        await admin.from('perfis').delete().eq('id', novo.user.id)
+        return res.status(400).json({ erro: `PIN recusado — conta revertida. ${erroPin.message}` })
       }
       return res.status(200).json({ ok: true, user_id: novo.user.id })
     }
@@ -114,12 +127,9 @@ export default async function handler(req, res) {
     if (acao === 'definir_pin') {
       const { user_id, pin } = dados
       if (!user_id) return res.status(400).json({ erro: 'user_id em falta.' })
-      if (!/^\d{4}$/.test(pin || ''))
-        return res.status(400).json({ erro: 'PIN tem de ter 4 dígitos.' })
-      const { error } = await admin
-        .from('perfis')
-        .update({ pin_hash: hashPin(user_id, pin) })
-        .eq('id', user_id)
+      if (!PIN_SEIS_DIGITOS.test(pin || ''))
+        return res.status(400).json({ erro: 'PIN tem de ter 6 dígitos.' })
+      const { error } = await admin.rpc('definir_pin', { p_user: user_id, p_pin: pin })
       if (error) return res.status(400).json({ erro: `Supabase: ${error.message}` })
       return res.status(200).json({ ok: true })
     }

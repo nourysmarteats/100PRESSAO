@@ -100,10 +100,10 @@ function Equipa() {
   }
 
   async function trocarPin(p) {
-    const pin = window.prompt(`Novo PIN (4 dígitos) para ${p.nome}:`)
+    const pin = window.prompt(`Novo PIN (6 dígitos) para ${p.nome}:`)
     if (pin == null) return
-    if (!/^\d{4}$/.test(pin)) {
-      mostrarAviso('PIN tem de ter 4 dígitos.')
+    if (!/^\d{6}$/.test(pin)) {
+      mostrarAviso('PIN tem de ter 6 dígitos.')
       return
     }
     setOcupado(true)
@@ -165,10 +165,10 @@ function Equipa() {
             autoComplete="off"
           />
           <CampoTexto
-            rotulo="PIN pessoal * (4 dígitos)"
+            rotulo="PIN pessoal * (6 dígitos)"
             inputMode="numeric"
-            pattern="\d{4}"
-            maxLength={4}
+            pattern="\d{6}"
+            maxLength={6}
             value={form.pin}
             onChange={(e) => setForm((f) => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))}
             required

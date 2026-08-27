@@ -19,7 +19,6 @@ const MODULOS = [
 
 // Fallback pré-migração: enquanto não existirem perfis com PIN pessoal,
 // o PIN partilhado de arranque continua a funcionar (data de abertura)
-const PIN_PARTILHADO = '1707'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -120,7 +119,7 @@ function Login() {
 // A identidade vem sempre do login: a conta autenticada desbloqueia com o
 // SEU PIN pessoal; antes de haver PINs configurados (pré-migração), vale o
 // PIN partilhado de arranque. O PIN é só um cadeado, não uma identidade.
-function PinGate({ perfilProprio, usaProprio, temPins, aoDesbloquear }) {
+function PinGate({ perfilProprio, usaProprio, digitos, aoDesbloquear }) {
   const [pin, setPin] = useState('')
   const [erro, setErro] = useState(false)
   const [mensagem, setMensagem] = useState('')
@@ -129,7 +128,7 @@ function PinGate({ perfilProprio, usaProprio, temPins, aoDesbloquear }) {
     setPin(valor)
     setErro(false)
     setMensagem('')
-    if (valor.length < 4) return
+    if (valor.length < digitos) return
 
     if (usaProprio) {
       // Verificação no servidor (RPC verificar_pin, SECURITY DEFINER, com
@@ -149,9 +148,6 @@ function PinGate({ perfilProprio, usaProprio, temPins, aoDesbloquear }) {
         aoDesbloquear()
         return
       }
-    } else if (!temPins && valor === PIN_PARTILHADO) {
-      aoDesbloquear()
-      return
     }
     setErro(true)
     setPin('')
@@ -166,7 +162,7 @@ function PinGate({ perfilProprio, usaProprio, temPins, aoDesbloquear }) {
       <input
         type="password"
         inputMode="numeric"
-        maxLength={4}
+        maxLength={digitos}
         value={pin}
         onChange={(e) => verificar(e.target.value.replace(/\D/g, ''))}
         autoFocus
@@ -204,7 +200,7 @@ function AreaEquipa() {
       const estadoPin = Array.isArray(estadoResp.data) ? estadoResp.data[0] : estadoResp.data
       setPinEstado(
         estadoResp.error || !estadoPin
-          ? { tem_pin_proprio: false, existem_pins: false } // degrada para PIN partilhado
+          ? { tem_pin_proprio: false, existem_pins: false, digitos: 6 }
           : estadoPin
       )
       const lista = error ? [] : data
@@ -259,7 +255,7 @@ function AreaEquipa() {
       <PinGate
         perfilProprio={perfilProprio}
         usaProprio={usaProprio}
-        temPins={temPins}
+        digitos={pinEstado.digitos ?? 6}
         aoDesbloquear={() => {
           definirTurno(sessao.user.id)
           setDesbloqueado(true)

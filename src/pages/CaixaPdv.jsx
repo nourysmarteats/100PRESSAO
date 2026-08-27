@@ -30,7 +30,6 @@ import logoStamp from '../assets/logo-100pressao.png'
 // PIN partilhado de arranque, igual ao do EquipaLayout: só vale enquanto não
 // houver PINs pessoais configurados. Assim que houver, cada conta entra com o
 // seu, verificado no servidor.
-const PIN_PARTILHADO = '1707'
 
 // ----------------------------
 // Utilitários de estilo
@@ -243,18 +242,21 @@ function PinGate({ sessaoId, aoDesbloquear }) {
   useEffect(() => {
     supabase.rpc('pin_estado').then(({ data, error }) => {
       const e = Array.isArray(data) ? data[0] : data
-      setEstadoPin(error || !e ? { tem_pin_proprio: false, existem_pins: false } : e)
+      setEstadoPin(error || !e ? { tem_pin_proprio: false, existem_pins: false, digitos: 6 } : e)
     })
   }, [])
 
   const usaProprio = !!estadoPin?.tem_pin_proprio
-  const temPins = !!estadoPin?.existem_pins
+  // Quantos dígitos esperar vem do servidor: 6 nos PINs novos, 4 enquanto
+  // restar algum legado. Verificar antes do comprimento certo gastava
+  // tentativas do travão de força bruta a cada entrada correcta.
+  const digitos = estadoPin?.digitos ?? 6
 
   async function verificar(valor) {
     setPin(valor)
     setErro(false)
     setMensagem('')
-    if (valor.length < 4) return
+    if (valor.length < digitos) return
 
     if (usaProprio) {
       const { data, error } = await supabase.rpc('verificar_pin', { p_pin: valor })
@@ -269,11 +271,6 @@ function PinGate({ sessaoId, aoDesbloquear }) {
         aoDesbloquear()
         return
       }
-    } else if (!temPins && valor === PIN_PARTILHADO) {
-      // Antes de haver PINs pessoais configurados, vale o PIN de arranque —
-      // mesma tolerância que o EquipaLayout, para não trancar ninguém fora.
-      aoDesbloquear()
-      return
     }
     setErro(true)
     setTimeout(() => setPin(''), 600)
@@ -288,7 +285,7 @@ function PinGate({ sessaoId, aoDesbloquear }) {
       <input
         type="password"
         inputMode="numeric"
-        maxLength={4}
+        maxLength={digitos}
         value={pin}
         onChange={(e) => verificar(e.target.value.replace(/\D/g, ''))}
         autoFocus
