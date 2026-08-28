@@ -253,8 +253,8 @@ function Beta() {
             <p className="text-grafite-700">
               As inscrições ainda não abriram. Volta daqui a uns dias, ou escreve
               para{' '}
-              <a className="font-semibold text-cobre-600 hover:underline" href="mailto:equipa@100pressao.pt">
-                equipa@100pressao.pt
+              <a className="font-semibold text-cobre-600 hover:underline" href="mailto:geral@100pressao.pt">
+                geral@100pressao.pt
               </a>
               .
             </p>
