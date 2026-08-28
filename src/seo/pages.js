@@ -75,6 +75,15 @@ export const SEO_PAGES = {
     description:
       'Candidata-te a trabalhar na 100PRESSÃO, no Mercado Municipal de Carnaxide.',
   },
+  beta: {
+    // Registo de beta testers. noindex: a fase beta vive dos canais que a
+    // Marta controla, nao de quem cai aqui por pesquisa.
+    path: '/beta',
+    noindex: true,
+    title: 'Beta testers | 100PRESSAO Draft House',
+    description:
+      'Inscricao para a fase beta do 100PRESSAO Draft House, no Mercado Municipal de Carnaxide.',
+  },
   restaurante: {
     path: '/restaurante',
     title: 'Encomendar Online em Carnaxide | 100PRESSÃO',
@@ -163,6 +172,9 @@ const ORDEM_ROTAS = [
   'app',
   'facaParte',
   'colaborador',
+  // Sem esta entrada o /beta nao ganha ficheiro no dist e o cleanUrls
+  // devolve 404 em producao. Em dev funciona na mesma, por isso nao se nota.
+  'beta',
   'privacidade',
   'cookies',
   'termos',
