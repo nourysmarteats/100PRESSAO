@@ -1,6 +1,6 @@
 // Aviso de privacidade da inscricao na fase beta.
-// Texto de Bea Salgado, versao 2026-09-01.v1, arquivado em
-// docs/consentimentos/beta-2026-09-01.v1.txt.
+// Texto de Bea Salgado, versao 2026-08-28.v1, arquivado em
+// docs/consentimentos/beta-2026-08-28.v1.txt.
 //
 // TEXTO PUBLICADO E IMUTAVEL. Nao se corrige aqui: cria-se a versao seguinte,
 // arquiva-se o ficheiro novo, e sobe-se a etiqueta em definicoes.beta.aviso_versao.
