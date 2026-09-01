@@ -22,6 +22,8 @@ import Equipa from './admin/Equipa'
 import Auditoria from './admin/Auditoria'
 import Feedback from './admin/Feedback'
 import Faturas from './admin/Faturas'
+import Financeiro from './admin/Financeiro'
+import BetaTesters from './admin/BetaTesters'
 
 const SECCOES = [
   { id: 'analytics', rotulo: 'Analytics', Componente: Analytics },
@@ -29,6 +31,7 @@ const SECCOES = [
   { id: 'rentabilidade', rotulo: 'Rentabilidade', Componente: Rentabilidade },
   { id: 'caixa', rotulo: 'Fecho de caixa', Componente: Caixa },
   { id: 'faturas', rotulo: 'Faturas', Componente: Faturas },
+  { id: 'financeiro', rotulo: 'Financeiro', Componente: Financeiro },
   { id: 'ementa', rotulo: 'Ementa', Componente: Ementa },
   { id: 'produtos', rotulo: 'Produtos', Componente: Produtos },
   { id: 'categorias', rotulo: 'Categorias', Componente: Categorias },
@@ -38,6 +41,7 @@ const SECCOES = [
   { id: 'qrcode', rotulo: 'QR Code', Componente: QrCode },
   { id: 'estafetas', rotulo: 'Estafetas', Componente: Estafetas },
   { id: 'colaboradores', rotulo: 'Colaboradores', Componente: Colaboradores },
+  { id: 'beta-testers', rotulo: 'Beta testers', Componente: BetaTesters },
   { id: 'definicoes', rotulo: 'Avisos & Horário', Componente: Definicoes },
   { id: 'feedback', rotulo: 'Feedback', Componente: Feedback },
   { id: 'equipa', rotulo: 'Equipa', Componente: Equipa },
