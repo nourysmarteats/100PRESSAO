@@ -35,3 +35,6 @@ dist-ssr
 /*.docx
 /*.pdf
 /*.mp4
+
+# Ficheiros a aguardar apagamento manual - nunca versionados
+_to_delete/
