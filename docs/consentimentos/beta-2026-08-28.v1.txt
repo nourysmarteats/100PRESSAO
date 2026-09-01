@@ -1,0 +1,145 @@
+100PRESSÃO — Inscrição na fase beta
+Bloco informativo e caixas do formulário em 100pressao.pt/beta
+
+Versão: 2026-08-28.v1
+Autora: Bea Salgado
+Estado: EM PRODUÇÃO desde 2026-08-28
+
+FICHEIRO IMUTÁVEL. Não editar. Se o texto mudar, cria-se
+docs/consentimentos/beta-AAAA-MM-DD.vN.txt com o texto novo e sobe-se a
+etiqueta em definicoes.beta.aviso_versao. A etiqueta cobre este bloco todo —
+aviso mais as duas caixas. Uma palavra que mude em qualquer parte é versão nova.
+
+A data da etiqueta é o dia em que o texto ENTRA EM PRODUÇÃO, não o dia em que
+foi escrito. As inscrições abriram a 2026-08-28 e é essa a data da etiqueta.
+
+═══════════════════════════════════════════════════════════════════════════════
+AVISO, À VISTA NO FORMULÁRIO
+═══════════════════════════════════════════════════════════════════════════════
+
+INSCRIÇÃO NA FASE BETA — O QUE FAZEMOS COM OS TEUS DADOS
+
+RESPONSÁVEL
+Sintonia dos Temperos, entidade que opera o 100PRESSÃO Draft House.
+Praceta Eugénio de Castro, Loja 6, 2790-072 Carnaxide.
+Contacto: geral@100pressao.pt
+
+FINALIDADE
+Gerir a tua inscrição como beta tester: atribuir-te um número, colocar-te num
+dos lotes e contactar-te para te dizer quando podes vir. Serve também para
+percebermos por que canal nos encontraste.
+
+FUNDAMENTO
+Diligências a teu pedido — artigo 6.º, n.º 1, alínea b) do RGPD. Não é
+consentimento, e por isso não te pedimos nenhum: foste tu que te inscreveste.
+Podes sair quando quiseres e apagamos-te da lista.
+
+QUE DADOS
+Nome, telemóvel e a tua resposta a "Como soube de nós?". Guardamos também por
+que hiperligação chegaste a esta página, o que nos diz se veio de um QR, de uma
+publicação ou se escreveste o endereço à mão. Não te pedimos morada, data de
+nascimento, NIF nem dados de pagamento.
+
+QUE MENSAGENS TE ENVIAMOS
+Só sobre a beta: a confirmação, a convocatória do teu lote e alterações de data.
+Esta inscrição não te põe em nenhuma lista de promoções.
+
+QUANTO TEMPO
+Até trinta dias depois de a fase beta terminar, na inauguração. Se ao fim de
+doze meses a beta ainda não tiver terminado, perguntamos-te se queres continuar
+inscrito; se não responderes em trinta dias, apagamos-te.
+
+QUEM VÊ
+Só a administração do 100PRESSÃO. A lista fica em base de dados privada, com
+alojamento na União Europeia, e não é partilhada nem vendida a terceiros.
+
+OS TEUS DIREITOS
+Acesso, rectificação, apagamento, limitação, oposição e portabilidade. Escreve
+para geral@100pressao.pt e respondemos em 30 dias. Podes também reclamar junto
+da CNPD (www.cnpd.pt). [Na página, sem hiperligação.]
+
+DECISÕES AUTOMATIZADAS
+Não há. Os lotes são decididos por pessoas.
+
+IDADE
+A beta é para maiores de 18 anos — servimos bebidas alcoólicas.
+
+═══════════════════════════════════════════════════════════════════════════════
+CAIXA OBRIGATÓRIA — não pré-marcada, imediatamente antes do botão
+═══════════════════════════════════════════════════════════════════════════════
+
+[ ] Li o aviso acima e quero inscrever-me como beta tester do 100PRESSÃO.
+
+Regista LEITURA DO AVISO, não consentimento. A base legal da inscrição é a
+alínea b) do artigo 6.º, n.º 1. Guardada em beta_testers.aviso_lido_em, com a
+etiqueta desta versão em beta_testers.aviso_versao.
+
+═══════════════════════════════════════════════════════════════════════════════
+CAIXA OPCIONAL — não pré-marcada, depois da primeira
+═══════════════════════════════════════════════════════════════════════════════
+
+[ ] Depois de a beta acabar, podem continuar a contactar-me com novidades e
+    convites do 100PRESSÃO. (Opcional. A tua inscrição na beta não depende
+    disto e não perdes nada se deixares em branco.)
+    Cancelas quando quiseres: respondes SAIR a qualquer mensagem, ou escreves
+    para geral@100pressao.pt. Guardamos o teu contacto para isto até 24 meses
+    depois da última vez que falares connosco.
+
+Este é consentimento, na acepção da alínea a) do artigo 6.º, n.º 1, mais o
+artigo 13.º-A da Lei n.º 41/2004. O parêntesis não é cortesia: é o que torna o
+consentimento livre. Sem ele, alguém pode argumentar que marcou a caixa por
+julgar que era preciso. Guardado em beta_testers.contacto_pos_beta e
+contacto_pos_beta_em, em colunas próprias, para poder ser retirado sem tocar
+na inscrição.
+
+═══════════════════════════════════════════════════════════════════════════════
+BASES LEGAIS
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Inscrição e gestão da beta
+   Art. 6.º, n.º 1, al. b) do RGPD — execução de diligências a pedido do
+   titular. A pessoa pediu uma vaga; nome e telemóvel são o mínimo para lha
+   dar. Não é consentimento, é a execução do que ela pediu.
+
+2. Contacto promocional depois da beta
+   Art. 6.º, n.º 1, al. a) do RGPD (consentimento) mais art. 13.º-A da Lei
+   n.º 41/2004. Mensagem promocional por SMS ou WhatsApp a pessoa singular
+   exige opt-in prévio e expresso. Sem esta caixa, não se pode enviar.
+
+A FRONTEIRA ENTRE AS DUAS É O CONTEÚDO DA MENSAGEM, NÃO O MOMENTO.
+"A tua vaga é na quinta às 20h" é execução da beta e cabe na base 1, mesmo que
+a beta já vá a meio. "Temos pastéis de bacalhau novos" é marketing e precisa da
+base 2, mesmo que a beta ainda esteja a decorrer. Quem escrever as mensagens
+tem de saber isto — é aqui que se erra na prática.
+
+Chamadas de voz feitas por pessoa não caem no art. 13.º-A; caem no regime de
+oposição, com a Lista Nacional de Não Contactados. Com o consentimento da caixa
+2 fica coberto. Sem ele, antes de ligar a alguém é preciso consultar a lista.
+
+Nota da autora: se um dia isto for a um advogado, o ponto que ele vai discutir
+é a al. b) na base 1 — há quem defenda interesse legítimo, al. f), para
+programas beta gratuitos, por o RGPD ser exigente com o conceito de contrato.
+A escolha da al. b) é deliberada, por ser a que já se usa no recrutamento e a
+lógica ser idêntica: foi a pessoa que se dirigiu à casa.
+
+═══════════════════════════════════════════════════════════════════════════════
+PRAZOS DE CONSERVAÇÃO
+═══════════════════════════════════════════════════════════════════════════════
+
+Inscrição na beta (base 1)
+  Fim da fase beta + 30 dias.
+  Salvaguarda: aos 12 meses de inscrição, se a beta ainda não tiver terminado,
+  mensagem a perguntar se quer continuar; sem resposta em 30 dias, apaga.
+
+Contacto pós-beta (base 2)
+  24 meses após a última interacção, com o relógio a reiniciar a cada
+  interacção. Sem interacção nenhuma nesse período, apaga.
+
+Prova
+  Depois de a pessoa ser apagada, guarda-se só a linha mínima: número de
+  membro, data, etiqueta de versão e que caixas foram marcadas. Sem nome e sem
+  telemóvel. Três anos, para o art. 5.º, n.º 2.
+
+Implementado em public.expurgar_beta_testers(), tarefa pg_cron diária.
+A data do fim da beta entra em definicoes.beta.beta_terminou_em — até lá é
+nula, e só a salvaguarda corre.
