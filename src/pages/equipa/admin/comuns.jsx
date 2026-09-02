@@ -1,5 +1,5 @@
 // Blocos partilhados pelos ecrãs do admin (tema claro aprovado)
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 
 // Cores dos gráficos: ambar-500 validado para contraste e CVD na
@@ -41,10 +41,24 @@ export function CampoTexto({ rotulo, ...props }) {
 
 export function useAviso() {
   const [aviso, setAviso] = useState('')
-  function mostrarAviso(msg) {
+  const temporizador = useRef(null)
+
+  // A identidade tem de ser estável, e não é preciosismo: este `mostrarAviso`
+  // entra nas dependências de useCallback/useEffect nos ecrãs que o usam
+  // (BetaTesters, e o Orçamento do Financeiro). Recriado a cada render, o
+  // efeito que carrega os dados volta a correr a cada render: carrega, muda o
+  // estado, rerenderiza, carrega outra vez. O ecrã pisca e nunca assenta, e a
+  // base de dados leva um pedido por cada render.
+  const mostrarAviso = useCallback((msg) => {
     setAviso(msg)
-    setTimeout(() => setAviso(''), 3000)
-  }
+    clearTimeout(temporizador.current)
+    temporizador.current = setTimeout(() => setAviso(''), 3000)
+  }, [])
+
+  // Sem isto, sair do ecrã antes dos 3 segundos deixa um setState a apontar
+  // para um componente que já não existe.
+  useEffect(() => () => clearTimeout(temporizador.current), [])
+
   const Aviso = aviso ? (
     <p
       role="status"
