@@ -149,6 +149,17 @@ Texto do aviso arquivado em `docs/consentimentos/beta-2026-08-28.v1.txt` — é 
 lá que aponta o `aviso_versao` gravado em cada linha. **Ficheiro imutável:** versão
 nova é ficheiro novo, nunca uma edição.
 
+**A numeração arranca em 134, e é de propósito.** Não é bug nem resto de
+testes: decisão do Leandro em 2026-09-02, para que quem se inscreve não receba
+um cartão com 001 e leia nisso falta de procura. A tabela foi limpa dos dados
+de ensaio (rasto em `audit_log`, acção `beta_testers_teste_removidos`) e a
+coluna *identity* reiniciada. **Não "corrigir" isto.** A contagem real de
+inscritos é sempre `count(*)`, nunca o número mais alto — no admin já é assim.
+
+Fica em aberto uma coisa de copy, para o Sérgio: o cartão diz "És o beta tester
+n.º 134", o que promete uma posição numa fila que não existe. Um número que se
+lê como matrícula ("Beta tester · 134") dá o mesmo efeito sem afirmar nada.
+
 Por fechar, tudo fora do código:
 
 - `definicoes.beta.beta_terminou_em` — pôr a data da inauguração. É isso que fecha
