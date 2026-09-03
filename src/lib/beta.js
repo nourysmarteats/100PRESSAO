@@ -104,6 +104,11 @@ export function validar(dados, cfg) {
   // titular. Continua a bloquear, porque sem esta caixa não há prova de que a
   // informação foi prestada no momento da recolha.
   if (!dados.aviso_lido) erros.push('Falta confirmar a leitura do aviso.')
+
+  // Declaração de maioridade. É espaço com álcool: quem se inscreve declara ter
+  // 18 anos ou mais. Não é consentimento nem leitura de aviso — é elegibilidade.
+  // Bloqueia aqui e o servidor exige-a também (p_maioridade na RPC).
+  if (!dados.maioridade) erros.push('Confirma que tens 18 anos ou mais.')
   return erros
 }
 

@@ -40,14 +40,20 @@ test('telemovel: fica so com digitos', () => {
 })
 
 test('validacao: sem confirmar a leitura do aviso e bloqueado', () => {
-  const base = { nome: 'Ana', telemovel: '912345678', origem_declarada: 'vi-mercado' }
+  const base = { nome: 'Ana', telemovel: '912345678', origem_declarada: 'vi-mercado', maioridade: true }
   assert.deepEqual(validar({ ...base, aviso_lido: true }, CFG), [])
   assert.ok(validar({ ...base, aviso_lido: false }, CFG).length === 1)
 })
 
+test('validacao: sem confirmar mais de 18 e bloqueado', () => {
+  const base = { nome: 'Ana', telemovel: '912345678', origem_declarada: 'vi-mercado', aviso_lido: true }
+  assert.deepEqual(validar({ ...base, maioridade: true }, CFG), [])
+  assert.ok(validar({ ...base, maioridade: false }, CFG).length === 1)
+})
+
 test('validacao: apanha nome curto, telemovel mau e origem fora da lista', () => {
   const erros = validar(
-    { nome: 'A', telemovel: '12', origem_declarada: 'inventada', aviso_lido: true },
+    { nome: 'A', telemovel: '12', origem_declarada: 'inventada', aviso_lido: true, maioridade: true },
     CFG,
   )
   assert.equal(erros.length, 3)

@@ -74,6 +74,9 @@ const VAZIO = {
   nome: '',
   telemovel: '',
   origem_declarada: '',
+  // Declaração de maioridade (espaço com álcool). Bloqueante, exigida também
+  // pelo servidor. É elegibilidade, não consentimento.
+  maioridade: false,
   aviso_lido: false,
   // Segundo consentimento, separado e opcional. O primeiro cobre a fase beta e
   // termina na inauguração; este é o que permite continuar a falar com a pessoa
@@ -144,6 +147,7 @@ function Beta() {
       p_origem_param: origemParam,
       p_origem_declarada: dados.origem_declarada,
       p_aviso_lido: dados.aviso_lido,
+      p_maioridade: dados.maioridade,
       p_ip_hash: marca,
       p_contacto_pos_beta: dados.contacto_pos_beta,
     })
@@ -399,6 +403,22 @@ function Beta() {
                     Li o aviso acima e quero inscrever-me como beta tester do
                     100PRESSÃO.
                   </span>
+                </label>
+
+                {/* Declaração de maioridade. Espaço com álcool: quem se
+                    inscreve declara ter 18 anos ou mais. Não é consentimento
+                    nem leitura de aviso — é elegibilidade, e por isso bloqueia.
+                    O servidor exige-a também (p_maioridade). */}
+                <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-creme-300 bg-creme-50 p-4 text-sm text-grafite-700">
+                  <input
+                    type="checkbox"
+                    checked={dados.maioridade}
+                    onChange={(e) =>
+                      setDados((d) => ({ ...d, maioridade: e.target.checked }))
+                    }
+                    className="mt-0.5 h-5 w-5 shrink-0 accent-ambar-500"
+                  />
+                  <span>Confirmo que tenho 18 anos ou mais.</span>
                 </label>
 
                 {/* Esta segunda é que é consentimento, e tem de continuar
