@@ -60,7 +60,7 @@ function Contacto() {
                   rel="noopener noreferrer"
                   className="mt-1 block text-lg leading-snug text-grafite-800 underline-offset-4 hover:underline"
                 >
-                  Praceta Eugénio de Castro, Loja 6
+                  Praceta Eugénio de Castro, Loja 6 e 7
                   <br />
                   2790-063 Carnaxide
                 </a>

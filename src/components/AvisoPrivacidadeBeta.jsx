@@ -32,7 +32,7 @@ function AvisoPrivacidadeBeta({ compacto = false }) {
       <dl className="space-y-3">
         <Linha termo="Responsável">
           Sintonia dos Temperos, entidade que opera o 100PRESSÃO Draft House.
-          Praceta Eugénio de Castro, Loja 6, 2790-072 Carnaxide.
+          Praceta Eugénio de Castro, Loja 6, 2790-063 Carnaxide.
           Contacto: geral@100pressao.pt
         </Linha>
 

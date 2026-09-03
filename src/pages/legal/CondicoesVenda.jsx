@@ -28,7 +28,7 @@ function CondicoesVenda() {
       <Seccao titulo="1. Identificação">
         <p>
           Sintonia dos Temperos, Lda., sociedade por quotas com sede na Praceta Eugénio de
-          Castro, Loja 6, 2790-072 Carnaxide, que explora o estabelecimento "100PRESSÃO —
+          Castro, Loja 6, 2790-063 Carnaxide, que explora o estabelecimento "100PRESSÃO —
           Draft House".
         </p>
         <p className="mt-2">

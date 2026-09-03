@@ -162,7 +162,7 @@ Nome                  100PRESSÃO Draft House
 Categoria principal   Cervejaria
 Categorias extra      Restaurante · Bar · Petiscaria
 Morada                Praceta Eugénio de Castro, Loja 6
-                      2790-072 Carnaxide, Oeiras
+                      2790-063 Carnaxide, Oeiras
 Coordenadas           38.7262329, -9.2369446
 Telefone              +351 935 995 011
 Website               https://www.100pressao.pt

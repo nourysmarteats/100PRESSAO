@@ -12,7 +12,7 @@
 
 - **Denominação:** Sintonia dos Temperos, Lda. (estabelecimento "100PRESSÃO — Draft House")
 - **NIPC/NIF:** 519521463
-- **Sede / endereço físico:** Praceta Eugénio de Castro, Loja 6, 2790-072 Carnaxide
+- **Sede / endereço físico:** Praceta Eugénio de Castro, Loja 6, 2790-063 Carnaxide
 - **Telefone:** +351 935 995 011
 - **E-mail:** geral@100pressao.pt
 - `[[Brandão: confirmar se falta CAE, capital social ou conservatória/registo comercial no bloco de identificação]]`

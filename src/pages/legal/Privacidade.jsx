@@ -21,7 +21,7 @@ function Privacidade() {
         <p>
           O responsável pelo tratamento dos dados é a <strong>Sintonia dos
           Temperos</strong>, entidade que opera a marca 100PRESSÃO Draft House,
-          com morada na Praceta Eugénio de Castro, Loja 6, 2790-072 Carnaxide.
+          com morada na Praceta Eugénio de Castro, Loja 6, 2790-063 Carnaxide.
           Para qualquer questão sobre os teus dados, contacta{' '}
           <a href="mailto:geral@100pressao.pt" className="text-cobre-600 underline-offset-4 hover:underline">
             geral@100pressao.pt

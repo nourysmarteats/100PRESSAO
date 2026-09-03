@@ -215,7 +215,7 @@ function Footer() {
             ))}
           </div>
           <p className="mt-4 text-sm text-creme-500">
-            Praceta Eugénio de Castro, Loja 6, Carnaxide
+            Praceta Eugénio de Castro, Loja 6 e 7, Carnaxide
           </p>
         </div>
 

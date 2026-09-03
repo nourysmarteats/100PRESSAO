@@ -29,7 +29,7 @@ export const MARCA = {
 // Profile e os directórios são das coisas que mais penalizam SEO local: o Google
 // vê duas moradas para o mesmo negócio e desconfia das duas.
 export const MORADA = {
-  rua: 'Praceta Eugénio de Castro, Loja 6',
+  rua: 'Praceta Eugénio de Castro, Loja 6 e 7',
   localidade: 'Carnaxide',
   codigoPostal: '2790-063',
   regiao: 'Oeiras',
