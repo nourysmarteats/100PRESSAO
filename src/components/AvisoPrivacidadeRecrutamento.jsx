@@ -29,8 +29,9 @@ function AvisoPrivacidadeRecrutamento({ compacto = false }) {
 
       <dl className="space-y-3">
         <Linha termo="Responsável">
-          100PRESSÃO — Mercado Municipal de Carnaxide, Loja n.º 6, Algés.
-          Contacto: equipa@100pressao.pt
+          Sintonia dos Temperos, entidade que opera a marca 100PRESSÃO Draft
+          House, com morada na Praceta Eugénio de Castro, Loja 6, 2790-063
+          Carnaxide. Contacto: equipa@100pressao.pt
         </Linha>
 
         <Linha termo="Finalidade">
