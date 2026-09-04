@@ -114,10 +114,26 @@ export async function guardarFornecedor(f) {
 }
 
 export async function guardarReceitaExterna(r) {
-  // unique (data, canal): relançar o mesmo dia e canal actualiza em vez de rebentar
-  const { error } = await fin()
+  // "Outro" é uma entrada avulsa (aporte de sócio, etc.): cada lançamento é a sua
+  // própria linha e nunca se sobrepõe a outro do mesmo dia. Era aqui que o upsert
+  // por (data, canal) fazia o segundo aporte reescrever o primeiro.
+  if (r.canal === 'outro') {
+    const { error } = await fin().from('receitas_externas').insert(r)
+    if (error) throw error
+    return
+  }
+  // Canais agregadores (Glovo, Uber, POS externo, eventos): um total por dia e
+  // canal — relançar o mesmo dia corrige o valor em vez de duplicar.
+  const { data: existente, error: erroLeitura } = await fin()
     .from('receitas_externas')
-    .upsert(r, { onConflict: 'data,canal' })
+    .select('id')
+    .eq('data', r.data)
+    .eq('canal', r.canal)
+    .maybeSingle()
+  if (erroLeitura) throw erroLeitura
+  const { error } = existente
+    ? await fin().from('receitas_externas').update(r).eq('id', existente.id)
+    : await fin().from('receitas_externas').insert(r)
   if (error) throw error
 }
 
