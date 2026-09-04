@@ -308,22 +308,36 @@ function ReceitaExterna({ receitas, aoAvisar, aoMudar }) {
   const [canal, setCanal] = useState('pos_externo')
   const [valor, setValor] = useState('')
   const [comissao, setComissao] = useState('')
+  const [notas, setNotas] = useState('')
+  const [aGuardar, setAGuardar] = useState(false)
+
+  // "Outro" é uma entrada avulsa (ex.: aporte de sócio) — sem motivo escrito
+  // ninguém sabe o que é daqui a três meses. Nos canais fixos o motivo é o
+  // próprio canal, por isso o campo só aparece no "Outro".
+  const eOutro = canal === 'outro'
+  const numero = Number(String(valor).replace(',', '.'))
+  const valido = numero > 0 && (!eOutro || notas.trim())
 
   async function guardar() {
+    if (!valido || aGuardar) return
+    setAGuardar(true)
     try {
       await guardarReceitaExterna({
         data,
         canal,
-        valor: Number(String(valor).replace(',', '.')) || 0,
+        valor: numero,
         comissao: Number(String(comissao).replace(',', '.')) || 0,
+        notas: notas.trim() || null,
       })
       aoAvisar('Receita registada.')
       setValor('')
       setComissao('')
+      setNotas('')
       aoMudar()
     } catch (e) {
       aoAvisar(e.message || 'Não foi possível guardar.')
     }
+    setAGuardar(false)
   }
 
   return (
@@ -332,7 +346,7 @@ function ReceitaExterna({ receitas, aoAvisar, aoMudar }) {
         Só receita que <strong>não</strong> passa pela app. A dos pedidos já vem de <code>orders</code> —
         lançar aqui contaria duas vezes.
       </p>
-      <div className={`${CARTAO} grid gap-3 p-4 sm:grid-cols-4`}>
+      <div className={`${CARTAO} grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4`}>
         <label className="block">
           <span className={ROTULO}>Data</span>
           <input type="date" value={data} onChange={(e) => setData(e.target.value)} className={CAMPO} />
@@ -347,14 +361,31 @@ function ReceitaExterna({ receitas, aoAvisar, aoMudar }) {
         </label>
         <label className="block">
           <span className={ROTULO}>Valor</span>
-          <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} className={CAMPO} />
+          <input type="text" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" className={CAMPO} />
         </label>
         <label className="block">
           <span className={ROTULO}>Comissão</span>
-          <input type="text" inputMode="decimal" value={comissao} onChange={(e) => setComissao(e.target.value)} className={CAMPO} />
+          <input type="text" inputMode="decimal" value={comissao} onChange={(e) => setComissao(e.target.value)} placeholder="0,00" className={CAMPO} />
         </label>
+        {eOutro && (
+          <label className="block sm:col-span-2 lg:col-span-4">
+            <span className={ROTULO}>Motivo</span>
+            <input
+              type="text"
+              value={notas}
+              onChange={(e) => setNotas(e.target.value)}
+              placeholder="Ex.: Aporte financeiro do sócio Leandro"
+              className={CAMPO}
+            />
+            <span className="mt-1.5 block text-xs text-grafite-600/60">
+              Obrigatório no "Outro" — descreve o que é esta entrada.
+            </span>
+          </label>
+        )}
       </div>
-      <button type="button" onClick={guardar} className={`${BOTAO_PRIMARIO} mt-4`}>Guardar</button>
+      <button type="button" onClick={guardar} disabled={!valido || aGuardar} className={`${BOTAO_PRIMARIO} mt-4 disabled:opacity-30`}>
+        {aGuardar ? 'A guardar…' : 'Guardar'}
+      </button>
 
       <table className="mt-8 w-full text-sm">
         <thead>
@@ -369,7 +400,10 @@ function ReceitaExterna({ receitas, aoAvisar, aoMudar }) {
           {receitas.map((r) => (
             <tr key={r.id} className="border-b border-creme-300/60">
               <td className="py-2.5 pr-4 tabular-nums">{r.data}</td>
-              <td className="py-2.5 pr-4">{CANAIS_RECEITA_EXTERNA.find((c) => c.id === r.canal)?.rotulo || r.canal}</td>
+              <td className="py-2.5 pr-4">
+                {CANAIS_RECEITA_EXTERNA.find((c) => c.id === r.canal)?.rotulo || r.canal}
+                {r.notas && <span className="mt-0.5 block text-xs text-grafite-600/60">{r.notas}</span>}
+              </td>
               <td className="py-2.5 pr-4 text-right tabular-nums">{fmt(r.valor)}</td>
               <td className="py-2.5 text-right tabular-nums text-grafite-600/70">{fmt(r.comissao)}</td>
             </tr>
