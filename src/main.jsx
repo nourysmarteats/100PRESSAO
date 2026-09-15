@@ -1,19 +1,29 @@
 import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import { createRoot, hydrateRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import './index.css'
 import App from './App.jsx'
 
-createRoot(document.getElementById('root')).render(
+const raiz = document.getElementById('root')
+const arvore = (
   <StrictMode>
     <HelmetProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
     </HelmetProvider>
-  </StrictMode>,
+  </StrictMode>
 )
+
+// Páginas com conteúdo pré-renderizado no build (data-prerendered) são
+// hidratadas por cima do HTML existente; as restantes (SPA pura, root vazio)
+// arrancam com createRoot.
+if (raiz.dataset.prerendered) {
+  hydrateRoot(raiz, arvore)
+} else {
+  createRoot(raiz).render(arvore)
+}
 
 // Service worker só em produção — em dev o Vite já serve tudo local e a
 // cache só atrapalharia o HMR. Falha silenciosa: sem SW o site continua a

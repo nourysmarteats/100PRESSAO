@@ -94,12 +94,14 @@ ${urls}
 export default function seoPrerender() {
   let dirSaida = 'dist'
   let env = {}
+  let esSSR = false
 
   return {
     name: '100pressao-seo-prerender',
     apply: 'build',
 
     configResolved(config) {
+      esSSR = !!config.build.ssr
       dirSaida = config.build.outDir || 'dist'
       // Duas fontes, por esta ordem: os ficheiros .env (loadEnv), que é como
       // funciona em local, e process.env, que é como funciona no Vercel — lá as
@@ -109,6 +111,9 @@ export default function seoPrerender() {
     },
 
     async closeBundle() {
+      // No build SSR (entry-server) não há index.html para pré-renderizar;
+      // este plugin só trata do build do cliente.
+      if (esSSR) return
       const caminhoIndex = join(dirSaida, 'index.html')
       const bruto = await readFile(caminhoIndex, 'utf8')
 

@@ -2,13 +2,14 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Hero from './components/Hero'
+// Eager (não lazy): entram no SSG e o cliente hidrata sem piscar (ver entry-server.jsx).
+import QuemSomos from './pages/QuemSomos'
+import Contacto from './pages/Contacto'
 
 const Home = lazy(() => import('./pages/Home'))
-const QuemSomos = lazy(() => import('./pages/QuemSomos'))
 const Cardapio = lazy(() => import('./pages/Cardapio'))
 const Restaurante = lazy(() => import('./pages/Restaurante'))
 const InstalarPWA = lazy(() => import('./pages/InstalarPWA'))
-const Contacto = lazy(() => import('./pages/Contacto'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
 const Colaborador = lazy(() => import('./pages/Colaborador'))
 const Beta = lazy(() => import('./pages/Beta'))
