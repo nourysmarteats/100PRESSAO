@@ -18,7 +18,7 @@ export const SEO_PAGES = {
     path: '/',
     title: '100PRESSÃO Draft House | Cervejaria em Carnaxide',
     description:
-      'Cervejaria artesanal e petiscos luso-brasileiros no Mercado Municipal de Carnaxide, Oeiras. Aberto todos os dias, 8h–22h. A pressão certa, no copo certo.',
+      'Cervejaria artesanal e petiscos luso-brasileiros no Mercado Municipal de Carnaxide, Oeiras. Abertura em breve — horário previsto: todos os dias, 8h–22h. A pressão certa, no copo certo.',
   },
   home: {
     path: '/home',
@@ -55,7 +55,7 @@ export const SEO_PAGES = {
     path: '/contacto',
     title: 'Contacto e Morada em Carnaxide | 100PRESSÃO',
     description:
-      'Encontra-nos no Mercado Municipal de Carnaxide, Praceta Eugénio de Castro. Morada, horário (8h–22h, todos os dias) e contacto direto.',
+      'Encontra-nos no Mercado Municipal de Carnaxide, Praceta Eugénio de Castro. Morada, horário previsto após abertura (8h–22h, todos os dias) e contacto direto.',
   },
   facaParte: {
     // Rascunho do Daniel (a Marta não entregou title/description para esta
@@ -76,10 +76,10 @@ export const SEO_PAGES = {
       'Candidata-te a trabalhar na 100PRESSÃO, no Mercado Municipal de Carnaxide.',
   },
   beta: {
-    // Registo de beta testers. noindex: a fase beta vive dos canais que a
-    // Marta controla, nao de quem cai aqui por pesquisa.
+    // Registo de beta testers. Indexável desde 2026-09-15 (decisão do Leandro):
+    // passa a aparecer em pesquisa e entra no sitemap para captação orgânica.
     path: '/beta',
-    noindex: true,
+    noindex: false,
     title: 'Beta testers | 100PRESSAO Draft House',
     description:
       'Inscricao para a fase beta do 100PRESSAO Draft House, no Mercado Municipal de Carnaxide.',

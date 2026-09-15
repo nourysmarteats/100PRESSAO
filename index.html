@@ -51,6 +51,11 @@
       que o Google usa para os rich results de restauração (horário, ementa,
       preço) e é o que melhor corresponde à realidade do negócio.
 
+      Horário RETIRADO do JSON-LD (2026-09-15, pré-abertura): o bloco
+      openingHoursSpecification foi removido para o Google não anunciar a
+      casa como "Aberto" antes da inauguração. REPOR na abertura: 8:00–22:00,
+      todos os dias (ver HORARIO em src/lib/marca.js).
+
       Horário corrigido (2026-08-15): dizia 2ª a 6ª, 08:00–12:00 — era o
       fallback antigo do código e estava a ser anunciado ao Google como horário
       real. O correto, confirmado pelo Leandro e coincidente com a tabela
@@ -110,22 +115,6 @@
           { "@type": "City", "name": "Linda-a-Velha" },
           { "@type": "City", "name": "Algés" },
           { "@type": "City", "name": "Queijas" }
-        ],
-        "openingHoursSpecification": [
-          {
-            "@type": "OpeningHoursSpecification",
-            "dayOfWeek": [
-              "Monday",
-              "Tuesday",
-              "Wednesday",
-              "Thursday",
-              "Friday",
-              "Saturday",
-              "Sunday"
-            ],
-            "opens": "08:00",
-            "closes": "22:00"
-          }
         ],
         "servesCuisine": ["Portuguesa", "Brasileira", "Petiscos", "Cerveja artesanal"],
         "potentialAction": {
