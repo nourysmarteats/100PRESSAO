@@ -1,6 +1,13 @@
 <!doctype html>
 <html lang="pt">
   <head>
+    <script>
+      // Retira o acesso pessoal antes de carregar qualquer script de terceiros.
+      if (new URLSearchParams(window.location.hash.slice(1)).has('convite')) {
+        window.__clienteBetaConvite = new URLSearchParams(window.location.hash.slice(1)).get('convite');
+        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+      }
+    </script>
     <meta charset="UTF-8" />
     <!-- Verificação de propriedade do Google Search Console.
          NÃO acrescentar data-rh a esta tag: o pré-renderizador em
@@ -170,7 +177,7 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-KLXQVNJZ5H"></script>
     <script>
       gtag('js', new Date());
-      gtag('config', 'G-KLXQVNJZ5H', { send_page_view: false });
+      gtag('config', 'G-KLXQVNJZ5H', { send_page_view: false, page_location: window.location.href.split('#')[0] });
     </script>
   </head>
   <body>

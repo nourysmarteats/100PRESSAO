@@ -69,6 +69,52 @@ export function origensDeclaradas(cfg) {
   return config(cfg).origens.map((id) => ({ id, rotulo: ROTULOS_ORIGEM[id] || id }))
 }
 
+// Um link de uma unidade encerrada nunca muda silenciosamente para outra.
+export function selecionarCampanha(campanhas, codigo = '') {
+  if (!Array.isArray(campanhas)) return null
+  if (codigo) return campanhas.find((c) => c.unidade_codigo === codigo) || null
+  return campanhas.length === 1 ? campanhas[0] : null
+}
+
+export function validarAdesao(dados) {
+  const erros = []
+  if (dados.aceita_regulamento !== true) erros.push('Falta aceitar o regulamento Cliente Beta.')
+  if (dados.aviso_lido !== true) erros.push('Falta confirmar a leitura do aviso.')
+  return erros
+}
+
+function dataValida(valor) {
+  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false
+  const data = new Date(`${valor}T00:00:00Z`)
+  return Number.isFinite(data.getTime()) && data.toISOString().slice(0, 10) === valor
+}
+
+// Espelha o fecho no servidor; o relógio do browser nunca autoriza uma inscrição.
+// O instante novo tem fuso obrigatório. A data antiga é interpretada em Lisboa,
+// não no fuso do dispositivo, e só se usa quando não há instante configurado.
+export function estadoInscricoes(cfg, agora = Date.now()) {
+  const c = config(cfg)
+  const instante = Number(agora instanceof Date ? agora.getTime() : agora)
+  if (!Number.isFinite(instante) || !Number.isFinite(new Date(instante).getTime())) return 'configuracao_invalida'
+  if (c.inauguracao_em != null && c.inauguracao_em !== '') {
+    const fim = c.inauguracao_em
+    if (typeof fim !== 'string'
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(fim)
+      || !dataValida(fim.slice(0, 10))
+      || !Number.isFinite(Date.parse(fim))) return 'configuracao_invalida'
+    if (instante >= Date.parse(fim)) return 'encerrada'
+  } else if (c.beta_terminou_em != null && c.beta_terminou_em !== '') {
+    if (!dataValida(c.beta_terminou_em)) return 'configuracao_invalida'
+    const partes = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Lisbon', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(instante)
+    const parte = (tipo) => partes.find((p) => p.type === tipo).value
+    const hoje = `${parte('year')}-${parte('month')}-${parte('day')}`
+    if (hoje >= c.beta_terminou_em) return 'encerrada'
+  }
+  return c.aberto === true ? 'aberta' : 'fechada'
+}
+
 // Lê a origem da query string. `via` primeiro, `o` como herança.
 // Nunca devolve vazio: ausência é 'directo', lixo é 'invalido'. Os dois são
 // respostas, não falhas — e distingui-los é o que permite saber se alguém

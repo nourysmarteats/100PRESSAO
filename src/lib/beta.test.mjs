@@ -98,3 +98,67 @@ test('por origem: mede a discrepancia entre o que dizem e o que o URL trouxe', (
   assert.equal(qr.semParametro, 2)
   assert.equal(qr.pctSemParametro, 67)
 })
+
+test('campanha: nunca substitui uma unidade inexistente nem escolhe entre várias', async () => {
+  const { selecionarCampanha } = await import('./beta.js')
+  const a = { id: 'a', unidade_codigo: 'carnaxide', aberto: false }
+  const b = { id: 'b', unidade_codigo: 'outra', aberto: true }
+  assert.equal(selecionarCampanha([a, b], 'carnaxide'), a)
+  assert.equal(selecionarCampanha([a, b], 'inexistente'), null)
+  assert.equal(selecionarCampanha([a, b]), null)
+  assert.equal(selecionarCampanha([a]), a)
+})
+
+test('adesão: aceitação expressa é independente de marketing', async () => {
+  const { validarAdesao } = await import('./beta.js')
+  assert.deepEqual(validarAdesao({ aceita_regulamento: true, aviso_lido: true, contacto_pos_beta: false }), [])
+  assert.equal(validarAdesao({ aceita_regulamento: false, aviso_lido: true, contacto_pos_beta: true }).length, 1)
+  assert.equal(validarAdesao({ aceita_regulamento: 'true', aviso_lido: true }).length, 1)
+})
+
+// Limites de inauguração: não dependem do fuso horário de quem se inscreve.
+test('inscrições: antes, no instante e depois da inauguração', async () => {
+  const { estadoInscricoes } = await import('./beta.js')
+  const cfg = { aberto: true, inauguracao_em: '2026-09-20T15:00:00+01:00' }
+  assert.equal(estadoInscricoes(cfg, Date.parse('2026-09-20T13:59:59.999Z')), 'aberta')
+  assert.equal(estadoInscricoes(cfg, Date.parse('2026-09-20T14:00:00Z')), 'encerrada')
+  assert.equal(estadoInscricoes(cfg, Date.parse('2026-09-20T14:00:01Z')), 'encerrada')
+  assert.equal(estadoInscricoes({ aberto: true, inauguracao_em: '2026-09-20T14:00:00.000000+00:00' }, Date.parse('2026-09-20T14:00:00Z')), 'encerrada')
+})
+
+test('inscrições: sem data respeita apenas o interruptor booleano', async () => {
+  const { estadoInscricoes } = await import('./beta.js')
+  assert.equal(estadoInscricoes({ aberto: true }), 'aberta')
+  assert.equal(estadoInscricoes({ aberto: false }), 'fechada')
+  assert.equal(estadoInscricoes({ aberto: 'true' }), 'fechada')
+  assert.equal(estadoInscricoes(null), 'fechada')
+})
+
+test('inscrições: compatibilidade com data antiga em Lisboa no verão e inverno', async () => {
+  const { estadoInscricoes } = await import('./beta.js')
+  const verao = { aberto: true, beta_terminou_em: '2026-09-20' }
+  assert.equal(estadoInscricoes(verao, Date.parse('2026-09-19T22:59:59Z')), 'aberta')
+  assert.equal(estadoInscricoes(verao, Date.parse('2026-09-19T23:00:00Z')), 'encerrada')
+  const inverno = { aberto: true, beta_terminou_em: '2026-12-20' }
+  assert.equal(estadoInscricoes(inverno, Date.parse('2026-12-19T23:59:59Z')), 'aberta')
+  assert.equal(estadoInscricoes(inverno, Date.parse('2026-12-20T00:00:00Z')), 'encerrada')
+})
+
+test('inscrições: instante preciso prevalece sobre data antiga', async () => {
+  const { estadoInscricoes } = await import('./beta.js')
+  const cfg = { aberto: true, beta_terminou_em: '2026-09-20', inauguracao_em: '2026-09-20T15:00:00+01:00' }
+  assert.equal(estadoInscricoes(cfg, Date.parse('2026-09-20T12:00:00Z')), 'aberta')
+})
+
+test('inscrições: configuração inválida falha fechada', async () => {
+  const { estadoInscricoes } = await import('./beta.js')
+  for (const data of ['amanhã', '2026-02-30', '2026-13-01', '20/09/2026', true]) {
+    assert.equal(estadoInscricoes({ aberto: true, beta_terminou_em: data }), 'configuracao_invalida')
+  }
+  for (const data of ['2026-09-20T15:00:00', '2026-02-30T15:00:00Z', '2026-09-20', true]) {
+    assert.equal(estadoInscricoes({ aberto: true, inauguracao_em: data }), 'configuracao_invalida')
+  }
+  assert.equal(estadoInscricoes({ aberto: true }, NaN), 'configuracao_invalida')
+  assert.equal(estadoInscricoes({ aberto: true, beta_terminou_em: '2026-09-20' }, Number.MAX_VALUE), 'configuracao_invalida')
+  assert.equal(estadoInscricoes({ aberto: true }, new Date('inválida')), 'configuracao_invalida')
+})

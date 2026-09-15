@@ -1,50 +1,14 @@
-// Registo de beta testers — 100pressao.pt/beta
-//
-// Quatro decisões que se notam pouco e importam muito:
-//
-// 1. Quem se inscreve é membro; quem é adicionado a uma lista é contacto. Por
-//    isso há formulário mesmo para os primeiros, que são amigos e família. O
-//    registo é o que torna a adesão real, e é o que dá a prova de informação
-//    prestada que uma lista de telemóveis num caderno nunca dá.
-//
-// 2. A origem é captada duas vezes — parâmetro do URL e pergunta ao próprio —
-//    e as duas são gravadas. Ver o comentário de lib/beta.js.
-//
-// 3. Nada é inserido na tabela a partir daqui. Tudo passa pela RPC
-//    inscrever_beta_tester, que valida no servidor, carimba a versão do aviso
-//    e devolve o número. A chave anónima viaja no bundle: o que o browser pode
-//    escrever, qualquer pessoa pode escrever.
-//
-// 4. O número vem do servidor, nunca do cliente. É uma sequência Postgres, que
-//    é atómica — duas inscrições ao mesmo tempo não podem receber o mesmo
-//    número. A página só o formata.
-//
-// Enquanto `aberto` for falso em definicoes.beta, esta página não recebe
-// ninguém. Com `?ver=1` mostra o formulário a funcionar, para ser percorrido
-// de ponta a ponta antes de existir uma única pessoa real lá dentro.
-//
-// COPY: entregue pelo Sérgio Grosman e integrada tal como veio. O ecrã de
-// confirmação tem restrições dele que são funcionais e não estéticas — estão
-// explicadas no comentário desse bloco. Não alterar sem falar com ele.
-//
-// RGPD: base legal, textos e prazos por Bea Salgado. O aviso vive em
-// components/AvisoPrivacidadeBeta.jsx e está arquivado, palavra por palavra, em
-// docs/consentimentos/beta-2026-09-01.v1.txt. A etiqueta da versão vem de
-// definicoes.beta.aviso_versao e é carimbada pelo servidor em cada registo.
-//
-// São DOIS actos distintos, e a distinção é o que faz isto valer:
-//   · a primeira caixa regista LEITURA DO AVISO (art. 13.º). A inscrição
-//     assenta na al. b) do art. 6.º, n.º 1 — diligências a pedido do titular.
-//   · a segunda é CONSENTIMENTO (al. a) + art. 13.º-A da Lei 41/2004) para
-//     contacto promocional depois da beta. Opcional, em colunas próprias, para
-//     poder ser retirada sem tocar na inscrição.
+// Registo por campanha/unidade e adesão Cliente Beta.
+// Escrita só por RPC: limites, fecho, versões e elegibilidade são autoridade do servidor.
+// Aceitação dos termos, leitura do aviso e marketing são atos distintos.
+// O convite pessoal chega no fragmento e a adesão não altera publicidade.
 
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { supabasePublico as supabase } from '../lib/supabase'
 import SEOHead from '../components/SEOHead'
-import AvisoPrivacidadeBeta from '../components/AvisoPrivacidadeBeta'
+import AdesaoClienteBeta from '../components/AdesaoClienteBeta'
+import AvisoClienteBetaCompacto from '../components/AvisoClienteBetaCompacto'
 import { SEO_PAGES } from '../seo/pages'
 import logoStamp from '../assets/logo-100pressao.png'
 import { marcaCliente } from '../lib/candidaturas'
@@ -56,6 +20,9 @@ import {
   origensDeclaradas,
   normalizarTelemovel,
   validar,
+  estadoInscricoes,
+  selecionarCampanha,
+  validarAdesao,
 } from '../lib/beta'
 
 const fadeUp = {
@@ -88,6 +55,10 @@ const VAZIO = {
 }
 
 function Beta() {
+  const [convite] = useState(() => typeof window === 'undefined' ? '' : window.__clienteBetaConvite || new URLSearchParams(window.location.hash.slice(1)).get('convite') || '')
+  useEffect(() => { delete window.__clienteBetaConvite }, [])
+  const [campanhas, setCampanhas] = useState([])
+  const [codigoUnidade, setCodigoUnidade] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('unidade') || '')
   const [cfg, setCfg] = useState(CONFIG_FALLBACK)
   const [carregado, setCarregado] = useState(false)
   const [dados, setDados] = useState(VAZIO)
@@ -95,6 +66,12 @@ function Beta() {
   const [estado, setEstado] = useState('idle') // idle | a_enviar | inscrito | erro
   const [inscricao, setInscricao] = useState(null) // { numero, ja_inscrito }
   const [armadilha, setArmadilha] = useState('')
+  const [agora, setAgora] = useState(Date.now)
+
+  useEffect(() => {
+    const relogio = window.setInterval(() => setAgora(Date.now()), 1000)
+    return () => window.clearInterval(relogio)
+  }, [])
 
   // Lido uma só vez, no primeiro render. Se ficasse dentro do render, uma
   // navegação interna que limpasse a query string levava a origem atrás.
@@ -109,12 +86,14 @@ function Beta() {
     let vivo = true
     async function carregar() {
       if (!supabase) return setCarregado(true)
+      const { data: lista, error: erroCampanhas } = await supabase.rpc('listar_campanhas_beta')
       const { data } = await supabase
         .from('definicoes')
         .select('valor')
         .eq('chave', 'beta')
         .maybeSingle()
       if (!vivo) return
+      if (!erroCampanhas) setCampanhas(lista || [])
       if (data?.valor) setCfg(normalizarConfig(data.valor))
       setCarregado(true)
     }
@@ -125,14 +104,23 @@ function Beta() {
   }, [])
 
   const origens = useMemo(() => origensDeclaradas(cfg), [cfg])
-  const cfgNorm = normalizarConfig(cfg)
+  const campanha = selecionarCampanha(campanhas, codigoUnidade)
+  const cfgNorm = { ...normalizarConfig(cfg), aberto: campanha?.aberto === true, inauguracao_em: campanha?.inauguracao_em || null, beta_terminou_em: null }
+  const instanteServidor = campanha?.agora_servidor ? Date.parse(campanha.agora_servidor) : NaN
+  const [recebidoEm, setRecebidoEm] = useState(Date.now)
+  useEffect(() => { setRecebidoEm(Date.now()) }, [campanhas])
+  const agoraCampanha = Number.isFinite(instanteServidor) ? instanteServidor + agora - recebidoEm : agora
 
   async function submeter(ev) {
     ev.preventDefault()
     if (estado === 'a_enviar') return
+    if (!carregado || campanha?.regulamento_versao !== '2026-09-14.v1' || campanha?.aviso_versao !== '2026-09-14.v1' || estadoInscricoes(cfgNorm, Number.isFinite(instanteServidor) ? instanteServidor + Date.now() - recebidoEm : Date.now()) !== 'aberta') {
+      setErros(['As inscrições estão fechadas de momento.'])
+      return
+    }
     if (armadilha) return // robô: finge que correu bem e não grava nada
 
-    const problemas = validar(dados, cfg)
+    const problemas = [...validar(dados, cfg), ...validarAdesao(dados).filter((e) => e !== 'Falta confirmar a leitura do aviso.')]
     if (problemas.length) return setErros(problemas)
     setErros([])
     setEstado('a_enviar')
@@ -141,7 +129,9 @@ function Beta() {
       [navigator.userAgent, screen?.width, Intl.DateTimeFormat().resolvedOptions().timeZone].join('|'),
     )
 
-    const { data, error } = await supabase.rpc('inscrever_beta_tester', {
+    const { data, error } = await supabase.rpc('inscrever_cliente_beta', {
+      p_campanha_id: campanha.id,
+      p_aceita_regulamento: dados.aceita_regulamento === true,
       p_nome: dados.nome.trim(),
       p_telemovel: normalizarTelemovel(dados.telemovel),
       p_origem_param: origemParam,
@@ -172,12 +162,22 @@ function Beta() {
 
   if (!supabase) return null
 
-  const fechado = carregado && !cfgNorm.aberto && !prever
+  if (convite) return <AdesaoClienteBeta token={convite} />
+
+  const versoesValidas = campanha?.regulamento_versao === '2026-09-14.v1' && campanha?.aviso_versao === '2026-09-14.v1'
+  const situacao = versoesValidas ? estadoInscricoes(cfgNorm, agoraCampanha) : 'configuracao_invalida'
+  const fechado = !carregado || (situacao !== 'aberta' && !(prever && situacao === 'fechada'))
 
   // ── Cartão de membro ──
   // É isto que a pessoa fotografa e mostra ao balcão. Número enorme, contraste
   // alto e nada a rolar: tem de ler-se numa foto tirada de braço esticado,
   // com má luz, no meio do mercado. O visual é do Sérgio; a mecânica é esta.
+  if (estado === 'inscrito' && inscricao && !inscricao.adesao_registada) return (
+    <main className="min-h-dvh bg-creme-50 px-6 py-20 text-center">
+      <h1 className="text-2xl font-bold">Inscrição já existente</h1>
+      <p className="mx-auto mt-4 max-w-lg">Para aderir ao programa Cliente Beta com a tua inscrição anterior, pede à equipa um acesso pessoal. Esta tentativa não alterou os teus dados nem registou uma nova adesão.</p>
+    </main>
+  )
   if (estado === 'inscrito' && inscricao) {
     return (
       // Ecrã inteiro e fundo chapado, por decisão do Sérgio e por razões de
@@ -211,7 +211,7 @@ function Beta() {
             Guarda este número. Ao balcão basta o teu nome.
           </p>
           <p className="mt-5 text-xs text-grafite-600/70">
-            {dados.nome.trim().split(' ')[0]} · 100pressao.pt · Carnaxide
+            {dados.nome.trim().split(' ')[0]} · 100pressao.pt · {campanha?.unidade_nome}
           </p>
           {inscricao.ja_inscrito && (
             <p className="mt-4 text-xs text-grafite-600/70">
@@ -252,11 +252,19 @@ function Beta() {
           </div>
         </motion.div>
 
+        <section className="mt-8 space-y-3 rounded-xl border border-creme-300 p-5">
+          <label className="block text-sm font-semibold" htmlFor="unidade-beta">Unidade da inscrição</label>
+          <select id="unidade-beta" className={CAMPO} value={campanha?.unidade_codigo || codigoUnidade} onChange={(e) => { setCodigoUnidade(e.target.value); setDados((d) => ({ ...d, aceita_regulamento: false, aviso_lido: false })) }}>
+            <option value="">Seleciona a unidade</option>
+            {campanhas.map((c) => <option key={c.id} value={c.unidade_codigo}>{c.unidade_nome}</option>)}
+          </select>
+          <p className="text-sm">A inscrição encerra na inauguração desta unidade. Durante a beta não há desconto nem ementa exclusiva. Depois da inauguração, o Cliente Beta tem 10% de desconto no consumo próprio e acesso à ementa exclusiva, nos termos do regulamento.</p>
+          {campanha?.inauguracao_em && <p className="text-sm">Inauguração: {new Date(campanha.inauguracao_em).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' })} (hora de Portugal continental).</p>}
+        </section>
         {fechado ? (
           <div className="mt-10 rounded-2xl border border-creme-300 bg-white/60 p-8">
             <p className="text-grafite-700">
-              As inscrições ainda não abriram. Volta daqui a uns dias, ou escreve
-              para{' '}
+              {!carregado ? 'A carregar…' : 'As inscrições estão fechadas de momento.'}{' '}
               <a className="font-semibold text-cobre-600 hover:underline" href="mailto:geral@100pressao.pt">
                 geral@100pressao.pt
               </a>
@@ -371,16 +379,12 @@ function Beta() {
                   {/* O aviso inteiro, à vista. Não em hiperligação no rodapé: o
                       artigo 13.º manda informar no momento da recolha, e
                       informar não é ter um link algures. */}
-                  <AvisoPrivacidadeBeta compacto />
+                  <AvisoClienteBetaCompacto />
+                  <label className="mt-4 flex items-start gap-3 text-sm">
+                    <input type="checkbox" checked={dados.aceita_regulamento === true} onChange={(e) => setDados((d) => ({ ...d, aceita_regulamento: e.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-ambar-500" />
+                    <span>Aceito o <a className="underline" href="/legal/cliente-beta/regulamento-2026-09-14.v1.txt" target="_blank" rel="noreferrer">regulamento Cliente Beta</a>.</span>
+                  </label>
                 </div>
-                <p className="mt-4 text-sm text-grafite-600/70">
-                  O mesmo aviso consta da{' '}
-                  <Link className="font-semibold text-cobre-600 hover:underline" to="/privacidade">
-                    política de privacidade
-                  </Link>
-                  .
-                </p>
-
                 {/* Área de toque grande: isto é carregado com o polegar, de pé.
                     A caixa tem 20px e a etiqueta inteira é clicável.
 
@@ -465,7 +469,7 @@ function Beta() {
 
               <button
                 type="submit"
-                disabled={estado === 'a_enviar'}
+                disabled={!carregado || situacao !== 'aberta' || estado === 'a_enviar'}
                 className="w-full cursor-pointer rounded-xl bg-cobre-600 px-6 py-4 font-display text-sm font-bold uppercase tracking-widest text-creme-50 transition hover:bg-cobre-700 disabled:opacity-60"
               >
                 {estado === 'a_enviar' ? 'A inscrever…' : 'Quero ser beta tester'}

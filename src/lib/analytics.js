@@ -48,8 +48,8 @@ export function applyStoredConsent() {
 // Rotas seguintes (React Router, sem recarregar) têm de ser enviadas à mão.
 export function trackPageview(path) {
   gtag('event', 'page_view', {
-    page_path: path,
-    page_location: window.location.href,
+    page_path: path.split('#')[0],
+    page_location: window.location.href.split('#')[0],
     page_title: document.title,
   })
 }

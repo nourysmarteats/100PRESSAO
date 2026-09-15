@@ -31,6 +31,11 @@ const VAGAS = { 1: 'Beta 1 — amigos e família', 2: 'Beta 2 — mercado e bair
 
 function BetaTesters() {
   const [linhas, setLinhas] = useState([])
+  const [campanhas, setCampanhas] = useState([])
+  const [adesoes, setAdesoes] = useState([])
+  const [filtroUnidade, setFiltroUnidade] = useState('')
+  const [convite, setConvite] = useState(null)
+  const [aEmitir, setAEmitir] = useState(null)
   const [aCarregar, setACarregar] = useState(true)
   const [filtroVaga, setFiltroVaga] = useState('')
   const { mostrarAviso, Aviso } = useAviso()
@@ -39,8 +44,12 @@ function BetaTesters() {
     setACarregar(true)
     const { data, error } = await supabase
       .from('beta_testers')
-      .select(['id', ...COLUNAS_EXPORT].join(','))
+      .select(['id', 'campanha_id', ...COLUNAS_EXPORT].join(','))
       .order('numero', { ascending: true })
+    const [cs, ads] = await Promise.all([supabase.rpc('listar_campanhas_beta'), supabase.rpc('listar_adesoes_cliente_beta_admin')])
+    setCampanhas(cs.data || [])
+    setAdesoes(ads.data || [])
+    if (cs.error || ads.error) mostrarAviso('Não foi possível carregar campanhas ou adesões. Atualiza antes de emitir acessos.')
     setACarregar(false)
     if (error) return mostrarAviso('Não foi possível carregar a lista.')
     setLinhas(data || [])
@@ -52,9 +61,29 @@ function BetaTesters() {
 
   const origens = useMemo(() => porOrigem(linhas), [linhas])
   const visiveis = useMemo(
-    () => (filtroVaga === '' ? linhas : linhas.filter((l) => String(l.vaga ?? '') === filtroVaga)),
-    [linhas, filtroVaga],
+    () => linhas.filter((l) => (!filtroVaga || String(l.vaga ?? '') === filtroVaga) && (!filtroUnidade || l.campanha_id === filtroUnidade)),
+    [linhas, filtroVaga, filtroUnidade],
   )
+
+  async function emitirConvite(linha) {
+    if (aEmitir) return
+    setAEmitir(linha.id); setConvite(null)
+    const { data, error } = await supabase.rpc('emitir_convite_cliente_beta', { p_inscricao_id: linha.id })
+    setAEmitir(null)
+    const resultado = Array.isArray(data) ? data[0] : data
+    if (error || !resultado?.token) return mostrarAviso('Não foi possível criar o acesso pessoal.')
+    setConvite({ nome: linha.nome, url: `${window.location.origin}/beta#convite=${encodeURIComponent(resultado.token)}`, expira_em: resultado.expira_em })
+  }
+
+  async function guardarCampanha(e, campanha) {
+    e.preventDefault()
+    const f = new FormData(e.currentTarget)
+    const data = String(f.get('inauguracao') || '').trim()
+    if (data && (!/(?:Z|[+-]\d{2}:\d{2})$/.test(data) || !Number.isFinite(Date.parse(data)))) return mostrarAviso('Indica data e hora com fuso: por exemplo 2026-10-01T15:00:00+01:00.')
+    const { error } = await supabase.rpc('definir_campanha_beta', { p_id: campanha.id, p_aberto: f.get('aberto') === 'on', p_inauguracao_em: data || null })
+    if (error) return mostrarAviso('Não foi possível gravar a campanha.')
+    mostrarAviso('Campanha atualizada.'); carregar()
+  }
 
   async function alterar(id, campo, valor) {
     const antes = linhas
@@ -132,6 +161,24 @@ function BetaTesters() {
         </p>
       </section>
 
+      <section className={`${CARTAO} space-y-4 p-5`}>
+        <h4 className="font-bold">Campanhas por unidade</h4>
+        <p className="text-sm">A data de inauguração encerra inscrições e inicia os benefícios. Inclui sempre o fuso de Portugal continental; deixa vazio enquanto a data não estiver definida.</p>
+        {campanhas.map((c) => <form key={`${c.id}-${c.inauguracao_em}-${c.aberto}`} onSubmit={(e) => guardarCampanha(e, c)} className="flex flex-wrap items-center gap-3 border-t border-creme-300 pt-3">
+          <strong>{c.unidade_nome}</strong>
+          <label className="text-sm"><input name="aberto" type="checkbox" defaultChecked={c.aberto} /> Inscrições abertas</label>
+          <label className="text-sm">Inauguração <input name="inauguracao" defaultValue={c.inauguracao_em || ''} placeholder="Data e hora com fuso" className="rounded border p-2" /></label>
+          <button className={BOTAO_SECUNDARIO}>Guardar</button>
+        </form>)}
+      </section>
+      {convite && <section className={`${CARTAO} space-y-3 p-5`} role="status">
+        <h4 className="font-bold">Acesso pessoal de {convite.nome}</h4>
+        <p className="text-sm">Entrega apenas ao titular. Não foi enviada nenhuma mensagem. A pessoa terá de ler e aceitar os termos.</p>
+        <input aria-label="Acesso pessoal para entrega ao titular" readOnly value={convite.url} onFocus={(e) => e.target.select()} className="w-full rounded border p-2 text-sm" />
+        <p className="text-xs">Válido até {new Date(convite.expira_em).toLocaleString('pt-PT')}.</p>
+        <button type="button" className={BOTAO_SECUNDARIO} onClick={() => setConvite(null)}>Ocultar acesso</button>
+      </section>}
+      <label className="block text-sm">Filtrar unidade <select value={filtroUnidade} onChange={(e) => setFiltroUnidade(e.target.value)} className="ml-3 rounded border p-2"><option value="">Todas</option>{campanhas.map((c) => <option key={c.id} value={c.id}>{c.unidade_nome}</option>)}</select></label>
       {/* ── Leitura por origem ── */}
       <section className={`${CARTAO} p-5`}>
         <h4 className="font-display text-sm font-bold uppercase tracking-widest text-grafite-600">
@@ -219,6 +266,7 @@ function BetaTesters() {
                 <th className="p-3 font-semibold" title="Consentiu contacto depois da beta">Pós-beta</th>
                 <th className="p-3 font-semibold">Vaga</th>
                 <th className="p-3 font-semibold">Estado</th>
+                <th className="p-3 font-semibold">Cliente Beta</th>
                 <th className="p-3 font-semibold">RGPD</th>
               </tr>
             </thead>
@@ -264,6 +312,9 @@ function BetaTesters() {
                         <option key={v} value={v}>{rotulo}</option>
                       ))}
                     </select>
+                  </td>
+                  <td className="p-3 text-xs">
+                    {adesoes.some((a) => a.inscricao_id === l.id) ? <span>Adesão registada</span> : <button type="button" disabled={!!aEmitir} onClick={() => emitirConvite(l)} className={BOTAO_SECUNDARIO}>{aEmitir === l.id ? 'A criar…' : 'Acesso pessoal'}</button>}
                   </td>
                   <td className="p-3">
                     <button type="button" onClick={() => apagar(l)} className={BOTAO_PERIGO}>
