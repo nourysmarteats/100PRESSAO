@@ -205,6 +205,12 @@ function Footer() {
           <h3 className="text-sm font-semibold uppercase tracking-widest text-ambar-400">
             Horário
           </h3>
+          {/* Pré-abertura (2026-09-15): a casa ainda não abriu — os horários
+              abaixo são os previstos. Remover esta linha na inauguração; é o
+              par visível da nota do JSON-LD em index.html. */}
+          <p className="mt-2 text-sm font-medium text-creme-300">
+            Abertura em breve — horário previsto:
+          </p>
           {/* Editável no admin (Avisos & Horário) — REST sem supabase-js */}
           <div className="mt-4 space-y-2">
             {horario.map((l) => (
