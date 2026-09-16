@@ -3,7 +3,7 @@
 // recolhidos, e informar não é ter uma hiperligação no rodapé.
 //
 // Esta é a PRIMEIRA CAMADA (resumo dos factos essenciais). O texto completo é a
-// segunda camada, em /legal/cliente-beta/aviso-2026-09-14.v1.txt (imutável).
+// segunda camada, em /legal/cliente-beta/aviso-2026-09-16.v1.txt (imutável).
 // Conteúdo factual validado pela Bea Salgado; o tom/redacção final é do Sérgio,
 // sem retirar nenhum elemento legal.
 
@@ -28,8 +28,8 @@ export default function AvisoClienteBetaCompacto() {
 
         <Linha termo="Finalidade">
           Gerir a tua inscrição e a adesão ao programa Cliente Beta: atribuir-te
-          um número, colocar-te no lote, contactar-te sobre a abertura e, depois
-          da inauguração, dar-te os benefícios de Cliente Beta.
+          um número, colocar-te no lote, contactar-te sobre a abertura e, a partir dessa
+          abertura, dar-te os benefícios de Cliente Beta.
         </Linha>
 
         <Linha termo="Fundamento">
@@ -47,9 +47,10 @@ export default function AvisoClienteBetaCompacto() {
         </Linha>
 
         <Linha termo="Benefícios">
-          Depois da inauguração da tua unidade: 10% de desconto no teu próprio
-          consumo e acesso à ementa exclusiva, nos termos do regulamento.
-          Durante a fase beta estes benefícios ainda não se aplicam.
+          A partir da abertura da fase beta da tua unidade: 10% de desconto no
+          teu próprio consumo e acesso à ementa exclusiva, nos termos do
+          regulamento. A inauguração fecha as inscrições, mas não termina o
+          desconto, que se mantém enquanto o 100PRESSÃO estiver em atividade.
         </Linha>
 
         <Linha termo="Quanto tempo">
@@ -77,7 +78,7 @@ export default function AvisoClienteBetaCompacto() {
 
       <p className="mt-4 text-sm text-grafite-600/80">
         Este é o resumo. Podes ler o{' '}
-        <a className="underline" href="/legal/cliente-beta/aviso-2026-09-14.v1.txt" target="_blank" rel="noreferrer">
+        <a className="underline" href="/legal/cliente-beta/aviso-2026-09-16.v1.txt" target="_blank" rel="noreferrer">
           aviso de privacidade completo
         </a>{' '}
         antes de te inscreveres.

@@ -114,7 +114,7 @@ function Beta() {
   async function submeter(ev) {
     ev.preventDefault()
     if (estado === 'a_enviar') return
-    if (!carregado || campanha?.regulamento_versao !== '2026-09-14.v1' || campanha?.aviso_versao !== '2026-09-14.v1' || estadoInscricoes(cfgNorm, Number.isFinite(instanteServidor) ? instanteServidor + Date.now() - recebidoEm : Date.now()) !== 'aberta') {
+    if (!carregado || campanha?.regulamento_versao !== '2026-09-16.v1' || campanha?.aviso_versao !== '2026-09-16.v1' || estadoInscricoes(cfgNorm, Number.isFinite(instanteServidor) ? instanteServidor + Date.now() - recebidoEm : Date.now()) !== 'aberta') {
       setErros(['As inscrições estão fechadas de momento.'])
       return
     }
@@ -164,7 +164,7 @@ function Beta() {
 
   if (convite) return <AdesaoClienteBeta token={convite} />
 
-  const versoesValidas = campanha?.regulamento_versao === '2026-09-14.v1' && campanha?.aviso_versao === '2026-09-14.v1'
+  const versoesValidas = campanha?.regulamento_versao === '2026-09-16.v1' && campanha?.aviso_versao === '2026-09-16.v1'
   const situacao = versoesValidas ? estadoInscricoes(cfgNorm, agoraCampanha) : 'configuracao_invalida'
   const fechado = !carregado || (situacao !== 'aberta' && !(prever && situacao === 'fechada'))
 
@@ -258,7 +258,7 @@ function Beta() {
             <option value="">Seleciona a unidade</option>
             {campanhas.map((c) => <option key={c.id} value={c.unidade_codigo}>{c.unidade_nome}</option>)}
           </select>
-          <p className="text-sm">A inscrição encerra na inauguração desta unidade. Durante a beta não há desconto nem ementa exclusiva. Depois da inauguração, o Cliente Beta tem 10% de desconto no consumo próprio e acesso à ementa exclusiva, nos termos do regulamento.</p>
+          <p className="text-sm">As inscrições desta unidade encerram na inauguração. Os benefícios de Cliente Beta começam logo na abertura da fase beta: 10% de desconto no teu consumo próprio e acesso à ementa exclusiva. Ficam contigo enquanto o 100PRESSÃO estiver em atividade. A inauguração fecha as inscrições, não o teu desconto. Tudo nos termos do regulamento.</p>
           {campanha?.inauguracao_em && <p className="text-sm">Inauguração: {new Date(campanha.inauguracao_em).toLocaleString('pt-PT', { timeZone: 'Europe/Lisbon' })} (hora de Portugal continental).</p>}
         </section>
         {fechado ? (
@@ -382,7 +382,7 @@ function Beta() {
                   <AvisoClienteBetaCompacto />
                   <label className="mt-4 flex items-start gap-3 text-sm">
                     <input type="checkbox" checked={dados.aceita_regulamento === true} onChange={(e) => setDados((d) => ({ ...d, aceita_regulamento: e.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-ambar-500" />
-                    <span>Aceito o <a className="underline" href="/legal/cliente-beta/regulamento-2026-09-14.v1.txt" target="_blank" rel="noreferrer">regulamento Cliente Beta</a>.</span>
+                    <span>Aceito o <a className="underline" href="/legal/cliente-beta/regulamento-2026-09-16.v1.txt" target="_blank" rel="noreferrer">regulamento Cliente Beta</a>.</span>
                   </label>
                 </div>
                 {/* Área de toque grande: isto é carregado com o polegar, de pé.

@@ -1,0 +1,76 @@
+-- Cliente Beta: os benefícios passam a começar na ABERTURA da fase beta,
+-- não na inauguração (decisão do Leandro, 16 Set 2026). A inauguração continua
+-- a fechar as novas inscrições; o desconto mantém-se enquanto o 100PRESSÃO
+-- estiver em atividade (já previsto no regulamento, ponto 6).
+--
+-- Corrige também o bug que bloqueava TODAS as inscrições: a versão de aviso
+-- configurada (2026-09-14.v1) nunca foi arquivada em textos_legais e a FK
+-- beta_aviso_versao_fk rejeitava cada inscrição. Arquiva-se aqui o aviso
+-- corrigido 2026-09-16.v1 e aponta-se a configuração para ele.
+-- O regulamento não entra em textos_legais (CHECK só permite aviso/consentimento);
+-- a prova imutável do regulamento é o ficheiro versionado em public/legal/cliente-beta/.
+BEGIN;
+
+INSERT INTO public.textos_legais (versao, tipo, texto, publicado_em, origem)
+VALUES (
+  '2026-09-16.v1',
+  'aviso',
+  $AVISO$# Aviso de privacidade — inscrição e adesão Cliente Beta
+
+Versão 2026-09-16.v1
+
+## Responsável
+
+Sintonia dos Temperos Lda, NIF 519521463. Morada: Praceta Eugénio de Castro, Loja 6 e 7, 2790-063 Carnaxide. Para questões e exercício dos direitos: geral@100pressao.pt.
+
+## Inscrição e adesão
+
+Tratamos nome, telefone, unidade e campanha de inscrição, número de membro, declaração de maioridade, datas e versões do regulamento aceite e do aviso apresentado. Servem para gerir a participação solicitada, atribuir o estatuto e assegurar os benefícios a partir da abertura da fase beta. O fundamento é a execução do programa e as diligências solicitadas pelo titular, nos termos do artigo 6.º, n.º 1, alínea b), do RGPD.
+
+A leitura deste aviso não é consentimento para estes tratamentos. A aceitação do regulamento é separada da opção de publicidade. Não pedimos NIF, morada pessoal, data de nascimento, dados de pagamento nem cópias de documentos para a inscrição.
+
+Aos inscritos anteriores é apresentado um procedimento individual de adesão. Guardamos a confirmação e a versão efetivamente aceite, sem criar aceitação retroativa. A administração verifica a correspondência com a inscrição antes de disponibilizar um acesso individual à adesão. Saber o nome ou telefone de alguém não autoriza a aceitar termos em seu nome.
+
+## Segurança e medição
+
+Usamos registos mínimos de validação e segurança para impedir apropriações e submissões abusivas, com base no interesse legítimo de proteger o programa e os titulares. O identificador derivado do IP usado para limitar inscrições não é guardado como IP em claro. Os acessos individuais de adesão são limitados no tempo e não devem ser partilhados.
+
+A resposta facultativa sobre como conheceu a campanha e o identificador de origem da ligação servem para avaliar a divulgação, com base no interesse legítimo de medir a campanha de forma limitada. Não decidem a elegibilidade. Pode opor-se a este tratamento. A análise de navegação com cookies não essenciais depende de consentimento próprio e segue a política de cookies.
+
+## Mensagens
+
+Podemos contactar o titular para confirmar a inscrição, comunicar a disponibilidade de participação solicitada, alterações de datas, questões de segurança ou outras informações necessárias à execução do programa. Mensagens promocionais dependem de opção separada, livre e não pré-marcada. Não aceitar publicidade ou retirar essa opção não afeta os benefícios.
+
+Uma autorização antiga não é alargada automaticamente a novas finalidades. A retirada da opção publicitária pode ser pedida através do contacto acima e pelos meios indicados nas mensagens.
+
+## Conservação
+
+O registo de adesão e os dados necessários à elegibilidade são conservados enquanto a adesão estiver ativa e o benefício puder ser prestado. Revemos anualmente a necessidade dos dados; essa revisão não impõe nova adesão nem faz perder o estatuto por falta de consumo ou de resposta a publicidade.
+
+Após pedido de saída, eliminamos os dados de identificação e contacto do registo do programa no prazo operacional de até 30 dias. Mantemos durante três anos um registo mínimo restrito de prova de adesão e encerramento, com identificador pseudónimo, versões e datas, para tratamento de reclamações. Este prazo é uma escolha de conservação, não um prazo geral de prescrição. Não inclui reconstrução do nome ou telefone no registo de apagamento. Se existir litígio concreto ou obrigação legal de conservação, apenas os dados necessários são preservados pelo prazo aplicável e com acesso restrito.
+
+Os dados exclusivos da campanha, incluindo origem de divulgação, são eliminados até 30 dias após a inauguração. Enquanto esta não ocorrer, são revistos ao fim de 12 meses; os dados de participação que já não sejam necessários são eliminados, sem apagar o registo independente da adesão ao programa. O identificador derivado do IP para limitar inscrições é conservado até 24 horas. Os acessos individuais de adesão expiram no prazo indicado quando são disponibilizados; os seus segredos são inutilizados depois da utilização ou expiração.
+
+Os inscritos que não aderiram ao novo programa continuam sujeitos aos prazos que lhes foram comunicados no aviso anterior. Uma proposta de adesão não prolonga esses prazos automaticamente. A opção publicitária tem registo separado e pode ser retirada a qualquer momento; a sua conservação não justifica manter o perfil completo da campanha.
+
+## Acesso e prestadores
+
+A administração acede aos dados necessários à gestão, com acesso restrito. Não vendemos a lista nem a tornamos pública. Usamos Supabase para a base de dados e Vercel para alojamento e entrega do site. Estes prestadores podem tratar dados técnicos de acesso e recorrer a subcontratantes, incluindo fora do Espaço Económico Europeu. Os respetivos acordos preveem mecanismos de proteção para transferências, incluindo cláusulas contratuais-tipo quando aplicáveis: [Supabase](https://supabase.com/legal/dpa) e [Vercel](https://vercel.com/legal/dpa). Pode solicitar informação ou cópia das garantias relevantes através do contacto indicado.
+
+Este aviso cobre a inscrição e adesão na fase anterior à inauguração. Não descreve autenticação por SMS, cartão digital ou registos de pagamentos como funcionalidades atuais. Antes de introduzir tratamentos adicionais necessários à utilização dos benefícios ou acesso por operadores de novas unidades, será prestada a informação aplicável. O direito aos benefícios mantém-se nos termos do regulamento.
+
+## Direitos
+
+Pode pedir acesso, retificação, apagamento, limitação, portabilidade quando aplicável e oposição aos tratamentos baseados em interesse legítimo, além de retirar o consentimento publicitário. Respondemos sem demora injustificada, em regra no prazo de um mês; qualquer prorrogação legal será explicada dentro desse prazo. Pode reclamar junto da [Comissão Nacional de Proteção de Dados](https://www.cnpd.pt).
+
+Nome, telefone e dados de elegibilidade são necessários à adesão personalizada. Se pedir a eliminação dos dados indispensáveis à sua execução, explicamos o efeito no programa; não condicionamos os direitos à aceitação de marketing. Não existem decisões exclusivamente automatizadas com efeitos jurídicos ou igualmente significativos nesta inscrição. Pode pedir revisão humana de uma recusa.
+$AVISO$,
+  '2026-09-16',
+  'Aviso corrigido 2026-09-16: beneficios a partir da abertura da fase beta. Substitui a intencao 2026-09-14.v1, que nunca foi arquivada e bloqueava as inscricoes pela FK beta_aviso_versao_fk.'
+);
+
+UPDATE public.definicoes
+   SET valor = valor || jsonb_build_object('aviso_versao','2026-09-16.v1','regulamento_versao','2026-09-16.v1')
+ WHERE chave = 'cliente_beta';
+
+COMMIT;
