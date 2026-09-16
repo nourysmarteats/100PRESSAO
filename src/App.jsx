@@ -13,6 +13,7 @@ const InstalarPWA = lazy(() => import('./pages/InstalarPWA'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
 const Colaborador = lazy(() => import('./pages/Colaborador'))
 const Beta = lazy(() => import('./pages/Beta'))
+const EmentaSecreta = lazy(() => import('./pages/EmentaSecreta'))
 const Privacidade = lazy(() => import('./pages/legal/Privacidade'))
 const Cookies = lazy(() => import('./pages/legal/Cookies'))
 const Termos = lazy(() => import('./pages/legal/Termos'))
@@ -59,6 +60,8 @@ function App() {
               num QR impresso e ha quem o escreva a mao. */}
           <Route path="/beta" element={pagina(Beta)} />
           <Route path="/beta-testers" element={<Navigate to="/beta" replace />} />
+          {/* Ementa secreta dos Clientes Beta — destrancada pelo numero */}
+          <Route path="/ementa-secreta" element={pagina(EmentaSecreta)} />
           {/* Páginas legais */}
           <Route path="/privacidade" element={pagina(Privacidade)} />
           <Route path="/cookies" element={pagina(Cookies)} />

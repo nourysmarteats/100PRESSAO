@@ -136,7 +136,7 @@ function Restaurante() {
     async function carregar() {
       const [rCat, rProd, rCombos, rVar] = await Promise.all([
         supabase.from('categories').select('*').order('ordem'),
-        supabase.from('products').select('*, categories(id, nome)').eq('disponivel', true).order('ordem'),
+        supabase.from('products').select('*, categories(id, nome)').eq('disponivel', true).eq('exclusiva_beta', false).order('ordem'),
         supabase.from('combos').select('*, combo_items(quantidade, products(nome))').eq('disponivel', true).order('ordem'),
         // Sem filtrar por disponivel: é preciso distinguir "não tem variantes"
         // de "tem, mas nenhuma serve hoje". A lista é pequena.
