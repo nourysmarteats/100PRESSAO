@@ -35,6 +35,7 @@ function BetaTesters() {
   const [adesoes, setAdesoes] = useState([])
   const [filtroUnidade, setFiltroUnidade] = useState('')
   const [convite, setConvite] = useState(null)
+  const [cartao, setCartao] = useState(null)
   const [aEmitir, setAEmitir] = useState(null)
   const [aCarregar, setACarregar] = useState(true)
   const [filtroVaga, setFiltroVaga] = useState('')
@@ -73,6 +74,19 @@ function BetaTesters() {
     const resultado = Array.isArray(data) ? data[0] : data
     if (error || !resultado?.token) return mostrarAviso('Não foi possível criar o acesso pessoal.')
     setConvite({ nome: linha.nome, url: `${window.location.origin}/beta#convite=${encodeURIComponent(resultado.token)}`, expira_em: resultado.expira_em })
+  }
+
+  async function gerarCartao(linha) {
+    const primeiro = String(linha.nome || '').trim().split(' ')[0]
+    const mensagem = `Olá ${primeiro}, bem-vindo à casa.
+
+O teu número de Cliente Beta é o ${numeroFormatado(linha.numero)}. Guarda-o. É o teu cartão.
+
+Ao balcão, diz o número e o teu nome — são os teus 10% em tudo o que consumires. E é a mesma chave para a ementa secreta, só nossa: abre-a em ${window.location.origin}/ementa-secreta
+
+Até já.
+100PRESSÃO`
+    setCartao({ nome: linha.nome, mensagem })
   }
 
   async function guardarCampanha(e, campanha) {
@@ -177,6 +191,15 @@ function BetaTesters() {
         <input aria-label="Acesso pessoal para entrega ao titular" readOnly value={convite.url} onFocus={(e) => e.target.select()} className="w-full rounded border p-2 text-sm" />
         <p className="text-xs">Válido até {new Date(convite.expira_em).toLocaleString('pt-PT')}.</p>
         <button type="button" className={BOTAO_SECUNDARIO} onClick={() => setConvite(null)}>Ocultar acesso</button>
+      </section>}
+      {cartao && <section className={`${CARTAO} space-y-3 p-5`} role="status">
+        <h4 className="font-bold">Cartão de {cartao.nome}</h4>
+        <p className="text-sm">Mensagem pronta a enviar por WhatsApp. Copia e envia à pessoa. Não é enviada automaticamente.</p>
+        <textarea aria-label="Mensagem do cartão" readOnly value={cartao.mensagem} onFocus={(e) => e.target.select()} rows={8} className="w-full rounded border p-2 text-sm" />
+        <div className="flex gap-2">
+          <button type="button" className={BOTAO_PRIMARIO} onClick={() => { if (navigator.clipboard) navigator.clipboard.writeText(cartao.mensagem); mostrarAviso('Mensagem copiada.') }}>Copiar</button>
+          <button type="button" className={BOTAO_SECUNDARIO} onClick={() => setCartao(null)}>Ocultar</button>
+        </div>
       </section>}
       <label className="block text-sm">Filtrar unidade <select value={filtroUnidade} onChange={(e) => setFiltroUnidade(e.target.value)} className="ml-3 rounded border p-2"><option value="">Todas</option>{campanhas.map((c) => <option key={c.id} value={c.id}>{c.unidade_nome}</option>)}</select></label>
       {/* ── Leitura por origem ── */}
@@ -314,7 +337,10 @@ function BetaTesters() {
                     </select>
                   </td>
                   <td className="p-3 text-xs">
-                    {adesoes.some((a) => a.inscricao_id === l.id) ? <span>Adesão registada</span> : <button type="button" disabled={!!aEmitir} onClick={() => emitirConvite(l)} className={BOTAO_SECUNDARIO}>{aEmitir === l.id ? 'A criar…' : 'Acesso pessoal'}</button>}
+                    <div className="flex flex-col items-start gap-1">
+                      <button type="button" onClick={() => gerarCartao(l)} className={BOTAO_SECUNDARIO}>Cartão</button>
+                      {adesoes.some((a) => a.inscricao_id === l.id) ? <span>Adesão registada</span> : <button type="button" disabled={!!aEmitir} onClick={() => emitirConvite(l)} className={BOTAO_SECUNDARIO}>{aEmitir === l.id ? 'A criar…' : 'Acesso pessoal'}</button>}
+                    </div>
                   </td>
                   <td className="p-3">
                     <button type="button" onClick={() => apagar(l)} className={BOTAO_PERIGO}>

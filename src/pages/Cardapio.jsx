@@ -124,6 +124,7 @@ function Cardapio() {
           .from('products')
           .select('*, categories(id, nome)')
           .eq('disponivel', true)
+          .eq('exclusiva_beta', false)
           .order('ordem'),
         supabase
           .from('combos')
