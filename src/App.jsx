@@ -14,6 +14,7 @@ const FacaParte = lazy(() => import('./pages/FacaParte'))
 const Colaborador = lazy(() => import('./pages/Colaborador'))
 const Beta = lazy(() => import('./pages/Beta'))
 const EmentaSecreta = lazy(() => import('./pages/EmentaSecreta'))
+const BetaBalcao = lazy(() => import('./pages/equipa/BetaBalcao'))
 const Privacidade = lazy(() => import('./pages/legal/Privacidade'))
 const Cookies = lazy(() => import('./pages/legal/Cookies'))
 const Termos = lazy(() => import('./pages/legal/Termos'))
@@ -86,6 +87,7 @@ function App() {
           <Route path="/staff" element={interna(Staff)} />
           <Route path="/operacional" element={interna(Operacional)} />
           <Route path="/admin" element={interna(Admin)} />
+          <Route path="/beta-balcao" element={interna(BetaBalcao)} />
         </Route>
 
         {/* Rotas antigas da fase 2 */}

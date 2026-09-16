@@ -88,7 +88,7 @@ function EmentaSecreta() {
             {erro && <p role="alert" className="mt-4 text-sm text-red-300">{erro}</p>}
             {estado === 'vazia' && (
               <p className="mt-4 text-sm text-creme-50/70">
-                Numero nao reconhecido. A ementa secreta e so para Clientes Beta ativos. Ainda nao es?{' '}
+                Nao encontramos a ementa secreta para esse numero. Confirma que e o teu numero de Cliente Beta ativo. Ainda nao es?{' '}
                 <a className="underline" href="/beta">Inscreve-te aqui</a>.
               </p>
             )}

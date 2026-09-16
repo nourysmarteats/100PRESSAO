@@ -15,6 +15,7 @@ const MODULOS = [
   { to: '/operacional', label: 'Operacional' },
   { to: '/ecran', label: 'Ecrã' },
   { to: '/admin', label: 'Admin', soAdmin: true },
+  { to: '/beta-balcao', label: 'Balcão Beta' },
 ]
 
 // Fallback pré-migração: enquanto não existirem perfis com PIN pessoal,
