@@ -84,6 +84,14 @@ export const SEO_PAGES = {
     description:
       'Inscricao para a fase beta do 100PRESSAO Draft House, no Mercado Municipal de Carnaxide.',
   },
+  ementaSecreta: {
+    // Ementa exclusiva dos Clientes Beta. noindex: nao vai ao Google nem ao
+    // sitemap, mas TEM de ganhar ficheiro senao o cleanUrls devolve 404.
+    path: '/ementa-secreta',
+    noindex: true,
+    title: 'Ementa Secreta | 100PRESSÃO',
+    description: 'Ementa exclusiva dos Clientes Beta do 100PRESSÃO.',
+  },
   restaurante: {
     path: '/restaurante',
     title: 'Encomendar Online em Carnaxide | 100PRESSÃO',
@@ -159,6 +167,7 @@ const ROTAS_INTERNAS = [
   { path: '/ecran', noindex: true, title: 'Ecrã | 100PRESSÃO', description: 'Área reservada à equipa.' },
   { path: '/caixa', noindex: true, title: 'Caixa | 100PRESSÃO', description: 'Área reservada à equipa.' },
   { path: '/visor', noindex: true, title: 'Visor | 100PRESSÃO', description: 'Área reservada à equipa.' },
+  { path: '/beta-balcao', noindex: true, title: 'Balcão Beta | 100PRESSÃO', description: 'Área reservada à equipa.' },
 ]
 
 const ORDEM_ROTAS = [
@@ -175,6 +184,7 @@ const ORDEM_ROTAS = [
   // Sem esta entrada o /beta nao ganha ficheiro no dist e o cleanUrls
   // devolve 404 em producao. Em dev funciona na mesma, por isso nao se nota.
   'beta',
+  'ementaSecreta',
   'privacidade',
   'cookies',
   'termos',
