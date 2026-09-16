@@ -330,6 +330,13 @@ ${seccaoCervejas()}
 
 ${categorias.map(seccaoComida).join('\n\n')}
 
+      <h2>Ementa Secreta</h2>
+      <div class="info">
+        <p>Há uma ementa que não cabe nesta página. É reservada aos Clientes Beta, e abre-se com o teu número.</p>
+        <p><a class="cta alt" href="/ementa-secreta">Abrir a ementa secreta</a></p>
+        <p style="font-size:15px">Ainda não és Beta? <a href="/beta">Junta-te à casa</a>.</p>
+      </div>
+
       <h2>Onde estamos</h2>
       <p class="chapeu">
         Estamos no Mercado Municipal de ${esc(MORADA.localidade)}, em ${esc(MORADA.rua)},
