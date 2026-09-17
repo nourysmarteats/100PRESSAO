@@ -34,6 +34,7 @@ const PRODUTO_VAZIO = {
   imagem_url: '',
   ordem: 0,
   disponivel: true,
+  exclusiva_beta: false,
 }
 
 // Variantes de tamanho/preço (item 8 da v2) — sub-itens do produto
@@ -725,6 +726,7 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
             imagem_url: p.imagem_url || '',
             ordem: p.ordem,
             disponivel: p.disponivel,
+            exclusiva_beta: p.exclusiva_beta ?? false,
           }
         : { ...PRODUTO_VAZIO, category_id: categorias[0]?.id || '' },
     )
@@ -758,6 +760,7 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
       imagem_url: form.imagem_url.trim() || null,
       ordem: Number(form.ordem) || 0,
       disponivel: form.disponivel,
+      exclusiva_beta: form.exclusiva_beta,
     }
     const novo = emEdicao === 'novo'
     const { error } = novo
@@ -1077,6 +1080,15 @@ function Produtos({ alvoEdicao, aoConsumirAlvo }) {
               className="h-5 w-5 accent-ambar-500"
             />
             Disponível na ementa
+          </label>
+          <label className="flex items-center gap-3 text-grafite-900">
+            <input
+              type="checkbox"
+              checked={form.exclusiva_beta}
+              onChange={alterar('exclusiva_beta')}
+              className="h-5 w-5 accent-ambar-500"
+            />
+            Ementa secreta (só Clientes Beta)
           </label>
           <div className="flex justify-end gap-3">
             <button

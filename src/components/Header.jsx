@@ -21,6 +21,7 @@ export const NAV_LINKS = [
   { to: '/', label: 'Início' },
   { to: '/quem-somos', label: 'Quem Somos' },
   { to: '/ementa', label: 'Ementa', externo: true },
+  { to: '/ementa-secreta', label: 'Ementa Secreta' },
   { to: '/restaurante', label: 'Encomendar' },
   { to: '/contacto', label: 'Contacto' },
   { to: '/faca-parte', label: 'Faça Parte' },

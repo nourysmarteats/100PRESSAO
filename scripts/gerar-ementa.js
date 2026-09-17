@@ -78,7 +78,7 @@ async function lerSupabase(env = {}) {
 
   const [categorias, produtos, variantes] = await Promise.all([
     pedir('categories?visivel=eq.true&select=id,nome,tipo,ordem&order=ordem'),
-    pedir('products?disponivel=eq.true&select=id,category_id,nome,descricao,origem,alergenios,ordem&order=ordem'),
+    pedir('products?disponivel=eq.true&exclusiva_beta=eq.false&select=id,category_id,nome,descricao,origem,alergenios,ordem&order=ordem'),
     pedir('product_variants?disponivel=eq.true&select=product_id,nome,ordem&order=ordem'),
   ])
 
