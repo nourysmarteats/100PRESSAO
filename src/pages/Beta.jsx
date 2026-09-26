@@ -23,6 +23,7 @@ import {
   estadoInscricoes,
   selecionarCampanha,
   validarAdesao,
+  AVISO_VERSOES_ACEITES,
 } from '../lib/beta'
 
 const fadeUp = {
@@ -114,7 +115,7 @@ function Beta() {
   async function submeter(ev) {
     ev.preventDefault()
     if (estado === 'a_enviar') return
-    if (!carregado || campanha?.regulamento_versao !== '2026-09-16.v1' || campanha?.aviso_versao !== '2026-09-16.v1' || estadoInscricoes(cfgNorm, Number.isFinite(instanteServidor) ? instanteServidor + Date.now() - recebidoEm : Date.now()) !== 'aberta') {
+    if (!carregado || campanha?.regulamento_versao !== '2026-09-16.v1' || !AVISO_VERSOES_ACEITES.includes(campanha?.aviso_versao) || estadoInscricoes(cfgNorm, Number.isFinite(instanteServidor) ? instanteServidor + Date.now() - recebidoEm : Date.now()) !== 'aberta') {
       setErros(['As inscrições estão fechadas de momento.'])
       return
     }
@@ -164,7 +165,7 @@ function Beta() {
 
   if (convite) return <AdesaoClienteBeta token={convite} />
 
-  const versoesValidas = campanha?.regulamento_versao === '2026-09-16.v1' && campanha?.aviso_versao === '2026-09-16.v1'
+  const versoesValidas = campanha?.regulamento_versao === '2026-09-16.v1' && AVISO_VERSOES_ACEITES.includes(campanha?.aviso_versao)
   const situacao = versoesValidas ? estadoInscricoes(cfgNorm, agoraCampanha) : 'configuracao_invalida'
   const fechado = !carregado || (situacao !== 'aberta' && !(prever && situacao === 'fechada'))
 
@@ -379,7 +380,7 @@ function Beta() {
                   {/* O aviso inteiro, à vista. Não em hiperligação no rodapé: o
                       artigo 13.º manda informar no momento da recolha, e
                       informar não é ter um link algures. */}
-                  <AvisoClienteBetaCompacto />
+                  <AvisoClienteBetaCompacto versao={campanha?.aviso_versao} />
                   <label className="mt-4 flex items-start gap-3 text-sm">
                     <input type="checkbox" checked={dados.aceita_regulamento === true} onChange={(e) => setDados((d) => ({ ...d, aceita_regulamento: e.target.checked }))} className="mt-1 h-5 w-5 shrink-0 accent-ambar-500" />
                     <span>Aceito o <a className="underline" href="/legal/cliente-beta/regulamento-2026-09-16.v1.txt" target="_blank" rel="noreferrer">regulamento Cliente Beta</a>.</span>

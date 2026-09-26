@@ -1,9 +1,10 @@
+import { avisoUrl } from '../lib/beta'
 // Aviso de privacidade — primeira camada, à vista no momento da inscrição/adesão
 // ao programa Cliente Beta. Art. 13.º do RGPD: informar quando os dados são
 // recolhidos, e informar não é ter uma hiperligação no rodapé.
 //
 // Esta é a PRIMEIRA CAMADA (resumo dos factos essenciais). O texto completo é a
-// segunda camada, em /legal/cliente-beta/aviso-2026-09-16.v1.txt (imutável).
+// segunda camada, em /legal/cliente-beta/aviso-<versão>.txt (imutável; versão vinda do servidor).
 // Conteúdo factual validado pela Bea Salgado; o tom/redacção final é do Sérgio,
 // sem retirar nenhum elemento legal.
 
@@ -16,7 +17,7 @@ function Linha({ termo, children }) {
   )
 }
 
-export default function AvisoClienteBetaCompacto() {
+export default function AvisoClienteBetaCompacto({ versao }) {
   return (
     <div>
       <dl className="space-y-3">
@@ -78,7 +79,7 @@ export default function AvisoClienteBetaCompacto() {
 
       <p className="mt-4 text-sm text-grafite-600/80">
         Este é o resumo. Podes ler o{' '}
-        <a className="underline" href="/legal/cliente-beta/aviso-2026-09-16.v1.txt" target="_blank" rel="noreferrer">
+        <a className="underline" href={avisoUrl(versao)} target="_blank" rel="noreferrer">
           aviso de privacidade completo
         </a>{' '}
         antes de te inscreveres.
