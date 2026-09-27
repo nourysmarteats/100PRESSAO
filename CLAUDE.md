@@ -4,6 +4,7 @@ Contexto permanente do repositório. Qualquer sessão de Claude que abra este pr
 lê este ficheiro primeiro e **não volta a perguntar** o que está aqui dentro.
 
 Manter curto. Se deixar de caber num ecrã, deixa de ser lido.
+Estado do trabalho em curso **não entra aqui** — vai para `docs/estado-atual.md`.
 
 ---
 
@@ -12,8 +13,22 @@ Manter curto. Se deixar de caber num ecrã, deixa de ser lido.
 1. Invocar a skill `task-observer-shemot` **antes** de começar o trabalho.
    A activação por descrição não é garantida; esta linha é o gatilho.
 2. Ler este ficheiro inteiro antes de propor alterações.
-3. Antes de estimar seja o que for sobre a base de dados, inspeccionar o esquema
+3. Antes de mexer na base de dados, ler `docs/referencias/esquema-bd.md`
+   (esquemas `public`/`financeiro`, convenções, pg_cron).
+4. Antes de estimar seja o que for sobre a base de dados, inspeccionar o esquema
    real. Nunca estimar de memória.
+
+## Onde procurar conhecimento
+
+- `docs/_INDICE.md` — **ler primeiro**; abrir só os documentos que a tarefa precisa.
+- `docs/estado-atual.md` — o que está em curso e por fechar.
+- Não listar nem ler `docs/` às cegas.
+
+## Armadilhas conhecidas
+
+- **Numeração dos beta testers arranca em 134, de propósito** (decisão do Leandro,
+  2026-09-02). Não "corrigir". Contagem real = `count(*)`.
+- `docs/consentimentos/*.txt` são imutáveis: versão nova = ficheiro novo.
 
 ## O que é
 
@@ -60,41 +75,6 @@ com pedidos, stock e vendas reais. Testes destrutivos ou de concorrência fazem-
 cliente normal, a sessão de staff guardada no mesmo browser interfere com
 páginas que nem precisam de autenticação.
 
-## Dois esquemas, não um
-
-`public` tem o negócio (pedidos, stock, ementa, equipa, candidaturas, beta).
-`financeiro` tem contabilidade de gestão: `despesas`, `categorias`, `fornecedores`,
-`receitas_externas`, `orcamento`, mais cinco vistas `v_*` — todas com
-`security_invoker=true`, para que a RLS das tabelas de baixo se aplique a quem
-consulta e não a quem criou a vista.
-
-O esquema `financeiro` **só dá USAGE a `authenticated`**. A `anon` não tem nada lá
-dentro e não pode ter: é a diferença entre um número de vendas e a contabilidade da
-casa. Toda a RLS ali é `e_admin()`, nunca `e_equipa()`.
-
-**Esquema novo não aparece na API sozinho.** Supabase → Integrations → Data API →
-Settings → *Exposed schemas*. Sem isso todos os pedidos dão 404 e o erro não diz
-porquê. Foi o que segurou o Financeiro depois de estar escrito e migrado.
-
-Nesse mesmo ecrã há *Exposed tables* e *Exposed functions*. **Não os usar para o
-`financeiro`**: os `GRANT` já estão feitos na migração, à medida, e o interruptor da
-consola concede também à `anon`.
-
-## Convenções do esquema — verificadas em produção
-
-Estas não são preferências. São o que as tabelas existentes já fazem.
-Divergir cria dívida permanente.
-
-| Regra | Detalhe |
-|---|---|
-| Língua | Nomes de tabelas e colunas em português. `criado_em`, nunca `created_at` |
-| Timestamps | `timestamptz` com `default now()`; `atualizado_em` por trigger `touch_atualizado_em()` |
-| Chaves | `uuid` com `gen_random_uuid()`. Sequenciais visíveis ao utilizador por coluna *identity* (ver `orders.numero`) |
-| Configuração | Tabela `definicoes` (chave/`jsonb`). Interruptores e limites vivem aí, não em constantes no código |
-| Acessos | `e_admin()` e `e_equipa()`. Dados pessoais e financeiros leem-se com `e_admin()`, nunca com `e_equipa()` |
-| Auditoria | `audit_log` (acao, detalhe `jsonb`) |
-| Buckets | Privados por omissão, com limite de tamanho e lista de MIME. `produtos` é o único público |
-
 ## Regras que não se negoceiam
 
 1. **Escrita pública nunca vai directa à tabela.** Passa por função
@@ -128,56 +108,6 @@ Divergir cria dívida permanente.
     resolve chega ao ecrã como `ENOENT: dist/index.html` e esconde a causa real.
     Antes de commitar: `npm run build > /tmp/build.log 2>&1 && git commit …` —
     encadeado pelo código de saída, nunca por `grep` ao output.
-
-## Tarefas agendadas (pg_cron)
-
-| Hora | O quê |
-|---|---|
-| 03:15 | `expurgar_candidaturas()` |
-| 03:25 | `expurgar_beta_testers()` |
-
-## Em curso
-
-**Beta testers — no ar e a receber inscrições.** Rota `/beta`, gestão em
-Admin → Beta testers. Campanha de abertura em três actos: pré-abertura → abertura
-em beta → inauguração, que fecha a beta. Vagas em três lotes (`vaga` 1/2/3),
-atribuídas à mão no admin.
-
-`src/pages/Beta.jsx`, `src/lib/beta.js` (+ testes),
-`src/pages/equipa/admin/BetaTesters.jsx`, `src/components/AvisoPrivacidadeBeta.jsx`.
-Texto do aviso arquivado em `docs/consentimentos/beta-2026-08-28.v1.txt` — é para
-lá que aponta o `aviso_versao` gravado em cada linha. **Ficheiro imutável:** versão
-nova é ficheiro novo, nunca uma edição.
-
-**A numeração arranca em 134, e é de propósito.** Não é bug nem resto de
-testes: decisão do Leandro em 2026-09-02, para que quem se inscreve não receba
-um cartão com 001 e leia nisso falta de procura. A tabela foi limpa dos dados
-de ensaio (rasto em `audit_log`, acção `beta_testers_teste_removidos`) e a
-coluna *identity* reiniciada. **Não "corrigir" isto.** A contagem real de
-inscritos é sempre `count(*)`, nunca o número mais alto — no admin já é assim.
-
-Fica em aberto uma coisa de copy, para o Sérgio: o cartão diz "És o beta tester
-n.º 134", o que promete uma posição numa fila que não existe. Um número que se
-lê como matrícula ("Beta tester · 134") dá o mesmo efeito sem afirmar nada.
-
-Por fechar, tudo fora do código:
-
-- `definicoes.beta.beta_terminou_em` — pôr a data da inauguração. É isso que fecha
-  a beta, arranca o prazo de 30 dias e manda expurgar quem não consentiu contacto
-  posterior.
-- NIF da entidade responsável nos avisos, e a mesma identidade nas três páginas
-  (`/beta`, `/colaborador`, política de privacidade) — hoje divergem.
-- Secção 11 da política de privacidade, e fechar a secção 5.
-- Entidade responsável pelo tratamento: a concessão do mercado ainda está em nome
-  pessoal; a transferência para a sociedade está pendente.
-
-**Dois consentimentos, não um.** O primeiro acto não é consentimento nenhum — é o
-aviso do artigo 13.º, e a base legal da inscrição é a alínea b). O segundo
-(`contacto_pos_beta`, opcional, nunca pré-marcado) é o que permite falar com a
-pessoa depois da inauguração. Recolhidos no mesmo acto, com carimbos separados.
-O segundo nunca pode passar a obrigatório: um consentimento que é condição de
-acesso não é livre e deixa de valer. Só a própria pessoa o dá ou retira — no
-painel é campo de leitura.
 
 ## Quem decide o quê
 
