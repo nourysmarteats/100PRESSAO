@@ -4,6 +4,7 @@ import { REDES_SOCIAIS } from '../lib/marca'
 import { useHorario } from '../lib/horario'
 import logoStamp from '../assets/logo-100pressao.png'
 import InstalarApp from './InstalarApp'
+import { abrirPreferencias } from '../lib/analytics'
 
 // URLs vindas de src/lib/marca.js — a mesma lista alimenta o "sameAs" do
 // JSON-LD. Se divergirem, o Google recebe sinais contraditórios sobre que
@@ -316,6 +317,13 @@ function Footer() {
             <Link to="/cookies" className="transition-colors hover:text-creme-50">
               Cookies
             </Link>
+            <button
+              type="button"
+              onClick={abrirPreferencias}
+              className="cursor-pointer uppercase tracking-widest transition-colors hover:text-creme-50"
+            >
+              Gerir cookies
+            </button>
             <Link to="/termos" className="transition-colors hover:text-creme-50">
               Termos
             </Link>

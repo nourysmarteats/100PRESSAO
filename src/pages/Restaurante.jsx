@@ -18,6 +18,7 @@ import { servidoHoje } from '../lib/dias'
 import { nifValido } from '../lib/nif'
 import FormularioFeedback from '../components/FormularioFeedback'
 import logoStamp from '../assets/logo-100pressao.png'
+import { trackEvento } from '../lib/analytics'
 
 const WHATSAPP_SUGESTAO =
   'https://wa.me/351935995011?text=' +
@@ -305,16 +306,33 @@ function Restaurante() {
   }
 
   const mudar = useCallback(
-    (chave, delta) =>
+    (chave, delta) => {
+      if (delta > 0) trackEvento('adicionar_carrinho')
       setCarrinho((c) => {
         const q = (c[chave] || 0) + delta
         const novo = { ...c }
         if (q <= 0) delete novo[chave]
         else novo[chave] = q
         return novo
-      }),
+      })
+    },
     [],
   )
+
+  // ── Medição de campanhas (só dispara se houver consentimento; ver lib/analytics) ──
+  useEffect(() => {
+    trackEvento('ver_ementa')
+  }, [])
+  useEffect(() => {
+    if (fase === 'checkout') trackEvento('iniciar_checkout', { valor: total })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase])
+  const compraMedida = useRef(null)
+  useEffect(() => {
+    if (fase !== 'confirmado' || !pedido?.id || compraMedida.current === pedido.id) return
+    compraMedida.current = pedido.id
+    trackEvento('compra', { valor: pedido.total, idEvento: pedido.id })
+  }, [fase, pedido])
 
   // Quantidade já no carrinho para um item da lista (soma as variantes).
   const qtdDoItem = useCallback(
