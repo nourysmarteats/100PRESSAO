@@ -188,6 +188,7 @@ function Restaurante() {
         nome: v ? `${p.nome} ${v.nome}` : p.nome,
         preco: precoOnline(v || p),
         alergenios: p.alergenios || null,
+        soRecolha: !!p.so_recolha,
       }
     },
     [produtos, combos, variantes],
@@ -231,6 +232,7 @@ function Restaurante() {
               imagem: p.imagem_url || imagemCategoria(cat.nome),
               preco: opcoes.length ? Math.min(...opcoes.map((o) => o.preco)) : precoOnline(p),
               opcoes,
+              soRecolha: !!p.so_recolha,
             })
           })
         return { id: cat.id, nome: cat.nome, itens }
@@ -277,6 +279,10 @@ function Restaurante() {
   // Algés porque o cálculo falhou e ninguém impediu o avanço. Uma entrega tem
   // sempre de ter distância — a validação repete-se no servidor.
   const semDistancia = tipo === 'entrega' && !(distancia > 0)
+  // Artigos só para levantar (ex.: mini salgados, que não aguentam a viagem).
+  // Com um destes no carrinho não há entrega — a regra repete-se no servidor.
+  const soRecolhaNoCarrinho = Object.keys(carrinho).some((k) => resolverChave(k)?.soRecolha)
+  const bloqueioRecolha = tipo === 'entrega' && soRecolhaNoCarrinho
 
   async function calcularDistancia() {
     if (!morada.trim()) {
@@ -374,6 +380,7 @@ function Restaurante() {
     !abaixoMinimo &&
     !foraDoRaio &&
     !semDistancia &&
+    !bloqueioRecolha &&
     nome.trim() &&
     telValido &&
     emailValido &&
@@ -959,6 +966,7 @@ function Restaurante() {
               {tipo === 'entrega' && <div className="mt-1 flex justify-between text-sm text-grafite-600"><span>Portes {portes === 0 ? '(grátis)' : ''}</span><span>{fmt(portes)}</span></div>}
               <div className="mt-2 flex justify-between border-t border-creme-300 pt-2 font-display text-lg font-bold text-grafite-900"><span>Total</span><span>{fmt(total)}</span></div>
               {abaixoMinimo && <p className="mt-2 text-sm text-red-600">Encomenda mínima de {fmt(cfg.min_encomenda)} para entrega. Faltam {fmt(cfg.min_encomenda - subtotal)}.</p>}
+              {bloqueioRecolha && <p className="mt-2 text-sm text-red-600">Tens no pedido artigos só para levantar. Escolhe levantamento ou retira-os do pedido.</p>}
               {foraDoRaio && <p className="mt-2 text-sm text-red-600">Fora da área de entrega (máx. {cfg.raio_max} km). Escolhe levantamento ou uma morada mais próxima.</p>}
               {semDistancia && !foraDoRaio && (
                 <p className="mt-2 text-sm text-red-600">
@@ -1287,6 +1295,9 @@ function CartaoItem({ item, qtd, onAbrir, onAdicionar }) {
     >
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <p className="font-semibold leading-tight text-grafite-900">{item.nome}</p>
+        {item.soRecolha && (
+          <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-cobre-600">Só para levantar</p>
+        )}
         {item.descricao && (
           <p className="mt-1 line-clamp-2 text-sm text-grafite-600/70">{item.descricao}</p>
         )}
@@ -1374,6 +1385,9 @@ function FolhaItem({ item, carrinho, onFechar, onConfirmar }) {
 
         <div className="p-6">
           <h2 className="font-display text-2xl font-bold uppercase tracking-tight text-grafite-900">{item.nome}</h2>
+          {item.soRecolha && (
+            <p className="mt-2 text-xs font-semibold uppercase tracking-widest text-cobre-600">Só para levantar</p>
+          )}
           {item.descricao && <p className="mt-2 text-grafite-600">{item.descricao}</p>}
 
           {item.opcoes.length > 0 && (
