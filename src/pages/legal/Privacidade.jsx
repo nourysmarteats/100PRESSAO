@@ -10,7 +10,7 @@ const SEO = {
 
 function Privacidade() {
   return (
-    <PaginaLegal titulo="Política de Privacidade" atualizado="18/07/2026" seo={SEO}>
+    <PaginaLegal titulo="Política de Privacidade" atualizado="27/09/2026" seo={SEO}>
       <p className="leading-relaxed text-grafite-600">
         Esta política explica que dados pessoais recolhemos quando usas este site,
         para que os usamos e quais os teus direitos, nos termos do Regulamento
@@ -43,6 +43,14 @@ function Privacidade() {
             para te podermos responder e melhorar o serviço.
           </li>
           <li>
+            <strong>WhatsApp:</strong> se nos contactares pelo WhatsApp
+            (+351 935 995 011), tratamos o teu número, o nome do teu perfil e o
+            conteúdo das mensagens, para responder a pedidos de informação,
+            apoiar encomendas e tratar reclamações. Se fores beta tester, é
+            também por aqui que te enviamos os avisos da fase beta. Não usamos
+            este canal para publicidade sem o teu consentimento.
+          </li>
+          <li>
             <strong>Dados de navegação:</strong> estatísticas de utilização do
             site (Google Analytics), recolhidas <strong>apenas se aceitares</strong>{' '}
             no aviso de cookies. Ajudam-nos a perceber como o site é usado.
@@ -58,6 +66,12 @@ function Privacidade() {
         <ul className="list-disc space-y-2 pl-5">
           <li>Pedidos: execução do serviço que nos pediste.</li>
           <li>Feedback: o nosso interesse legítimo em responder e melhorar.</li>
+          <li>
+            WhatsApp: diligências a teu pedido e execução do serviço (pedidos
+            de informação e encomendas); o nosso interesse legítimo, no caso de
+            reclamações; o consentimento que deste na inscrição, no caso dos
+            avisos da fase beta.
+          </li>
           <li>Estatísticas de navegação: o teu consentimento (que podes retirar a qualquer momento).</li>
         </ul>
       </Seccao>
@@ -71,6 +85,15 @@ function Privacidade() {
           <li><strong>Supabase</strong>:base de dados onde ficam os pedidos e o feedback.</li>
           <li><strong>Vercel</strong>:alojamento e entrega do site.</li>
           <li><strong>Google Analytics</strong>:estatísticas de navegação (só com o teu consentimento).</li>
+          <li>
+            <strong>WhatsApp Ireland Limited (Meta)</strong>: fornecedor do
+            serviço de mensagens WhatsApp Business, quando nos contactas por
+            esse canal. O WhatsApp trata também dados por conta própria, nos
+            termos da sua{' '}
+            <a href="https://www.whatsapp.com/legal/privacy-policy-eea" target="_blank" rel="noopener noreferrer" className="text-cobre-600 underline-offset-4 hover:underline">
+              política de privacidade
+            </a>.
+          </li>
         </ul>
         <p>
           Alguns destes prestadores podem tratar dados fora do Espaço Económico
@@ -85,7 +108,10 @@ function Privacidade() {
           Guardamos os dados apenas o tempo necessário às finalidades descritas
           e às obrigações legais (por exemplo, fiscais). Os prazos concretos de
           conservação estão a ser definidos e serão detalhados nesta política.
-          Podes pedir a eliminação dos teus dados a qualquer momento (ver ponto 6).
+          As conversas de WhatsApp são apagadas até 12 meses depois do último
+          contacto, salvo se forem precisas para uma reclamação em curso ou
+          para cumprir uma obrigação legal. Podes pedir a eliminação dos teus
+          dados a qualquer momento (ver ponto 6).
         </p>
       </Seccao>
 
