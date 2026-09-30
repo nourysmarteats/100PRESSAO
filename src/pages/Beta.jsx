@@ -297,10 +297,10 @@ function Beta() {
                   </p>
                 </li>
                 <li>
-                  <p className="font-semibold text-grafite-900">O teu nome basta.</p>
+                  <p className="font-semibold text-grafite-900">Sem cupões, sem app.</p>
                   <p className="mt-0.5 text-sm text-grafite-600">
-                    Ao balcão dizes o nome, está na lista, está tratado. Não há
-                    cupões, nem códigos, nem app.
+                    Ao balcão dizes o nome e está tratado. Online, no nosso site,
+                    escreves o teu número Beta e está feito.
                   </p>
                 </li>
                 <li>
