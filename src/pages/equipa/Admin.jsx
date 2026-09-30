@@ -24,8 +24,10 @@ import Feedback from './admin/Feedback'
 import Faturas from './admin/Faturas'
 import Financeiro from './admin/Financeiro'
 import BetaTesters from './admin/BetaTesters'
+import Arranque from './admin/Arranque'
 
 const SECCOES = [
+  { id: 'arranque', rotulo: 'Arranque', Componente: Arranque },
   { id: 'analytics', rotulo: 'Analytics', Componente: Analytics },
   { id: 'relatorios', rotulo: 'Relatórios', Componente: Relatorios },
   { id: 'rentabilidade', rotulo: 'Rentabilidade', Componente: Rentabilidade },
