@@ -943,6 +943,7 @@ function Restaurante() {
                 {betaAtivo && <p className="mt-1 text-xs text-green-700">Cliente Beta validado: {beta.pct}% de desconto nos artigos.</p>}
                 {beta && !betaAtivo && <p className="mt-1 text-xs text-grafite-600">Mudaste o número ou o telemóvel: volta a validar.</p>}
                 {msgBeta && <p className="mt-1 text-xs text-red-600">{msgBeta}</p>}
+                <p className="mt-1 text-xs text-grafite-600/70">Validamos o número com o telemóvel da inscrição. <a href="/legal/cliente-beta/aviso-2026-09-30.v1.txt" target="_blank" rel="noreferrer" className="underline">Aviso de privacidade</a></p>
               </div>
 
               {tipo === 'entrega' && (

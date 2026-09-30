@@ -79,8 +79,8 @@ export function selecionarCampanha(campanhas, codigo = '') {
 // Versões do aviso que o site sabe mostrar. A de 26 Set acrescenta a adesão
 // direta na ementa secreta; a de 16 Set fica aceite para não fechar as
 // inscrições no intervalo entre o deploy e a migração.
-export const AVISO_VERSAO_ATUAL = '2026-09-26.v1'
-export const AVISO_VERSOES_ACEITES = ['2026-09-16.v1', AVISO_VERSAO_ATUAL]
+export const AVISO_VERSAO_ATUAL = '2026-09-30.v1'
+export const AVISO_VERSOES_ACEITES = ['2026-09-16.v1', '2026-09-26.v1', AVISO_VERSAO_ATUAL]
 export const avisoUrl = (versao = AVISO_VERSAO_ATUAL) =>
   `/legal/cliente-beta/aviso-${AVISO_VERSOES_ACEITES.includes(versao) ? versao : AVISO_VERSAO_ATUAL}.txt`
 
