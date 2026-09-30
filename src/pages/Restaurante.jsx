@@ -112,6 +112,12 @@ function Restaurante() {
   const [nif, setNif] = useState('')
   const [idade, setIdade] = useState(false) // 18+ (Brandão E)
   const [aceito, setAceito] = useState(false) // Condições de Venda (Brandão J)
+  // Cliente Beta: número + telemóvel validados no servidor, que devolve um
+  // token de uso único (30 min). O desconto só vale no restaurante online.
+  const [numeroBeta, setNumeroBeta] = useState('')
+  const [beta, setBeta] = useState(null) // { token, pct, numero, tel }
+  const [aValidarBeta, setAValidarBeta] = useState(false)
+  const [msgBeta, setMsgBeta] = useState('')
 
   // Pagamento
   const [pedido, setPedido] = useState(null) // { id, numero, total, portes }
@@ -273,7 +279,18 @@ function Restaurante() {
     if (tipo !== 'entrega' || distancia <= Number(cfg.km_gratis || 0)) return 0
     return Number(cfg.taxa_base || 0) + (distancia - Number(cfg.km_gratis || 0)) * Number(cfg.preco_km || 0)
   }, [tipo, distancia, cfg])
-  const total = subtotal + portes
+  // Beta só conta enquanto o número e o telemóvel forem os que foram validados.
+  const telDigitos = telefone.replace(/\D/g, '').replace(/^351(?=\d{9}$)/, '')
+  const betaAtivo = !!beta && beta.tel === telDigitos && beta.numero === numeroBeta
+  // Desconto por unidade, arredondado ao cêntimo — a mesma conta do servidor e da fatura.
+  const descontoBeta = useMemo(() => {
+    if (!betaAtivo) return 0
+    return linhas.reduce(
+      (s, l) => s + (l.preco - Math.round(l.preco * (100 - beta.pct) + 1e-6) / 100) * l.qtd,
+      0,
+    )
+  }, [betaAtivo, beta, linhas])
+  const total = subtotal - descontoBeta + portes
   const abaixoMinimo = tipo === 'entrega' && subtotal < Number(cfg.min_encomenda || 0)
   const foraDoRaio = tipo === 'entrega' && distancia > Number(cfg.raio_max || 0)
   // Sem distância não há portes: a encomenda #51 passou com entrega grátis para
@@ -409,6 +426,35 @@ function Restaurante() {
     idade &&
     aceito
 
+  async function validarBeta() {
+    setMsgBeta('')
+    const num = Number(numeroBeta)
+    if (!(num >= 100 && num <= 999)) {
+      setMsgBeta('O número Beta tem 3 dígitos.')
+      return
+    }
+    if (!/^\d{9}$/.test(telDigitos)) {
+      setMsgBeta('Escreve primeiro o telemóvel com que te inscreveste.')
+      return
+    }
+    setAValidarBeta(true)
+    const { data, error } = await supabase
+      .rpc('validar_cliente_beta_checkout', { p_numero: num, p_telefone: telDigitos })
+      .single()
+    setAValidarBeta(false)
+    if (error) {
+      setBeta(null)
+      setMsgBeta(error.message?.includes('Demasiadas') ? 'Demasiadas tentativas. Tenta daqui a uma hora.' : 'Não foi possível validar agora. Tenta de novo.')
+      return
+    }
+    if (!data?.valido) {
+      setBeta(null)
+      setMsgBeta('Não foi possível validar. Confirma o número Beta e o telemóvel da inscrição.')
+      return
+    }
+    setBeta({ token: data.token, pct: Number(data.desconto_pct), numero: numeroBeta, tel: telDigitos })
+  }
+
   // ── Criar encomenda + iniciar pagamento ──
   async function finalizar() {
     if (!podeFinalizar || aFinalizar) return
@@ -438,9 +484,17 @@ function Restaurante() {
           p_aceitou: aceito,
           p_itens: itens,
           p_nif: querFatura ? nif : null,
+          p_beta_token: betaAtivo ? beta.token : null,
         })
         .single()
 
+      if (error?.message?.includes('Cliente Beta')) {
+        // Token expirado, já usado ou artigo exclusivo sem validação.
+        setBeta(null)
+        setErroPag(error.message)
+        setAFinalizar(false)
+        return
+      }
       if (error || !data) {
         setErroPag('Não foi possível criar a encomenda. Confirma os dados e tenta de novo.')
         setAFinalizar(false)
@@ -866,6 +920,32 @@ function Restaurante() {
                 </label>
               )}
 
+              {/* Cliente Beta: opcional, validado com o telemóvel da inscrição. */}
+              <div className="mt-4">
+                <span className="block text-sm font-semibold uppercase tracking-widest text-ambar-600">Cliente Beta (opcional)</span>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    value={numeroBeta}
+                    onChange={(e) => { setNumeroBeta(e.target.value.replace(/\D/g, '').slice(0, 3)); setMsgBeta('') }}
+                    inputMode="numeric"
+                    className={CAMPO}
+                    placeholder="n.º Beta (3 dígitos)"
+                  />
+                  <button
+                    type="button"
+                    onClick={validarBeta}
+                    disabled={aValidarBeta || numeroBeta.length !== 3}
+                    className="mt-1 shrink-0 rounded-md border border-ambar-500 px-4 text-sm font-semibold text-ambar-600 disabled:opacity-50"
+                  >
+                    {aValidarBeta ? 'A validar…' : 'Validar'}
+                  </button>
+                </div>
+                {betaAtivo && <p className="mt-1 text-xs text-green-700">Cliente Beta validado: {beta.pct}% de desconto nos artigos.</p>}
+                {beta && !betaAtivo && <p className="mt-1 text-xs text-grafite-600">Mudaste o número ou o telemóvel: volta a validar.</p>}
+                {msgBeta && <p className="mt-1 text-xs text-red-600">{msgBeta}</p>}
+                <p className="mt-1 text-xs text-grafite-600/70">Validamos o número com o telemóvel da inscrição. <a href="/legal/cliente-beta/aviso-2026-09-30.v1.txt" target="_blank" rel="noreferrer" className="underline">Aviso de privacidade</a></p>
+              </div>
+
               {tipo === 'entrega' && (
                 <>
                   <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Morada de entrega
@@ -981,6 +1061,7 @@ function Restaurante() {
                 ))}
               </ul>
               <div className="mt-3 flex justify-between text-sm text-grafite-600"><span>Subtotal</span><span>{fmt(subtotal)}</span></div>
+              {descontoBeta > 0 && <div className="mt-1 flex justify-between text-sm text-green-700"><span>Desconto Cliente Beta (−{beta.pct}%)</span><span>−{fmt(descontoBeta)}</span></div>}
               {tipo === 'entrega' && <div className="mt-1 flex justify-between text-sm text-grafite-600"><span>Portes {portes === 0 ? '(grátis)' : ''}</span><span>{fmt(portes)}</span></div>}
               <div className="mt-2 flex justify-between border-t border-creme-300 pt-2 font-display text-lg font-bold text-grafite-900"><span>Total</span><span>{fmt(total)}</span></div>
               {abaixoMinimo && <p className="mt-2 text-sm text-red-600">Encomenda mínima de {fmt(cfg.min_encomenda)} para entrega. Faltam {fmt(cfg.min_encomenda - subtotal)}.</p>}

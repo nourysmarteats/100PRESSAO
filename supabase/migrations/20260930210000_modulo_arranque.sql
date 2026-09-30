@@ -1,0 +1,11 @@
+-- Módulo Arranque e Estabilização (fase 1). APLICADA em produção a 30 Set 2026 pelo Daniel.
+-- Tabelas só-admin (RLS com e_admin()); a config não fica em `definicoes` porque essa
+-- tabela tem leitura pública e aqui há caixa, custos fixos e comissões.
+--  - arranque_config (linha única): datas das fases, custos fixos, caixa, metas, IVA médio,
+--    embalagem, comissões de pagamento {metodo:{pct,fixo}} e das plataformas (%).
+--    Campos a null = por configurar: a margem fica "sem dados", nunca zero.
+--  - arranque_checklist: 13 itens × 4 canais (online, ubereats, glovo, boltfood); 6 críticos por canal.
+--    Trigger carimba atualizado_em/atualizado_por.
+--  - arranque_ocorrencias: cancelamento, reembolso, atraso, reclamação, indisponível, outro.
+-- As vendas das plataformas usam financeiro.receitas_externas (fonte única com o Financeiro).
+-- Ver definições completas em produção (\d+ public.arranque_*).

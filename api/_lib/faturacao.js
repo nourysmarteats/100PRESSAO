@@ -205,13 +205,21 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   // sozinho não chega); usamos o id interno como reference. Como o produto
   // ainda não existe no catálogo Vendus, é criado automaticamente na primeira
   // fatura com esta reference.
-  const items = pedido.order_items.map((i) => ({
-    reference: `100P-${i.product_id || i.combo_id || i.id}`,
-    title: nomeItem(i),
-    qty: Number(i.quantidade),
-    gross_price: Number(i.preco_unitario),
-    tax_id: TAX_ID_DEFAULT,
-  }))
+  // Cliente Beta: o preço da linha já sai com o desconto (arredondado ao
+  // cêntimo por unidade, a mesma conta do servidor), e o título identifica-o,
+  // para a soma das linhas bater certo com o valor pago.
+  const items = pedido.order_items.map((i) => {
+    const pct = Number(i.desconto_percentagem || 0)
+    const bruto = Number(i.preco_unitario)
+    const liquido = pct > 0 ? Math.round(bruto * (100 - pct) + 1e-6) / 100 : bruto
+    return {
+      reference: `100P-${i.product_id || i.combo_id || i.id}`,
+      title: pct > 0 ? `${nomeItem(i)} (Cliente Beta −${pct}%)` : nomeItem(i),
+      qty: Number(i.quantidade),
+      gross_price: liquido,
+      tax_id: TAX_ID_DEFAULT,
+    }
+  })
 
   // A taxa de entrega é parte do que foi cobrado e tem de constar como linha:
   // os `payments` usam o total (que a inclui), pelo que sem isto a soma dos
