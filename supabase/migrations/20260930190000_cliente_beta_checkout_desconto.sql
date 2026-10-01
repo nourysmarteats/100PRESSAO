@@ -36,3 +36,8 @@ create table if not exists public.cliente_beta_validacoes (
   usado_em timestamptz,
   desconto numeric(10,2)
 );
+
+-- 1 Out 2026: listar_utilizacoes_cliente_beta_admin(p_dias) — só admin (e_admin()).
+-- Devolve utilizações (pedido, nome/email/morada do pedido, desconto) com alertas:
+-- nome_diferente, emails_diferentes, moradas_diferentes, muitos_no_dia; e números
+-- com >= 3 validações falhadas em 7 dias. Aplicada em produção pelo Daniel.
