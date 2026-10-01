@@ -458,6 +458,15 @@ function Restaurante() {
   // ── Criar encomenda + iniciar pagamento ──
   async function finalizar() {
     if (!podeFinalizar || aFinalizar) return
+    // Número Beta escrito mas não validado: valida primeiro e pára, para o
+    // cliente ver o desconto (ou o erro) antes de pagar. Sem isto o número era
+    // ignorado em silêncio e a encomenda seguia sem desconto.
+    if (numeroBeta.length > 0 && !betaAtivo) {
+      if (numeroBeta.length === 3) await validarBeta()
+      else setMsgBeta('O número Beta tem 3 dígitos.')
+      setErroPag('Confirma o Cliente Beta acima antes de finalizar (ou apaga o número para seguir sem desconto).')
+      return
+    }
     setAFinalizar(true)
     setErroPag('')
     try {

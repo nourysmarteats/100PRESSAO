@@ -64,12 +64,16 @@ async function faturarSePreciso(admin, pedido) {
 // caso contrário não faz nada (o resto do fluxo funciona na mesma).
 export async function enviarConfirmacao(admin, pedido) {
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey || !pedido.cliente_email) return
+  if (!apiKey) {
+    console.warn('RESEND_API_KEY em falta: email de confirmação não enviado', pedido.numero)
+    return
+  }
+  if (!pedido.cliente_email) return
   const from = process.env.EMAIL_FROM || '100PRESSÃO <geral@100pressao.pt>'
 
   const { data: itens } = await admin
     .from('order_items')
-    .select('quantidade, preco_unitario, products(nome), product_variants(nome), combos(nome)')
+    .select('quantidade, preco_unitario, desconto_percentagem, products(nome), product_variants(nome), combos(nome)')
     .eq('order_id', pedido.id)
 
   const linhas = (itens || [])
@@ -77,8 +81,12 @@ export async function enviarConfirmacao(admin, pedido) {
       const nome = i.combos?.nome
         ? `Combo ${i.combos.nome}`
         : `${i.products?.nome || 'Artigo'}${i.product_variants?.nome ? ` ${i.product_variants.nome}` : ''}`
-      return `<tr><td>${i.quantidade}× ${nome}</td><td style="text-align:right">${fmt(
-        i.preco_unitario * i.quantidade,
+      // Preço da linha já com o desconto Cliente Beta, igual à fatura.
+      const pct = Number(i.desconto_percentagem || 0)
+      const unit = pct > 0 ? Math.round(i.preco_unitario * (100 - pct) + 1e-6) / 100 : i.preco_unitario
+      const rotulo = pct > 0 ? `${nome} (Cliente Beta −${pct}%)` : nome
+      return `<tr><td>${i.quantidade}× ${rotulo}</td><td style="text-align:right">${fmt(
+        unit * i.quantidade,
       )}</td></tr>`
     })
     .join('')
@@ -91,7 +99,11 @@ export async function enviarConfirmacao(admin, pedido) {
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#0e1013">
       <h2 style="color:#c9822e">Encomenda #${pedido.numero} confirmada ✓</h2>
-      <p>Olá ${pedido.cliente_nome || 'cliente'}, recebemos e confirmámos o pagamento da tua encomenda. Já estamos a preparar!</p>
+      <p>Olá ${pedido.cliente_nome || 'cliente'}, ${
+        pedido.metodo_pagamento === 'dinheiro'
+          ? 'recebemos a tua encomenda. Pagas em dinheiro no momento da entrega ou do levantamento.'
+          : 'recebemos e confirmámos o pagamento da tua encomenda.'
+      } Já estamos a preparar!</p>
       <table style="width:100%;border-collapse:collapse;margin:16px 0">
         ${linhas}
         ${
