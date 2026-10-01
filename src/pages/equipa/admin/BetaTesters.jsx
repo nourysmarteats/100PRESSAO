@@ -11,6 +11,7 @@
 // percentagem for alta, o problema não é o cartaz: é o QR não estar a ser lido.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
+import UtilizacoesClienteBeta from './UtilizacoesClienteBeta'
 import {
   BOTAO_PERIGO,
   BOTAO_PRIMARIO,
@@ -353,6 +354,8 @@ Até já.
           </table>
         )}
       </section>
+
+      <UtilizacoesClienteBeta />
     </div>
   )
 }
