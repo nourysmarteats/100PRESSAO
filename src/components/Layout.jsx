@@ -4,9 +4,16 @@ import Header from './Header'
 import Footer from './Footer'
 import ConsentBanner from './ConsentBanner'
 import { applyStoredConsent, trackPageview } from '../lib/analytics'
+import { registarOrigem } from '../lib/origem'
 
 function Layout() {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
+
+  // Código de campanha (?via= / ?o=) guardado em memória para a encomenda
+  // online — sem cookies (ver src/lib/origem.js).
+  useEffect(() => {
+    registarOrigem(search)
+  }, [search])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })

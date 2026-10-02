@@ -19,6 +19,7 @@ import { nifValido } from '../lib/nif'
 import FormularioFeedback from '../components/FormularioFeedback'
 import logoStamp from '../assets/logo-100pressao.png'
 import { trackEvento } from '../lib/analytics'
+import { origemDaEncomenda } from '../lib/origem'
 
 const WHATSAPP_SUGESTAO =
   'https://wa.me/351935995011?text=' +
@@ -494,6 +495,7 @@ function Restaurante() {
           p_itens: itens,
           p_nif: querFatura ? nif : null,
           p_beta_token: betaAtivo ? beta.token : null,
+          p_origem: origemDaEncomenda(window.location.search),
         })
         .single()
 
