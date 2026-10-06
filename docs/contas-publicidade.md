@@ -48,7 +48,7 @@ Verba aprovada: 300 € (teste 40 € · abertura 150 € · sustentação 80 �
 | Dados | Setor "Quick service restaurant", Portugal, telefone +351 935 995 011, empresa encontrada no registo com a morada da Praceta Eugénio de Castro |
 | Cupão | "H2'26 Seasonal %OFF": 50% de desconto no gasto até 45 € de crédito, **usar antes de 13 Out 2026** |
 | Pagamento | por configurar a 10 Out 2026, junto com a Meta |
-| Pixel | "100PRESSÃO site" · ID `DB2BQ7RC77U04C8M35UG` · só navegador (sem Events API) · criado a 6 Out 2026. **Falta pôr no Vercel** como `VITE_TIKTOK_PIXEL_ID` (Production + Preview) e voltar a publicar o site. Não colar o código-base do TikTok no site: o `src/lib/analytics.js` já o carrega, só com consentimento |
+| Pixel | "100PRESSÃO site" · ID `DB2BQ7RC77U04C8M35UG` · só navegador (sem Events API) · criado a 6 Out 2026. Instalado a 6 Out 2026: `VITE_TIKTOK_PIXEL_ID` no Vercel (Production + Preview, tipo Config) e redeploy de produção. Testado em www.100pressao.pt: sem consentimento não carrega; depois de "Aceitar tudo" carrega o script do TikTok com este ID. Não colar o código-base do TikTok no site: o `src/lib/analytics.js` já o carrega, só com consentimento |
 
 ## Outros
 - WhatsApp Business: +351 935 995 011 (número do 100PRESSÃO desde 27 Set 2026).
