@@ -43,7 +43,11 @@ Verba aprovada: 300 € (teste 40 € · abertura 150 € · sustentação 80 �
 | Item | Valor |
 |---|---|
 | Conta | @100pressao2026 |
-| TikTok Ads Manager | por criar (EUR, Europe/Lisbon) |
+| TikTok Ads Manager | Conta de anunciante "SINTONIA DOS TEMPEROS, LDA_adv" · ID `7693477948116074517` · org `7693477805744652309` · EUR · Lisbon Time · criada a 6 Out 2026 |
+| Login | geral@100pressao.pt (palavra-passe só com o Leandro); 2 passos por email e telemóvel |
+| Dados | Setor "Quick service restaurant", Portugal, telefone +351 935 995 011, empresa encontrada no registo com a morada da Praceta Eugénio de Castro |
+| Cupão | "H2'26 Seasonal %OFF": 50% de desconto no gasto até 45 € de crédito, **usar antes de 13 Out 2026** |
+| Pagamento | por configurar a 10 Out 2026, junto com a Meta |
 | Pixel | por criar (`VITE_TIKTOK_PIXEL_ID` no Vercel) |
 
 ## Outros
