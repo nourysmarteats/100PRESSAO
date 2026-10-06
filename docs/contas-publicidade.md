@@ -1,6 +1,6 @@
 # Contas de publicidade e redes — registo (sem palavras-passe)
 
-Última atualização: 6 Out 2026 (Marta + Daniel). **Nunca registar aqui palavras-passe, códigos 2FA ou dados de cartão.**
+Última atualização: 6 Out 2026 (Marta + Daniel; Google Ads acrescentado). **Nunca registar aqui palavras-passe, códigos 2FA ou dados de cartão.**
 
 ## Meta (Facebook + Instagram)
 
@@ -49,6 +49,21 @@ Verba aprovada: 300 € (teste 40 € · abertura 150 € · sustentação 80 �
 | Cupão | "H2'26 Seasonal %OFF": 50% de desconto no gasto até 45 € de crédito, **usar antes de 13 Out 2026** |
 | Pagamento | por configurar a 10 Out 2026, junto com a Meta |
 | Pixel | "100PRESSÃO site" · ID `DB2BQ7RC77U04C8M35UG` · só navegador (sem Events API) · criado a 6 Out 2026. Instalado a 6 Out 2026: `VITE_TIKTOK_PIXEL_ID` no Vercel (Production + Preview, tipo Config) e redeploy de produção. Testado em www.100pressao.pt: sem consentimento não carrega; depois de "Aceitar tudo" carrega o script do TikTok com este ID. Não colar o código-base do TikTok no site: o `src/lib/analytics.js` já o carrega, só com consentimento |
+
+## Google Ads
+
+| Item | Valor |
+|---|---|
+| Conta | **100PRESSÃO** · ID `815-644-3119` · criada a 6 Out 2026 **sem campanha** ("Configure apenas uma conta") |
+| Login | nourysmarteats@gmail.com (palavra-passe só com o Leandro) |
+| Definições fixas (não mudam depois) | País de faturação **Portugal** · fuso **(GMT+01:00) Hora de Portugal** · **EUR** — corrigidas antes de criar (o Google propunha Bélgica) |
+| Destino dos anúncios | Site https://www.100pressao.pt/ (não a página do Perfil de Empresa) |
+| Produtos associados | Canal YouTube 100PRESSÃO, Perfil de Empresa no Google (1 localização), telefone +351 935 995 011 — aprovado pelo Leandro |
+| Perfil de pagamentos proposto | "Noury Draft House" · Organização · Portugal · ID `0768-8624-1008` — **verificar a 10 Out** se fica este ou se se cria um em nome da Sintonia dos Temperos |
+| Pagamento | **por configurar a 10 Out 2026**: página `ads.google.com/aw/signup/payment` (aceitar os Termos do Google Ads, informações fiscais NIPC 519521463, cartão pelo Leandro) |
+| Verba | não prevista nos 300 € do plano — não ativar campanhas sem decisão do Leandro |
+
+Pendente: a morada do Perfil de Empresa diz só "Loja 6" — corrigir para "Loja 6 e 7".
 
 ## Outros
 - WhatsApp Business: +351 935 995 011 (número do 100PRESSÃO desde 27 Set 2026).
