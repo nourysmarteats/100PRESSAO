@@ -37,6 +37,7 @@ um documento em `docs/`, actualizar esta lista no mesmo commit.
 | `criativos/handoff-sergio-marta-2026-09-18.md` (+ 7 png) | Handoff dos criativos beta, Sérgio → Marta |
 | `SEO-diagnostico-2026-08-15.md` | Diagnóstico SEO |
 | `SEO-revisao-completa-2026-08-15.md` | Revisão completa de SEO |
+| `contas-publicidade.md` | Registo das contas Meta/TikTok, portfólio, conta de anúncios e pixels (sem palavras-passe) |
 | `og/gerar-og.py` | Script das imagens Open Graph |
 | `referencias/` (README + png) | Referências visuais do interior |
 
