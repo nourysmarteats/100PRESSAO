@@ -6,6 +6,9 @@ import { supabase } from '../../../lib/supabase'
 // superfície clara; tinta/grelha nos tons de texto da paleta
 export const GRAFICO = {
   serie: '#c9822e',
+  // Segunda série (ex.: pago pelo banco vs pago do bolso). Validada com o
+  // ambar no creme-50: ΔE CVD 21, normal 27, croma acima do mínimo.
+  serieB: '#2f6f9f',
   grelha: '#d9cfba',
   tinta: '#3a3f48',
   tintaForte: '#16181d',

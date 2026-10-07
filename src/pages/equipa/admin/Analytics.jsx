@@ -13,6 +13,7 @@ import {
 import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import ConversaoOnline from './ConversaoOnline'
+import FinanceiroAnalytics from './FinanceiroAnalytics'
 import { GRAFICO, TooltipGrafico, CARTAO } from './comuns'
 
 // Série temporal de receita: por hora (Hoje) ou por dia (7/30 dias),
@@ -331,6 +332,7 @@ function Analytics() {
         </>
       )}
       <ConversaoOnline />
+      <FinanceiroAnalytics />
     </div>
   )
 }
