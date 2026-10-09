@@ -163,6 +163,9 @@ const MAPA = {
   adicionar_carrinho: { meta: 'AddToCart', tiktok: 'AddToCart', ga: 'add_to_cart' },
   iniciar_checkout: { meta: 'InitiateCheckout', tiktok: 'InitiateCheckout', ga: 'begin_checkout' },
   compra: { meta: 'Purchase', tiktok: 'CompletePayment', ga: 'purchase' },
+  // Inscrição beta concluída. Sem idEvento de propósito: o número de beta
+  // tester identifica a pessoa e não sai para as plataformas.
+  inscricao_beta: { meta: 'CompleteRegistration', tiktok: 'CompleteRegistration', ga: 'sign_up' },
 }
 
 // dados: { valor?, idEvento? } — valor em euros. idEvento serve para

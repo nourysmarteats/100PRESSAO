@@ -12,6 +12,7 @@ import AvisoClienteBetaCompacto from '../components/AvisoClienteBetaCompacto'
 import { SEO_PAGES } from '../seo/pages'
 import logoStamp from '../assets/logo-100pressao.png'
 import { marcaCliente } from '../lib/candidaturas'
+import { trackEvento } from '../lib/analytics'
 import {
   CONFIG_FALLBACK,
   config as normalizarConfig,
@@ -159,6 +160,8 @@ function Beta() {
 
     setInscricao(data[0])
     setEstado('inscrito')
+    // Só conta inscrições novas; quem já estava inscrito não é conversão.
+    if (!data[0].ja_inscrito) trackEvento('inscricao_beta')
   }
 
   if (!supabase) return null
