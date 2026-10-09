@@ -22,7 +22,9 @@ export const CONSENT_KEY = 'cookie-consent-100pressao-v2'
 export const CONSENT_VERSAO = 2
 export const EVENTO_ABRIR_CONSENTIMENTO = '100pressao:abrir-consentimento'
 
-const META_PIXEL_ID = import.meta.env?.VITE_META_PIXEL_ID || ''
+// ID público (aparece no código de qualquer site), como o MEASUREMENT_ID.
+// A variável de ambiente, se existir, sobrepõe-se.
+const META_PIXEL_ID = import.meta.env?.VITE_META_PIXEL_ID || '28739658369030624'
 const TIKTOK_PIXEL_ID = import.meta.env?.VITE_TIKTOK_PIXEL_ID || ''
 
 const noBrowser = () => typeof window !== 'undefined'
