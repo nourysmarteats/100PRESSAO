@@ -150,7 +150,7 @@ function ParceiroEntregas() {
           </div>
         ) : (
           <>
-            {prever && (
+            {prever && !normalizarConfig(cfg).registo_aberto && (
               <p className="mt-6 rounded-xl border border-ambar-500/40 bg-ambar-500/10 p-4 text-sm text-ambar-800">
                 <strong>Pré-visualização.</strong> O registo não está aberto ao
                 público. O formulário funciona e o que for submetido fica

@@ -50,7 +50,9 @@ function Etiqueta({ estado, simulacao }) {
 function Ficha({ empresa, aoGuardar, mostrarAviso }) {
   const [base, setBase] = useState(String(empresa.tarifa_base ?? empresa.tarifa_proposta_base))
   const [km, setKm] = useState(String(empresa.tarifa_km ?? empresa.tarifa_proposta_km))
-  const [motivo, setMotivo] = useState(empresa.motivo_decisao || '')
+  // Começa vazio de propósito: o motivo da decisão anterior não pode servir
+  // de motivo para a seguinte (foi assim que se terminou uma empresa sem motivo novo).
+  const [motivo, setMotivo] = useState('')
   const [contrato, setContrato] = useState(empresa.contrato_assinado_em || '')
   const [acordo, setAcordo] = useState(empresa.acordo_dados_assinado_em || '')
   const [ocupado, setOcupado] = useState(false)
