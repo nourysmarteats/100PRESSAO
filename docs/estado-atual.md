@@ -68,3 +68,13 @@ empresa; GPS só para chamar, sem histórico; sem exclusividade nem horários.
 despacho misto (todos → proximidade), link de acompanhamento do cliente,
 relatório mensal para conferir a fatura, substituição do fluxo WhatsApp em `Staff.jsx`.
 Sem acordo art. 28.º assinado, nenhum dado de cliente segue para a empresa.
+
+**Fase 2A — código pronto (12/10/2026), migração `20261013090000_despacho_entregas_2a.sql` por aplicar.**
+Opção B: registo de contas e contas anónimas DESLIGADOS no Supabase; contas de empresa/estafeta só
+nascem em `api/entregas-acesso.js` (service_role). Sessões isoladas: `supabaseEmpresa` (sb-empresa) e
+`supabaseEstafeta` (sb-estafeta) em `src/lib/supabase.js`; o cliente da equipa não lê o link de entrada
+em /empresa e /estafeta. Páginas: `src/pages/Empresa.jsx`, `src/pages/Estafeta.jsx`; Staff com
+"Chamar estafeta" (fluxo WhatsApp/escolha manual removido); admin com convite para o portal, convite
+de estafeta e interruptor `definicoes.entrega.despacho_teste` (ligado = só empresas de simulação).
+A migração também fecha a leitura de `products`/`stock_*` a sessões que não sejam da equipa.
+Por fazer: notificações push (Web Push + chaves VAPID na Vercel) — por agora, tempo real + som com a app aberta.

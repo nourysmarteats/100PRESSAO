@@ -50,4 +50,6 @@ Divergir cria dívida permanente.
 
 Segredos de HMAC vão para o **Vault** (`vault.create_secret`), nunca para `definicoes`:
 `definicoes` tem leitura pública. Modelo: `empresas_entrega_segredo_ip`.
-**Pendente (Bea):** `definicoes.cliente_beta.segredo_ip` está exposto — migrar para o Vault.
+Nota (2026-10-12): `definicoes.cliente_beta` está excluída da leitura pública pela própria política (`chave <> 'cliente_beta'`) — o segredo do Cliente Beta NÃO está exposto. Ainda assim, chave nova com segredo vai para o Vault.
+
+**Atenção — leitura aberta a qualquer sessão `authenticated` (qual = true):** `products`, `stock_items`, `stock_movements`, `stock_receitas`. Hoje só a equipa tem sessão; no dia em que empresas ou estafetas tiverem conta, passam a ler stock e fichas técnicas. Corrigir para `e_equipa()` antes de criar qualquer conta externa (migração da Fase 2A).

@@ -15,6 +15,7 @@ import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import { registarAuditoria } from '../../../lib/equipa'
 import { ESTADOS, custoEntrega, paraNumero } from '../../../lib/empresasEntrega'
+import { linkConvite } from '../../../lib/despacho'
 import { useAviso, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, BOTAO_PERIGO, CARTAO, CAMPO } from './comuns'
 
 const COR_ESTADO = {
@@ -101,6 +102,28 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
     }
   }
 
+  const [conviteEstafeta, setConviteEstafeta] = useState(null)
+  async function convidarEstafeta() {
+    const nome = window.prompt('Nome do estafeta a convidar:')
+    if (!nome || nome.trim().length < 2) return
+    const { data, error } = await supabase.rpc('admin_convidar_estafeta', { p_empresa: empresa.id, p_nome: nome.trim() })
+    if (error) return mostrarAviso('Erro ao criar convite.')
+    setConviteEstafeta(linkConvite(window.location.origin, data))
+  }
+
+  async function convidarPortal() {
+    setOcupado(true)
+    const { data } = await supabase.auth.getSession()
+    const r = await fetch('/api/entregas-acesso', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token}` },
+      body: JSON.stringify({ acao: 'convidar-empresa', empresa_id: empresa.id }),
+    })
+    const corpo = await r.json().catch(() => ({}))
+    setOcupado(false)
+    mostrarAviso(r.ok ? `Convite enviado para ${empresa.contacto_email} ✓` : corpo.erro || 'Erro ao convidar.')
+  }
+
   const e = empresa
   return (
     <div className="space-y-5 border-t border-creme-300 px-5 pb-5 pt-4">
@@ -165,6 +188,34 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
         </div>
       )}
 
+      {/* Acesso ao portal: a conta da empresa só nasce aqui (registo de contas fechado no Supabase) */}
+      {e.estado === 'aprovada' && !e.simulacao && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Portal da empresa</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button type="button" disabled={ocupado || !e.contacto_email} className={BOTAO_SECUNDARIO} onClick={convidarPortal}>
+              Convidar para o portal
+            </button>
+            <span className="text-xs text-grafite-600/70">Envia um email para {e.contacto_email || '—'} com o link de entrada em /empresa.</span>
+          </div>
+        </div>
+      )}
+
+      {e.estado === 'aprovada' && (
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Convite de estafeta</p>
+          <button type="button" disabled={ocupado} className={`${BOTAO_SECUNDARIO} mt-2`} onClick={convidarEstafeta}>
+            Criar convite{e.simulacao ? ' (teste)' : ''}
+          </button>
+          {conviteEstafeta && (
+            <p className="mt-2 break-all rounded-lg bg-creme-100 p-3 text-xs text-grafite-700">
+              {conviteEstafeta}
+              <span className="mt-1 block text-grafite-600/70">Válido 72 horas, uso único. Não volta a ser mostrado.</span>
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Decisão */}
       <div>
         <label className="block">
@@ -199,13 +250,17 @@ function EmpresasEntrega() {
   const [aberta, setAberta] = useState(null)
   const [filtro, setFiltro] = useState('ativas')
   const [registoAberto, setRegistoAberto] = useState(null)
+  const [despachoTeste, setDespachoTeste] = useState(null)
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
-    const [rEmp, rCfg] = await Promise.all([
+    const [rEmp, rCfg, rEnt] = await Promise.all([
       supabase.from('empresas_entrega').select('*').order('criado_em', { ascending: false }),
       supabase.from('definicoes').select('valor').eq('chave', 'empresas_entrega').maybeSingle(),
+      supabase.from('definicoes').select('valor').eq('chave', 'entrega').maybeSingle(),
     ])
+    const teste = rEnt.data?.valor?.despacho_teste
+    setDespachoTeste(teste === undefined ? null : Boolean(teste))
     if (rEmp.error) {
       setErro(true)
       setLista([])
@@ -231,6 +286,21 @@ function EmpresasEntrega() {
     registarAuditoria('empresas_entrega_registo', { aberto: novo })
     setRegistoAberto(novo)
     mostrarAviso(novo ? 'Registo aberto ✓' : 'Registo fechado ✓')
+  }
+
+  async function alternarTeste() {
+    const novo = !despachoTeste
+    if (!novo && !window.confirm('Desligar o modo de teste? As encomendas reais passam a ser oferecidas às empresas reais com acordo de dados assinado.')) return
+    const { data: atual } = await supabase.from('definicoes').select('valor').eq('chave', 'entrega').maybeSingle()
+    const { error } = await supabase.from('definicoes').upsert({
+      chave: 'entrega',
+      valor: { ...(atual?.valor || {}), despacho_teste: novo },
+      atualizado_em: new Date().toISOString(),
+    })
+    if (error) return mostrarAviso('Erro ao guardar.')
+    registarAuditoria('despacho_modo_teste', { ligado: novo })
+    setDespachoTeste(novo)
+    mostrarAviso(novo ? 'Modo de teste ligado ✓' : 'Modo de teste desligado ✓')
   }
 
   const visiveis = useMemo(
@@ -261,6 +331,12 @@ function EmpresasEntrega() {
             </a>. Pagamos sempre à empresa, nunca a estafetas.
           </p>
         </div>
+        {despachoTeste !== null && (
+          <button type="button" onClick={alternarTeste}
+            className={`${BOTAO_SECUNDARIO} ${despachoTeste ? 'border-cobre-600 text-cobre-600' : ''}`}>
+            Despacho: {despachoTeste ? 'modo de teste (só simulação)' : 'empresas reais'}
+          </button>
+        )}
         {registoAberto !== null && (
           <button type="button" onClick={alternarRegisto} className={BOTAO_SECUNDARIO}>
             Registo {registoAberto ? 'aberto · fechar' : 'fechado · abrir'}

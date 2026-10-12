@@ -14,6 +14,7 @@ import {
 import { chamarApiFaturar } from '../../lib/equipa'
 import { nifOpcionalValido } from '../../lib/nif'
 import { useAviso } from './admin/comuns'
+import { ESTADO_ENTREGA, podeChamar, precisaAtencao } from '../../lib/despacho'
 
 function Kpi({ rotulo, valor, destaque }) {
   return (
@@ -28,26 +29,38 @@ function Kpi({ rotulo, valor, destaque }) {
   )
 }
 
-// Mensagem de recolha para o estafeta. A recolha é sempre no 100PRESSÃO, por
-// isso o que interessa é o destino, a distância, quanto recebe — e, se a
-// encomenda ficou por pagar, quanto tem de cobrar à porta e em quê.
-function mensagemRecolha(pedido, taxa) {
-  const linhas = [
-    `Recolha no 100PRESSAO - encomenda no ${pedido.numero}`,
-    '',
-    `Entrega: ${pedido.morada || '(morada por confirmar)'}`,
-  ]
-  if (Number(pedido.distancia_km) > 0) {
-    linhas.push(`Distancia: ${Number(pedido.distancia_km).toFixed(1)} km`)
+// Estado da entrega e o botão para chamar estafeta. O tempo real do Staff já
+// recarrega os pedidos quando a encomenda muda (aceite, recolhido, sem estafeta).
+function Despacho({ pedido }) {
+  const [ocupado, setOcupado] = useState(false)
+  const [msg, setMsg] = useState('')
+  const estado = pedido.entrega_estado
+  async function chamar() {
+    setOcupado(true)
+    const { data, error } = await supabase.rpc('chamar_estafeta', { p_order: pedido.id })
+    setOcupado(false)
+    if (error) return setMsg(error.message || 'Não foi possível chamar.')
+    setMsg(data > 0 ? `Oferecido a ${data} estafeta${data > 1 ? 's' : ''}.` : 'Nenhum estafeta disponível neste momento.')
   }
-  if (pedido.cliente_nome) linhas.push(`Cliente: ${pedido.cliente_nome}`)
-  if (pedido.cliente_telefone) linhas.push(`Telemovel: ${pedido.cliente_telefone}`)
-  if (taxa > 0) linhas.push('', `A receber: ${fmt(taxa)}`)
-  if (pedido.estado_pagamento === 'na_entrega') {
-    linhas.push('', `ATENCAO - cobrar ao cliente: ${fmt(pedido.total)} em dinheiro`)
-  }
-  linhas.push('', 'Podes?')
-  return linhas.join('\n')
+  return (
+    <div className={`mt-4 rounded-xl border p-4 ${precisaAtencao(pedido) ? 'border-red-500/50 bg-red-500/10' : 'border-creme-300 bg-creme-100/60'}`}>
+      <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600">Estafeta</p>
+      <p className={`mt-1 font-semibold ${precisaAtencao(pedido) ? 'text-red-600' : 'text-grafite-900'}`}>
+        {estado ? ESTADO_ENTREGA[estado] : 'Ainda não chamado'}
+        {estado === 'a_chamar' && pedido.entrega_chamada_em && ` · há ${minutosDesde(pedido.entrega_chamada_em)} min`}
+      </p>
+      {precisaAtencao(pedido) && (
+        <p className="mt-1 text-xs text-red-600">Ninguém aceitou a tempo. Chama de novo ou contacta a empresa de entregas.</p>
+      )}
+      {podeChamar(pedido) && (
+        <button type="button" disabled={ocupado} onClick={chamar}
+          className="mt-3 w-full cursor-pointer rounded-full bg-ambar-500 px-6 py-3 font-semibold uppercase tracking-widest text-grafite-950 hover:bg-ambar-400 disabled:opacity-40">
+          {ocupado ? 'A chamar…' : estado ? 'Chamar de novo' : 'Chamar estafeta'}
+        </button>
+      )}
+      {msg && <p className="mt-2 text-xs text-grafite-700">{msg}</p>}
+    </div>
+  )
 }
 
 const ROTULO_METODO = {
@@ -61,12 +74,10 @@ const ROTULO_METODO = {
 const ATALHO =
   'inline-flex items-center rounded-full border border-grafite-900/20 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-800 transition-colors hover:border-grafite-900'
 
-function CartaoPedido({ pedido, aoAvancar, aoEntregar, estafetas, valoresEstafeta }) {
+function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   const entrega = temEntrega(pedido)
   const porCobrar = pedido.estado_pagamento === 'na_entrega'
   const [metodo, setMetodo] = useState(pedido.metodo_pagamento || null)
-  const [estafetaId, setEstafetaId] = useState(pedido.estafeta_id || '')
-  const estafetaEscolhido = (estafetas || []).find((e) => e.id === estafetaId) || null
   const [ocupado, setOcupado] = useState(false)
   // Uma encomenda online chega com o método já escolhido e, se o cliente quis
   // fatura com contribuinte, com o NIF já preenchido. Começar em branco fazia
@@ -86,12 +97,6 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar, estafetas, valoresEstafet
   // engano — e o Pix nem sequer consta dos botões do balcão, pelo que nenhum
   // apareceria seleccionado.
   const metodoJaDefinido = pedido.canal === 'online' && !!pedido.metodo_pagamento
-  // O mesmo cálculo que será congelado ao marcar a saída — mostrado antes para
-  // o estafeta saber quanto recebe quando lhe perguntamos se pode.
-  const taxaEstafeta =
-    Math.round(
-      ((valoresEstafeta?.base ?? 2) + (valoresEstafeta?.km ?? 0.4) * Number(pedido.distancia_km || 0)) * 100,
-    ) / 100
   const aFechar = pedido.estado === (entrega ? 'a_caminho' : 'pronto')
   const emDestaque = pedido.estado === 'pronto' || pedido.estado === 'a_caminho'
 
@@ -233,57 +238,24 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar, estafetas, valoresEstafet
         </div>
       ) : (
         <>
-        {/* Quem leva escolhe-se ao sair para a rua, não antes: até aí a
-            encomenda ainda está na cozinha e pode mudar de mãos. */}
-        {entrega && pedido.estado === 'pronto' && (
-          <label className="mt-4 block text-xs font-semibold uppercase tracking-widest text-ambar-600">
-            Quem leva
-            <select
-              value={estafetaId}
-              onChange={(e) => setEstafetaId(e.target.value)}
-              className="mt-2 w-full cursor-pointer rounded-lg border border-creme-300 bg-creme-50 px-3 py-2 text-sm font-normal normal-case tracking-normal text-grafite-900 outline-none focus:border-ambar-500"
-            >
-              <option value="">— escolher estafeta —</option>
-              {(estafetas || []).map((e) => (
-                <option key={e.id} value={e.id}>{e.nome}</option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {/* Avisar antes de marcar a saída: primeiro pergunta-se, depois é que
-            a encomenda sai. O sistema propõe, não atribui. */}
-        {entrega && pedido.estado === 'pronto' && estafetaEscolhido && (
-          estafetaEscolhido.telefone ? (
-            <a
-              href={`https://wa.me/351${estafetaEscolhido.telefone}?text=${encodeURIComponent(
-                mensagemRecolha(pedido, taxaEstafeta),
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-2.5 text-sm font-semibold uppercase tracking-widest text-white transition-opacity hover:opacity-90"
-            >
-              Avisar {estafetaEscolhido.nome.split(' ')[0]} no WhatsApp
-            </a>
-          ) : (
-            <p className="mt-3 rounded-lg border border-ambar-500/50 bg-ambar-500/10 px-3 py-2 text-xs text-grafite-700">
-              {estafetaEscolhido.nome} não tem telemóvel registado — acrescenta em
-              Admin → Estafetas para poderes avisar por WhatsApp.
-            </p>
-          )
-        )}
+        {/* Entregas do restaurante online (ata 2026-10-12): ninguém da equipa escolhe
+            o estafeta. Chama-se, e o primeiro estafeta disponível que aceitar fica com
+            a entrega. É ele que marca "Recolhido" (→ a caminho) e "Entregue". */}
+        {entrega && pedido.estado === 'pronto' && <Despacho pedido={pedido} />}
+        {!(entrega && pedido.estado === 'pronto') && (
         <button
           type="button"
-          disabled={ocupado || (entrega && pedido.estado === 'pronto' && !estafetaId)}
+          disabled={ocupado}
           onClick={async () => {
             setOcupado(true)
-            await aoAvancar(pedido, estafetaId || null)
+            await aoAvancar(pedido)
             setOcupado(false)
           }}
           className="mt-4 w-full cursor-pointer rounded-full border border-grafite-600/40 px-6 py-3 text-sm font-semibold uppercase tracking-widest text-grafite-900 transition-colors hover:border-ambar-500 hover:text-ambar-600 disabled:opacity-40"
         >
           → {ROTULO_ESTADO[proximoEstado(pedido.estado, entrega)]}
         </button>
+        )}
         </>
       )}
     </article>
@@ -292,8 +264,6 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar, estafetas, valoresEstafet
 
 function Staff() {
   const [pedidos, setPedidos] = useState([])
-  const [estafetas, setEstafetas] = useState([])
-  const [valoresEstafeta, setValoresEstafeta] = useState({ base: 2, km: 0.4 })
   const [entreguesHoje, setEntreguesHoje] = useState({ n: 0, receita: 0 })
   const [, forcarTick] = useState(0)
   const { mostrarAviso, Aviso } = useAviso()
@@ -313,15 +283,6 @@ function Staff() {
 
     if (!ativos.error) setPedidos(ativos.data)
 
-    // Estafetas ativos e valores acordados. Falham em silêncio se a migração
-    // ainda não estiver aplicada — o balcão nunca deve ficar bloqueado por isto.
-    const [rEst, rCfg] = await Promise.all([
-      supabase.from('estafetas').select('id, nome, telefone').eq('ativo', true).order('nome'),
-      supabase.from('definicoes').select('valor').eq('chave', 'entrega').maybeSingle(),
-    ])
-    if (!rEst.error) setEstafetas(rEst.data || [])
-    const v = rCfg.data?.valor || {}
-    setValoresEstafeta({ base: Number(v.estafeta_base ?? 2), km: Number(v.estafeta_km ?? 0.4) })
     if (!entregues.error)
       setEntreguesHoje({
         n: entregues.data.length,
@@ -343,19 +304,10 @@ function Staff() {
     }
   }, [carregar])
 
-  async function avancarPedido(pedido, estafetaId) {
+  async function avancarPedido(pedido) {
     const proximo = proximoEstado(pedido.estado, temEntrega(pedido))
     if (!proximo || proximo === 'entregue') return
-    const campos = { estado: proximo }
-    // Ao sair para a rua fica registado quem leva e quanto lhe é devido. O
-    // valor é congelado aqui: recalculá-lo depois faria uma mudança na tabela
-    // de preços reescrever semanas já faturadas ao estafeta.
-    if (proximo === 'a_caminho' && estafetaId) {
-      campos.estafeta_id = estafetaId
-      campos.estafeta_taxa =
-        Math.round((valoresEstafeta.base + valoresEstafeta.km * Number(pedido.distancia_km || 0)) * 100) / 100
-    }
-    await supabase.from('orders').update(campos).eq('id', pedido.id)
+    await supabase.from('orders').update({ estado: proximo }).eq('id', pedido.id)
     carregar()
   }
 
@@ -420,7 +372,7 @@ function Staff() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {prontos.map((p) => (
-              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} estafetas={estafetas} valoresEstafeta={valoresEstafeta} />
+              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} />
             ))}
           </div>
         )}
@@ -433,7 +385,7 @@ function Staff() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {emCurso.map((p) => (
-              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} estafetas={estafetas} valoresEstafeta={valoresEstafeta} />
+              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} />
             ))}
           </div>
         )}
