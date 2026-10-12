@@ -16,6 +16,7 @@ import { fmt } from '../../../lib/pedidos'
 import { registarAuditoria } from '../../../lib/equipa'
 import { ESTADOS, custoEntrega, paraNumero } from '../../../lib/empresasEntrega'
 import { linkConvite } from '../../../lib/despacho'
+import { ativarNotificacoes, pushAtivo, pushDisponivel } from '../../../lib/push'
 import { useAviso, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, BOTAO_PERIGO, CARTAO, CAMPO } from './comuns'
 
 const COR_ESTADO = {
@@ -331,6 +332,12 @@ function EmpresasEntrega() {
             </a>. Pagamos sempre à empresa, nunca a estafetas.
           </p>
         </div>
+        {pushDisponivel() && !pushAtivo() && (
+          <button type="button" className={BOTAO_SECUNDARIO}
+            onClick={async () => mostrarAviso((await ativarNotificacoes(supabase)) ? 'Notificações ativas neste dispositivo ✓' : 'Notificações recusadas.')}>
+            Avisar-me de entregas sem estafeta
+          </button>
+        )}
         {despachoTeste !== null && (
           <button type="button" onClick={alternarTeste}
             className={`${BOTAO_SECUNDARIO} ${despachoTeste ? 'border-cobre-600 text-cobre-600' : ''}`}>

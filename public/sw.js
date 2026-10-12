@@ -16,7 +16,7 @@
 
 // Subir a versão faz o activate apagar as caches antigas — necessário aqui
 // para descartar as entradas de menu guardadas pela estratégia anterior.
-const CACHE_VERSION = 'v3'
+const CACHE_VERSION = 'v4'
 const SHELL_CACHE = `100p-shell-${CACHE_VERSION}`
 const MENU_CACHE = `100p-menu-${CACHE_VERSION}`
 
@@ -128,4 +128,39 @@ self.addEventListener('fetch', (event) => {
       ),
     )
   }
+})
+
+
+// ── Notificações push do despacho de entregas (ata 2026-10-12, D14) ──
+// O conteúdo nunca traz dados do cliente; abrir a notificação leva à app certa.
+self.addEventListener('push', (event) => {
+  let d = {}
+  try {
+    d = event.data ? event.data.json() : {}
+  } catch {
+    d = {}
+  }
+  event.waitUntil(
+    self.registration.showNotification(d.titulo || '100PRESSÃO', {
+      body: d.corpo || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: d.etiqueta || 'despacho',
+      renotify: true,
+      requireInteraction: true,
+      vibrate: [200, 100, 200, 100, 200],
+      data: { url: d.url || '/' },
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const destino = event.notification.data?.url || '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((janelas) => {
+      const aberta = janelas.find((j) => new URL(j.url).pathname.startsWith(destino))
+      return aberta ? aberta.focus() : self.clients.openWindow(destino)
+    }),
+  )
 })

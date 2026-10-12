@@ -15,6 +15,7 @@ import { chamarApiFaturar } from '../../lib/equipa'
 import { nifOpcionalValido } from '../../lib/nif'
 import { useAviso } from './admin/comuns'
 import { ESTADO_ENTREGA, podeChamar, precisaAtencao } from '../../lib/despacho'
+import { avisarDespacho } from '../../lib/push'
 
 function Kpi({ rotulo, valor, destaque }) {
   return (
@@ -35,11 +36,15 @@ function Despacho({ pedido }) {
   const [ocupado, setOcupado] = useState(false)
   const [msg, setMsg] = useState('')
   const estado = pedido.entrega_estado
+  useEffect(() => {
+    if (estado === 'sem_estafeta') avisarDespacho(supabase, 'sem-estafeta', pedido.id) // o servidor só avisa uma vez
+  }, [estado, pedido.id])
   async function chamar() {
     setOcupado(true)
     const { data, error } = await supabase.rpc('chamar_estafeta', { p_order: pedido.id })
     setOcupado(false)
     if (error) return setMsg(error.message || 'Não foi possível chamar.')
+    if (data > 0) avisarDespacho(supabase, 'oferta', pedido.id)
     setMsg(data > 0 ? `Oferecido a ${data} estafeta${data > 1 ? 's' : ''}.` : 'Nenhum estafeta disponível neste momento.')
   }
   return (

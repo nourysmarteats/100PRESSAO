@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabaseEstafeta as sb } from '../lib/supabase'
 import SEOHead from '../components/SEOHead'
 import { ESTADO_ENTREGA } from '../lib/despacho'
+import { ativarNotificacoes, pushAtivo, pushDisponivel } from '../lib/push'
 
 const CARTAO = 'rounded-2xl border border-creme-300 bg-white/80 p-5'
 const BOTAO = 'w-full cursor-pointer rounded-xl px-5 py-4 font-display text-base font-bold uppercase tracking-widest disabled:opacity-60'
@@ -40,6 +41,19 @@ function tocar() {
 const instalada = () =>
   typeof window !== 'undefined' &&
   (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true)
+
+function AtivarAvisos() {
+  const [estado, setEstado] = useState(pushAtivo() ? 'ativo' : 'idle')
+  if (!pushDisponivel() || estado === 'ativo') return null
+  return (
+    <button type="button" onClick={async () => setEstado((await ativarNotificacoes(sb)) ? 'ativo' : 'recusado')}
+      className="w-full cursor-pointer rounded-xl border border-ambar-500 bg-ambar-500/10 px-4 py-3 text-sm font-semibold text-ambar-900">
+      {estado === 'recusado'
+        ? 'As notificações estão bloqueadas. Ativa-as nas definições do telemóvel.'
+        : 'Ativar notificações (recebes as entregas mesmo com a app fechada)'}
+    </button>
+  )
+}
 
 function AvisoInstalar() {
   if (instalada()) return null
@@ -175,6 +189,7 @@ function Painel() {
   return (
     <div className="mt-6 space-y-4">
       <AvisoInstalar />
+      <AtivarAvisos />
       <div className={`${CARTAO} flex items-center justify-between gap-3`}>
         <div>
           <p className="font-semibold text-grafite-900">{eu.nome}</p>
