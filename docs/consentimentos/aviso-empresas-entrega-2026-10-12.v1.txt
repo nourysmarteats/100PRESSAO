@@ -1,0 +1,26 @@
+AVISO DE PRIVACIDADE — REGISTO DE EMPRESAS DE ENTREGA
+Versão 2026-10-12.v1
+
+Responsável
+Sintonia dos Temperos, NIPC 519 521 463, entidade que opera a marca 100PRESSÃO Draft House. Praceta Eugénio de Castro, Loja 6, 2790-063 Carnaxide. Contacto: geral@100pressao.pt
+
+Finalidade
+Avaliar o registo da empresa, contactar a pessoa indicada e, se o registo for aprovado, preparar e gerir o contrato de prestação de serviços.
+
+Fundamento
+Quanto à empresa: diligências pré-contratuais a pedido da própria (artigo 6.º, n.º 1, alínea b) do RGPD). Quanto à pessoa de contacto: interesse legítimo em falar com quem a empresa indicou para a representar (alínea f).
+
+Que dados
+Dados da empresa (nome, NIPC, zona de operação, número aproximado de estafetas e preço proposto) e da pessoa de contacto (nome, email e telefone). Não pedimos dados dos estafetas neste registo. Para limitar abusos, guardamos uma marca do endereço IP, cifrada com uma chave secreta (nunca o IP em claro).
+
+Quanto tempo
+Registo por decidir: 6 meses. Registo recusado: 90 dias após a decisão. Relação terminada: os dados da pessoa de contacto são apagados 2 anos depois do fim. Os dados de controlo de abuso são apagados ao fim de 2 dias. Tudo isto é feito automaticamente.
+
+Quem vê
+Só a administração do 100PRESSÃO. Os dados ficam alojados na União Europeia (Supabase, região de Paris) e não são partilhados com terceiros.
+
+Os seus direitos
+Acesso, retificação, apagamento, limitação, oposição e portabilidade. Escreva para geral@100pressao.pt e respondemos no prazo de 30 dias. Pode também apresentar reclamação à CNPD (www.cnpd.pt).
+
+Decisões automatizadas
+Não há. Cada registo é lido e decidido por uma pessoa.

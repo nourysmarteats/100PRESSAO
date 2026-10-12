@@ -75,6 +75,15 @@ export const SEO_PAGES = {
     description:
       'Candidata-te a trabalhar na 100PRESSÃO, no Mercado Municipal de Carnaxide.',
   },
+  parceiroEntregas: {
+    // Registo de empresas de entrega (ata 2026-10-12). noindex: o link é
+    // enviado directamente às empresas; abrir ao Google é decisão à parte.
+    path: '/parceiro-entregas',
+    noindex: true,
+    title: 'Parceiros de entrega | 100PRESSÃO',
+    description:
+      'Registo de empresas de estafetas para as entregas do restaurante online 100PRESSÃO, em Carnaxide.',
+  },
   beta: {
     // Registo de beta testers. Indexável desde 2026-09-15 (decisão do Leandro):
     // passa a aparecer em pesquisa e entra no sitemap para captação orgânica.
@@ -181,6 +190,7 @@ const ORDEM_ROTAS = [
   'app',
   'facaParte',
   'colaborador',
+  'parceiroEntregas',
   // Sem esta entrada o /beta nao ganha ficheiro no dist e o cleanUrls
   // devolve 404 em producao. Em dev funciona na mesma, por isso nao se nota.
   'beta',

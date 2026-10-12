@@ -43,4 +43,11 @@ Divergir cria dívida permanente.
 |---|---|
 | 03:15 | `expurgar_candidaturas()` |
 | 03:25 | `expurgar_beta_testers()` |
+| 04:05 | `expurgar_empresas_entrega()` — registos pendentes 6 meses, rejeitados 90 dias, contacto de terminadas anonimizado aos 2 anos |
 
+
+## Segredos
+
+Segredos de HMAC vão para o **Vault** (`vault.create_secret`), nunca para `definicoes`:
+`definicoes` tem leitura pública. Modelo: `empresas_entrega_segredo_ip`.
+**Pendente (Bea):** `definicoes.cliente_beta.segredo_ip` está exposto — migrar para o Vault.

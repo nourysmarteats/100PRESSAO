@@ -45,3 +45,26 @@ O segundo nunca pode passar a obrigatório: um consentimento que é condição d
 acesso não é livre e deixa de valer. Só a própria pessoa o dá ou retira — no
 painel é campo de leitura.
 
+
+## Delivery do restaurante online — empresas operadoras de frota
+
+Ata de 2026-10-12 (vault 100PRESSÃO, `Operações/Ata-Reuniao-Delivery-2026-10-12.md`).
+O 100PRESSÃO **nunca paga directamente a estafetas**: as entregas são feitas por
+empresas que se registam em `/parceiro-entregas` e são aprovadas no admin.
+
+**Fase 1 — feita.** Migração `20261012120000_empresas_entrega.sql` aplicada em
+produção a 2026-10-12 (pelo Leandro, no SQL Editor). Tabela `empresas_entrega`,
+função pública `registar_empresa_entrega()`, empresa de simulação (NIPC fictício
+599999993, `simulacao=true`), leitura de `estafetas` restrita a admin.
+Página `src/pages/ParceiroEntregas.jsx`, admin `admin/EmpresasEntrega.jsx`,
+regras em `src/lib/empresasEntrega.js`. Textos legais em `docs/consentimentos/*-empresas-entrega-2026-10-12.v1.txt`
+(lidos pela página via `?raw` — a versão mostrada é a gravada).
+
+**Regras fixas (art. 12.º-A CT):** aceitar/recusar sem penalização; preço só com a
+empresa; GPS só para chamar, sem histórico; sem exclusividade nem horários.
+
+**Fase 2 — por fazer:** portal da empresa (acesso próprio, NUNCA via `perfis` —
+`e_equipa()` abriria pedidos e clientes), app do estafeta (PWA, convite da empresa),
+despacho misto (todos → proximidade), link de acompanhamento do cliente,
+relatório mensal para conferir a fatura, substituição do fluxo WhatsApp em `Staff.jsx`.
+Sem acordo art. 28.º assinado, nenhum dado de cliente segue para a empresa.

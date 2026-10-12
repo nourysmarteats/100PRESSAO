@@ -12,6 +12,7 @@ const Restaurante = lazy(() => import('./pages/Restaurante'))
 const InstalarPWA = lazy(() => import('./pages/InstalarPWA'))
 const FacaParte = lazy(() => import('./pages/FacaParte'))
 const Colaborador = lazy(() => import('./pages/Colaborador'))
+const ParceiroEntregas = lazy(() => import('./pages/ParceiroEntregas'))
 const Beta = lazy(() => import('./pages/Beta'))
 const EmentaSecreta = lazy(() => import('./pages/EmentaSecreta'))
 const BetaBalcao = lazy(() => import('./pages/equipa/BetaBalcao'))
@@ -57,6 +58,7 @@ function App() {
           <Route path="/faca-parte" element={pagina(FacaParte)} />
           <Route path="/colaborador" element={pagina(Colaborador)} />
           <Route path="/colaboradores" element={<Navigate to="/colaborador" replace />} />
+          <Route path="/parceiro-entregas" element={pagina(ParceiroEntregas)} />
           {/* Registo de beta testers. Endereco curto de proposito: vai
               num QR impresso e ha quem o escreva a mao. */}
           <Route path="/beta" element={pagina(Beta)} />
