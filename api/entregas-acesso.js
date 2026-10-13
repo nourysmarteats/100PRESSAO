@@ -66,6 +66,37 @@ export default async function handler(req, res) {
       return res.status(200).json({ email, password, nome: valido[0].nome, empresa: valido[0].empresa })
     }
 
+    // ── Estafeta entra por um link de EQUIPA: fica à espera de aprovação da empresa ──
+    if (acao === 'aceitar-equipa') {
+      const convite = String(dados.convite || '')
+      if (convite.length < 20) return res.status(400).json({ erro: 'Link inválido.' })
+      const { data: valido, error: eVal } = await admin.rpc('validar_convite_equipa', { p_token: convite })
+      if (eVal || !valido?.length) {
+        return res.status(400).json({ erro: 'Este link já não está ativo. Pede outro à tua empresa.' })
+      }
+      const email = `estafeta-${randomUUID()}@estafetas.100pressao.pt`
+      const password = randomBytes(24).toString('base64url')
+      const { data: novo, error: eCriar } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        app_metadata: { tipo: 'estafeta' },
+      })
+      if (eCriar || !novo?.user) return res.status(500).json({ erro: 'Não foi possível criar o acesso.' })
+      const { error: eLigar } = await admin.rpc('ligar_estafeta_equipa', {
+        p_token: convite,
+        p_user: novo.user.id,
+        p_nome: String(dados.nome || ''),
+        p_telefone: String(dados.telefone || ''),
+      })
+      if (eLigar) {
+        await admin.auth.admin.deleteUser(novo.user.id)
+        const msg = eLigar.code === '22023' ? eLigar.message : 'Não foi possível entrar.'
+        return res.status(400).json({ erro: msg })
+      }
+      return res.status(200).json({ email, password, empresa: valido[0].empresa })
+    }
+
     // Daqui para baixo é preciso sessão.
     if (!token) return res.status(401).json({ erro: 'Sem sessão.' })
     const { data: chamador, error: eAuth } = await admin.auth.getUser(token)

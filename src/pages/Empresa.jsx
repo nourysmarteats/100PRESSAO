@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabaseEmpresa as sb } from '../lib/supabase'
 import SEOHead from '../components/SEOHead'
 import { fmt } from '../lib/pedidos'
-import { ESTADO_ENTREGA, inicioDoMes, linkConvite, mensagemConvite, totaisEntregas } from '../lib/despacho'
+import { ESTADO_ENTREGA, inicioDoMes, linkConvite, linkEquipa, mensagemConvite, mensagemEquipa, totaisEntregas } from '../lib/despacho'
 
 const CARTAO = 'rounded-2xl border border-creme-300 bg-white/70 p-6'
 const CAMPO = 'mt-2 w-full rounded-xl border border-creme-300 bg-creme-50 px-4 py-3 text-grafite-900 outline-none focus:border-ambar-500'
@@ -62,17 +62,45 @@ function Portal({ sessao }) {
   const [nome, setNome] = useState('')
   const [convite, setConvite] = useState(null)
   const [aviso, setAviso] = useState('')
+  const [linksEquipa, setLinksEquipa] = useState([])
+  const [limite, setLimite] = useState('10')
+  const [dias, setDias] = useState('7')
+  const [novoEquipa, setNovoEquipa] = useState(null)
 
   const carregar = useCallback(async () => {
-    const [rInfo, rEst, rEnt] = await Promise.all([
+    const [rInfo, rEst, rEnt, rEq] = await Promise.all([
       sb.rpc('minha_empresa_info'),
-      sb.from('estafetas').select('id, nome, telefone, ativo, disponivel').order('nome'),
+      sb.from('estafetas').select('id, nome, telefone, ativo, disponivel, aprovado').order('nome'),
       sb.rpc('entregas_da_minha_empresa', { p_mes: mes }),
+      sb.from('estafeta_convites_equipa').select('id, limite, usos, expira_em, cancelado_em, criado_em').order('criado_em', { ascending: false }),
     ])
     setInfo(rInfo.data?.[0] || false)
     setEstafetas(rEst.data || [])
     setEntregas(rEnt.data || [])
+    setLinksEquipa((rEq.data || []).filter((c) => !c.cancelado_em && new Date(c.expira_em) > new Date() && c.usos < c.limite))
   }, [mes])
+
+  async function criarEquipa(e) {
+    e.preventDefault()
+    const l = Number(limite)
+    const d = Number(dias)
+    const { data, error } = await sb.rpc('convidar_equipa', { p_limite: l, p_dias: d })
+    if (error) return setAviso(error.message || 'Não foi possível criar o link.')
+    setNovoEquipa({ link: linkEquipa(window.location.origin, data), dias: d })
+    carregar()
+  }
+
+  async function cancelarEquipa(id) {
+    await sb.rpc('cancelar_convite_equipa', { p_id: id })
+    setAviso('Link cancelado.')
+    carregar()
+  }
+
+  async function aprovar(id) {
+    const { error } = await sb.rpc('empresa_aprovar_estafeta', { p_estafeta: id })
+    setAviso(error ? 'Não foi possível ativar.' : 'Estafeta ativado.')
+    carregar()
+  }
 
   useEffect(() => {
     carregar()
@@ -110,7 +138,8 @@ function Portal({ sessao }) {
   }
 
   const t = totaisEntregas(entregas)
-  const ativos = estafetas.filter((s) => s.ativo)
+  const ativos = estafetas.filter((s) => s.ativo && s.aprovado !== false)
+  const pendentes = estafetas.filter((s) => s.ativo && s.aprovado === false)
 
   return (
     <div className="mt-8 space-y-6">
@@ -156,6 +185,57 @@ function Portal({ sessao }) {
               </a>
             </div>
             <p className="mt-2 text-xs text-grafite-600/80">Este link não volta a ser mostrado. Se se perder, crie outro.</p>
+          </div>
+        )}
+
+        {/* Link de equipa: vários estafetas, cada um fica à espera de ser ativado aqui */}
+        <form onSubmit={criarEquipa} className="mt-6 flex flex-wrap items-end gap-3 border-t border-creme-300 pt-5">
+          <p className="w-full text-sm text-grafite-700">
+            <strong>Link de equipa:</strong> um só link para vários estafetas. Quem entrar por ele fica à espera até o ativar aqui.
+          </p>
+          <label className="block"><span className={ROTULO}>Máx. pessoas</span>
+            <input value={limite} onChange={(e) => setLimite(e.target.value)} inputMode="numeric" className={`${CAMPO} w-24`} /></label>
+          <label className="block"><span className={ROTULO}>Válido (dias)</span>
+            <input value={dias} onChange={(e) => setDias(e.target.value)} inputMode="numeric" className={`${CAMPO} w-24`} /></label>
+          <button type="submit" className={BOTAO}>Criar link de equipa</button>
+        </form>
+        {novoEquipa && (
+          <div className="mt-4 rounded-xl border border-ambar-500/40 bg-ambar-500/10 p-4 text-sm">
+            <p className="font-semibold text-grafite-900">Link de equipa ({novoEquipa.dias} dias)</p>
+            <p className="mt-2 break-all text-grafite-700">{novoEquipa.link}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className={BOTAO_2} onClick={() => navigator.clipboard?.writeText(novoEquipa.link).then(() => setAviso('Link copiado.'))}>Copiar link</button>
+              <a className={BOTAO_2} target="_blank" rel="noreferrer"
+                href={`https://wa.me/?text=${encodeURIComponent(mensagemEquipa(info.nome, novoEquipa.link, novoEquipa.dias))}`}>Enviar por WhatsApp</a>
+            </div>
+            <p className="mt-2 text-xs text-grafite-600/80">Este link não volta a ser mostrado. Pode cancelá-lo abaixo a qualquer momento.</p>
+          </div>
+        )}
+        {linksEquipa.length > 0 && (
+          <ul className="mt-4 space-y-2 text-sm">
+            {linksEquipa.map((c) => (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-creme-100 px-3 py-2">
+                <span>Link de equipa · {c.usos}/{c.limite} usados · até {new Date(c.expira_em).toLocaleDateString('pt-PT')}</span>
+                <button type="button" className={BOTAO_2} onClick={() => cancelarEquipa(c.id)}>Cancelar</button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {pendentes.length > 0 && (
+          <div className="mt-5 rounded-xl border border-ambar-500/50 bg-ambar-500/10 p-4">
+            <p className="font-semibold text-grafite-900">À espera de ativação ({pendentes.length})</p>
+            <ul className="mt-2 divide-y divide-ambar-500/20">
+              {pendentes.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span><span className="font-semibold">{s.nome}</span> <span className="text-sm text-grafite-600">{s.telefone}</span></span>
+                  <span className="flex gap-2">
+                    <button type="button" className={BOTAO_2} onClick={() => aprovar(s.id)}>Ativar</button>
+                    <button type="button" className={BOTAO_2} onClick={() => desativar(s.id, s.nome)}>Recusar</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

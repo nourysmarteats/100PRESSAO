@@ -35,3 +35,41 @@ export const podeChamar = (p) =>
 
 // Uma chamada sem resposta: a base de dados marca sem_estafeta ao fim de N minutos.
 export const precisaAtencao = (p) => p?.entrega_estado === 'sem_estafeta'
+
+export const linkEquipa = (origem, token) => `${origem}/estafeta?equipa=${encodeURIComponent(token)}`
+
+export const mensagemEquipa = (empresa, link, dias) =>
+  `Olá! Este é o link para fazeres entregas do 100PRESSÃO pela ${empresa}. ` +
+  `Abre-o no teu telemóvel (válido ${dias} dia${dias > 1 ? 's' : ''}); depois de entrares, a empresa ativa o teu acesso: ${link}`
+
+// Segunda-feira (AAAA-MM-DD) da semana de uma data — semanas de segunda a domingo.
+export function inicioSemana(iso) {
+  const d = new Date(iso)
+  const dia = (d.getDay() + 6) % 7
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() - dia)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Agrupa as entregas por semana (mais recente primeiro), com totais de entregas e km.
+export function porSemana(linhas) {
+  const m = new Map()
+  for (const l of linhas || []) {
+    const k = inicioSemana(l.data)
+    const g = m.get(k) || { semana: k, entregas: [], km: 0 }
+    g.entregas.push(l)
+    g.km += Number(l.distancia_km || 0)
+    m.set(k, g)
+  }
+  return [...m.values()]
+    .map((g) => ({ ...g, km: Math.round(g.km * 10) / 10 }))
+    .sort((a, b) => (a.semana < b.semana ? 1 : -1))
+}
+
+export function rotuloSemana(segunda) {
+  const ini = new Date(`${segunda}T12:00:00`)
+  const fim = new Date(ini)
+  fim.setDate(ini.getDate() + 6)
+  const f = (d) => d.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' })
+  return `${f(ini)} a ${f(fim)}`
+}

@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabaseEstafeta as sb } from '../lib/supabase'
 import SEOHead from '../components/SEOHead'
-import { ESTADO_ENTREGA } from '../lib/despacho'
+import { ESTADO_ENTREGA, porSemana, rotuloSemana } from '../lib/despacho'
 import { ativarNotificacoes, pushAtivo, pushDisponivel } from '../lib/push'
 
 const CARTAO = 'rounded-2xl border border-creme-300 bg-white/80 p-5'
@@ -108,7 +108,8 @@ function AvisoInstalar() {
   )
 }
 
-function AceitarConvite({ convite, aoEntrar }) {
+function AceitarConvite({ convite, equipa = false, aoEntrar }) {
+  const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
   const [erro, setErro] = useState('')
   const [ocupado, setOcupado] = useState(false)
@@ -119,7 +120,7 @@ function AceitarConvite({ convite, aoEntrar }) {
     const r = await fetch('/api/entregas-acesso', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'aceitar-convite', convite, telefone }),
+      body: JSON.stringify(equipa ? { acao: 'aceitar-equipa', convite, nome, telefone } : { acao: 'aceitar-convite', convite, telefone }),
     })
     const corpo = await r.json().catch(() => ({}))
     if (!r.ok) {
@@ -134,7 +135,17 @@ function AceitarConvite({ convite, aoEntrar }) {
   }
   return (
     <form onSubmit={aceitar} className={`${CARTAO} mt-6 space-y-4`}>
-      <p className="text-grafite-700">A tua empresa convidou-te para fazeres entregas do restaurante online 100PRESSÃO.</p>
+      <p className="text-grafite-700">
+        A tua empresa convidou-te para fazeres entregas do restaurante online 100PRESSÃO.
+        {equipa && ' Depois de entrares, a empresa ativa o teu acesso.'}
+      </p>
+      {equipa && (
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">O teu nome</span>
+          <input value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="name" required
+            className="mt-2 w-full rounded-xl border border-creme-300 bg-creme-50 px-4 py-3 text-grafite-900 outline-none focus:border-ambar-500" />
+        </label>
+      )}
       <label className="block">
         <span className="text-xs font-semibold uppercase tracking-widest text-ambar-600">O teu telemóvel</span>
         <input value={telefone} onChange={(e) => setTelefone(e.target.value)} inputMode="tel" autoComplete="tel" required
@@ -153,6 +164,38 @@ function AceitarConvite({ convite, aoEntrar }) {
   )
 }
 
+// As minhas entregas, por semana (segunda a domingo). Só data, n.º e km das entregas
+// concluídas pelo próprio: sem clientes, sem valores, sem recusas, sem tempos.
+function MinhasEntregas() {
+  const [semanas, setSemanas] = useState(null)
+  useEffect(() => {
+    sb.rpc('minhas_entregas', { p_semanas: 8 }).then(({ data }) => setSemanas(porSemana(data || [])))
+  }, [])
+  if (semanas === null) return <p className="text-center text-sm text-grafite-600">A carregar…</p>
+  if (semanas.length === 0) return <p className={`${CARTAO} text-sm text-grafite-600`}>Ainda não tens entregas concluídas nas últimas 8 semanas.</p>
+  return (
+    <div className="space-y-3">
+      {semanas.map((g) => (
+        <details key={g.semana} className={CARTAO} open={g === semanas[0]}>
+          <summary className="flex cursor-pointer items-center justify-between gap-3">
+            <span className="font-semibold text-grafite-900">Semana de {rotuloSemana(g.semana)}</span>
+            <span className="text-sm text-grafite-700">{g.entregas.length} entregas · {String(g.km).replace('.', ',')} km</span>
+          </summary>
+          <ul className="mt-3 divide-y divide-creme-300 text-sm">
+            {g.entregas.map((l) => (
+              <li key={l.numero} className="flex justify-between py-2">
+                <span>N.º {l.numero} · {new Date(l.data).toLocaleString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                <span>{String(l.distancia_km ?? '—').replace('.', ',')} km</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ))}
+      <p className="text-center text-xs text-grafite-600/70">Últimas 8 semanas. Dúvidas sobre pagamentos: fala com a tua empresa.</p>
+    </div>
+  )
+}
+
 function Painel() {
   const [eu, setEu] = useState(null)
   const [ofertas, setOfertas] = useState([])
@@ -165,7 +208,7 @@ function Painel() {
   const carregar = useCallback(async () => {
     const { data: u } = await sb.auth.getUser()
     const [rEu, rOf, rEnt] = await Promise.all([
-      sb.from('estafetas').select('id, nome, disponivel, ativo').eq('user_id', u?.user?.id).maybeSingle(),
+      sb.from('estafetas').select('id, nome, disponivel, ativo, aprovado').eq('user_id', u?.user?.id).maybeSingle(),
       sb.from('entregas_ofertas').select('id, order_id, distancia_km, criado_em').eq('estado', 'oferecida').order('criado_em'),
       sb.rpc('minha_entrega'),
     ])
@@ -258,6 +301,8 @@ function Painel() {
     carregar()
   }
 
+  const [separador, setSeparador] = useState('agora')
+
   if (eu === null) return <p className="mt-6 text-grafite-600">A carregar…</p>
   if (eu === false || !eu.ativo) {
     return (
@@ -268,8 +313,25 @@ function Painel() {
     )
   }
 
+  if (eu.aprovado === false) {
+    return (
+      <div className={`${CARTAO} mt-6`}>
+        <p className="font-semibold text-grafite-900">Olá, {eu.nome.split(' ')[0]}!</p>
+        <p className="mt-1 text-grafite-700">O teu acesso está à espera de ser ativado pela tua empresa. Quando estiver, esta página passa a mostrar as entregas.</p>
+        <button type="button" className="mt-3 text-sm font-semibold text-cobre-600" onClick={carregar}>Verificar outra vez</button>
+      </div>
+    )
+  }
+
   return (
     <div className="mt-6 space-y-4">
+      <div className="grid grid-cols-2 gap-2 rounded-full border border-creme-300 bg-white/70 p-1 text-sm font-semibold uppercase tracking-widest">
+        {[['agora', 'Agora'], ['historico', 'As minhas entregas']].map(([id, r]) => (
+          <button key={id} type="button" onClick={() => setSeparador(id)}
+            className={`cursor-pointer rounded-full px-3 py-2 ${separador === id ? 'bg-grafite-900 text-creme-50' : 'text-grafite-600'}`}>{r}</button>
+        ))}
+      </div>
+      {separador === 'historico' ? <MinhasEntregas /> : (<>
       <AvisoInstalar />
       <AtivarAvisos />
       {!som && (
@@ -342,13 +404,16 @@ function Painel() {
         <p className="text-center text-sm text-grafite-600">À espera de entregas. Quando chegar uma, ouves um alerta.</p>
       )}
       {aviso && <p role="status" className="text-center text-sm font-semibold text-grafite-700">{aviso}</p>}
+      </>)}
     </div>
   )
 }
 
 function Estafeta() {
   const [sessao, setSessao] = useState(undefined)
-  const convite = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('convite') : null
+  const parametros = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  const equipa = parametros?.get('equipa') || null
+  const convite = parametros?.get('convite') || equipa
   useEffect(() => {
     if (!sb) return
     sb.auth.getSession().then(({ data }) => setSessao(data.session))
@@ -362,7 +427,7 @@ function Estafeta() {
       <div className="mx-auto max-w-md px-5 py-8">
         <p className="text-xs font-semibold uppercase tracking-widest text-ambar-600">100PRESSÃO · Entregas</p>
         {sessao === undefined ? null : convite && !sessao ? (
-          <AceitarConvite convite={convite} aoEntrar={() => sb.auth.getSession().then(({ data }) => setSessao(data.session))} />
+          <AceitarConvite convite={convite} equipa={!!equipa} aoEntrar={() => sb.auth.getSession().then(({ data }) => setSessao(data.session))} />
         ) : sessao ? (
           <Painel />
         ) : (
