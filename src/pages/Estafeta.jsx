@@ -19,22 +19,59 @@ const CARTAO = 'rounded-2xl border border-creme-300 bg-white/80 p-5'
 const BOTAO = 'w-full cursor-pointer rounded-xl px-5 py-4 font-display text-base font-bold uppercase tracking-widest disabled:opacity-60'
 const RECOLHA = 'Mercado Municipal de Carnaxide, Loja 6 e 7 — Praceta Eugénio de Castro'
 
-// Toque curto gerado no browser: não precisa de ficheiro de som nem de rede.
-function tocar() {
+// Alerta sonoro. Os browsers (sobretudo o Safari do iPhone) só deixam tocar som depois
+// de um toque do utilizador no ecrã: criar o AudioContext dentro do aviso de tempo real
+// falha em silêncio. Por isso o som é "desbloqueado" no primeiro toque e o mesmo
+// contexto é reutilizado. No iPhone, com o botão lateral em silêncio, o som da página
+// não toca — para isso existem as notificações.
+let ctxSom = null
+function desbloquearSom() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    ;[0, 0.25, 0.5].forEach((t) => {
-      const o = ctx.createOscillator()
-      const g = ctx.createGain()
-      o.frequency.value = 880
-      g.gain.value = 0.2
-      o.connect(g).connect(ctx.destination)
-      o.start(ctx.currentTime + t)
-      o.stop(ctx.currentTime + t + 0.15)
-    })
-    navigator.vibrate?.([200, 100, 200, 100, 200])
+    ctxSom = ctxSom || new (window.AudioContext || window.webkitAudioContext)()
+    if (ctxSom.state === 'suspended') ctxSom.resume()
+    const vazio = ctxSom.createBuffer(1, 1, 22050)
+    const fonte = ctxSom.createBufferSource()
+    fonte.buffer = vazio
+    fonte.connect(ctxSom.destination)
+    fonte.start(0)
   } catch {
-    /* sem som neste dispositivo: a oferta aparece na mesma */
+    /* sem áudio neste dispositivo */
+  }
+  return somPronto()
+}
+const somPronto = () => !!ctxSom && ctxSom.state === 'running'
+
+function tocar() {
+  navigator.vibrate?.([300, 150, 300, 150, 300])
+  if (!ctxSom) return
+  try {
+    if (ctxSom.state === 'suspended') ctxSom.resume()
+    ;[0, 0.3, 0.6, 1.2, 1.5, 1.8].forEach((t, i) => {
+      const o = ctxSom.createOscillator()
+      const g = ctxSom.createGain()
+      o.type = 'square'
+      o.frequency.value = i % 2 ? 1175 : 880
+      g.gain.value = 0.35
+      o.connect(g).connect(ctxSom.destination)
+      o.start(ctxSom.currentTime + t)
+      o.stop(ctxSom.currentTime + t + 0.2)
+    })
+  } catch {
+    /* a oferta aparece na mesma */
+  }
+}
+
+// Mantém o ecrã ligado enquanto o estafeta está disponível com a app aberta.
+let bloqueioEcra = null
+async function manterEcraLigado(ligado) {
+  try {
+    if (ligado && 'wakeLock' in navigator && !bloqueioEcra) bloqueioEcra = await navigator.wakeLock.request('screen')
+    if (!ligado && bloqueioEcra) {
+      await bloqueioEcra.release()
+      bloqueioEcra = null
+    }
+  } catch {
+    bloqueioEcra = null
   }
 }
 
@@ -120,6 +157,7 @@ function Painel() {
   const [ocupado, setOcupado] = useState(false)
   const [aviso, setAviso] = useState('')
   const vistas = useRef(new Set())
+  const [som, setSom] = useState(somPronto())
 
   const carregar = useCallback(async () => {
     const { data: u } = await sb.auth.getUser()
@@ -143,11 +181,26 @@ function Painel() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'entregas_ofertas' }, () => carregar())
       .subscribe()
     const t = setInterval(carregar, 15000) // reserva, se o tempo real falhar
+    const toque = () => setSom(desbloquearSom())
+    window.addEventListener('pointerdown', toque)
     return () => {
       sb.removeChannel(canal)
       clearInterval(t)
+      window.removeEventListener('pointerdown', toque)
     }
   }, [carregar])
+
+  // Enquanto houver uma oferta por responder, o alerta repete a cada 8 segundos.
+  useEffect(() => {
+    if (!ofertas.length) return
+    const r = setInterval(tocar, 8000)
+    return () => clearInterval(r)
+  }, [ofertas.length])
+
+  useEffect(() => {
+    manterEcraLigado(!!eu?.disponivel)
+    return () => manterEcraLigado(false)
+  }, [eu?.disponivel])
 
   async function alternar() {
     setOcupado(true)
@@ -190,6 +243,17 @@ function Painel() {
     <div className="mt-6 space-y-4">
       <AvisoInstalar />
       <AtivarAvisos />
+      {!som && (
+        <button type="button" onClick={() => { setSom(desbloquearSom()); tocar() }}
+          className="w-full cursor-pointer rounded-xl border border-grafite-600/30 bg-white px-4 py-3 text-sm font-semibold text-grafite-800">
+          🔈 Tocar aqui para ativar o som dos alertas
+        </button>
+      )}
+      {som && (
+        <p className="text-center text-xs text-grafite-600">
+          🔊 Som ativo. No iPhone, confirma que o botão lateral não está em silêncio.
+        </p>
+      )}
       <div className={`${CARTAO} flex items-center justify-between gap-3`}>
         <div>
           <p className="font-semibold text-grafite-900">{eu.nome}</p>
