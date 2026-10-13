@@ -91,9 +91,10 @@ export async function enviarConfirmacao(admin, pedido) {
     })
     .join('')
 
+  // Link de acompanhamento (Fase 2B): o id da encomenda é a credencial, como na confirmação.
   const entrega =
     pedido.tipo_entrega === 'entrega'
-      ? `Entrega em: ${pedido.morada || '—'}`
+      ? `Entrega em: ${pedido.morada || '—'}<br/><a href="https://100pressao.pt/acompanhar?p=${pedido.id}" style="color:#c9822e;font-weight:bold">Acompanhar a entrega no mapa →</a>`
       : 'Levantamento no restaurante (Praceta Eugénio de Castro, Loja 6, Carnaxide)'
 
   const html = `

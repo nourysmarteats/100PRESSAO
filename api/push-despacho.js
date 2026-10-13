@@ -51,17 +51,17 @@ export default async function handler(req, res) {
   const { data: perfil } = await admin.from('perfis').select('ativo').eq('id', chamador.user.id).single()
   if (!perfil?.ativo) return res.status(403).json({ erro: 'Reservado à equipa.' })
 
-  const { acao, order_id: orderId } = req.body || {}
+  const { acao, order_id: orderId, oferta_id: ofertaId } = req.body || {}
   const { data: pedido } = await admin.from('orders').select('id, numero, entrega_estado').eq('id', orderId).single()
   if (!pedido) return res.status(404).json({ erro: 'Encomenda não encontrada.' })
 
   try {
     if (acao === 'oferta') {
-      const { data: ofertas } = await admin
-        .from('entregas_ofertas')
-        .select('estafetas ( user_id )')
-        .eq('order_id', orderId)
-        .eq('estado', 'oferecida')
+      // Uma notificação por oferta: com `oferta_id`, só para esse estafeta (é assim que o
+      // Staff chama, um pedido por cada oferta criada); sem ele, para todas as pendentes.
+      let q = admin.from('entregas_ofertas').select('estafetas ( user_id )').eq('order_id', orderId).eq('estado', 'oferecida')
+      if (ofertaId) q = q.eq('id', ofertaId)
+      const { data: ofertas } = await q
       const ids = (ofertas || []).map((o) => o.estafetas?.user_id).filter(Boolean)
       const enviadas = await enviar(admin, ids, {
         titulo: 'Nova entrega 100PRESSÃO',

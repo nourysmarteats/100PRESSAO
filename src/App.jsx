@@ -15,6 +15,7 @@ const Colaborador = lazy(() => import('./pages/Colaborador'))
 const ParceiroEntregas = lazy(() => import('./pages/ParceiroEntregas'))
 const Empresa = lazy(() => import('./pages/Empresa'))
 const Estafeta = lazy(() => import('./pages/Estafeta'))
+const Acompanhar = lazy(() => import('./pages/Acompanhar'))
 const Beta = lazy(() => import('./pages/Beta'))
 const EmentaSecreta = lazy(() => import('./pages/EmentaSecreta'))
 const BetaBalcao = lazy(() => import('./pages/equipa/BetaBalcao'))
@@ -90,6 +91,7 @@ function App() {
             isoladas da equipa (supabaseEmpresa / supabaseEstafeta), fora do Layout do site */}
         <Route path="/empresa" element={pagina(Empresa)} />
         <Route path="/estafeta" element={pagina(Estafeta)} />
+        <Route path="/acompanhar" element={pagina(Acompanhar)} />
 
         {/* Área da equipa — Supabase Auth + PIN de conveniência */}
         <Route element={interna(EquipaLayout)}>

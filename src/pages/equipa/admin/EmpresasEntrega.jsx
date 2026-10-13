@@ -17,6 +17,7 @@ import { registarAuditoria } from '../../../lib/equipa'
 import { ESTADOS, custoEntrega, paraNumero } from '../../../lib/empresasEntrega'
 import { linkConvite } from '../../../lib/despacho'
 import { ativarNotificacoes, pushAtivo, pushDisponivel } from '../../../lib/push'
+import RelatorioEntregas from './RelatorioEntregas'
 import { useAviso, BOTAO_PRIMARIO, BOTAO_SECUNDARIO, BOTAO_PERIGO, CARTAO, CAMPO } from './comuns'
 
 const COR_ESTADO = {
@@ -252,6 +253,7 @@ function EmpresasEntrega() {
   const [filtro, setFiltro] = useState('ativas')
   const [registoAberto, setRegistoAberto] = useState(null)
   const [despachoTeste, setDespachoTeste] = useState(null)
+  const [despachoModo, setDespachoModo] = useState('todos')
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
@@ -262,6 +264,7 @@ function EmpresasEntrega() {
     ])
     const teste = rEnt.data?.valor?.despacho_teste
     setDespachoTeste(teste === undefined ? null : Boolean(teste))
+    setDespachoModo(rEnt.data?.valor?.despacho_modo || 'todos')
     if (rEmp.error) {
       setErro(true)
       setLista([])
@@ -304,6 +307,20 @@ function EmpresasEntrega() {
     mostrarAviso(novo ? 'Modo de teste ligado ✓' : 'Modo de teste desligado ✓')
   }
 
+  async function alternarModo() {
+    const novo = despachoModo === 'proximidade' ? 'todos' : 'proximidade'
+    const { data: atual } = await supabase.from('definicoes').select('valor').eq('chave', 'entrega').maybeSingle()
+    const { error } = await supabase.from('definicoes').upsert({
+      chave: 'entrega',
+      valor: { ...(atual?.valor || {}), despacho_modo: novo },
+      atualizado_em: new Date().toISOString(),
+    })
+    if (error) return mostrarAviso('Erro ao guardar.')
+    registarAuditoria('despacho_modo', { modo: novo })
+    setDespachoModo(novo)
+    mostrarAviso(novo === 'proximidade' ? 'Ofertas por proximidade ✓' : 'Ofertas a todos ✓')
+  }
+
   const visiveis = useMemo(
     () => (lista || []).filter((e) => filtro === 'todas' || ['pendente', 'aprovada'].includes(e.estado)),
     [lista, filtro],
@@ -336,6 +353,11 @@ function EmpresasEntrega() {
           <button type="button" className={BOTAO_SECUNDARIO}
             onClick={async () => mostrarAviso((await ativarNotificacoes(supabase)) ? 'Notificações ativas neste dispositivo ✓' : 'Notificações recusadas.')}>
             Avisar-me de entregas sem estafeta
+          </button>
+        )}
+        {despachoTeste !== null && (
+          <button type="button" onClick={alternarModo} className={BOTAO_SECUNDARIO}>
+            Ofertas: {despachoModo === 'proximidade' ? 'mais próximo primeiro' : 'todos ao mesmo tempo'}
           </button>
         )}
         {despachoTeste !== null && (
@@ -389,6 +411,7 @@ function EmpresasEntrega() {
           ))}
         </ul>
       )}
+      <RelatorioEntregas empresas={lista || []} mostrarAviso={mostrarAviso} />
       {Aviso}
     </div>
   )

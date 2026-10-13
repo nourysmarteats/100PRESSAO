@@ -115,8 +115,13 @@ function Privacidade() {
           <li><strong>Google Analytics, Meta e TikTok</strong>: estatísticas e medição de publicidade, só com o teu consentimento.</li>
         </ul>
         <p>
-          Se escolheres entrega, o estafeta que faz a entrega vê o teu nome, a morada
-          e o telemóvel, apenas para te entregar a encomenda. Alguns prestadores podem
+          Se escolheres entrega no restaurante online, a entrega é feita por uma empresa
+          de entregas parceira, que trata os teus dados por nossa conta, ao abrigo de um
+          acordo de tratamento de dados (artigo 28.º do RGPD). O estafeta que aceita a
+          entrega vê o teu nome, a morada, o telemóvel e se a encomenda está paga, apenas
+          enquanto a entrega decorre. Na página de acompanhamento vês a posição aproximada
+          do estafeta só entre a recolha e a entrega; a posição nunca fica guardada e o link
+          deixa de funcionar duas horas depois da entrega. Alguns prestadores podem
           tratar dados fora do Espaço Económico Europeu, com as garantias exigidas pelo
           RGPD (como cláusulas contratuais-tipo). O mapa da página Contactos usa
           OpenStreetMap, que não instala cookies de rastreio.

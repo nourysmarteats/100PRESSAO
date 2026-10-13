@@ -177,6 +177,7 @@ const ROTAS_INTERNAS = [
   { path: '/caixa', noindex: true, title: 'Caixa | 100PRESSÃO', description: 'Área reservada à equipa.' },
   { path: '/visor', noindex: true, title: 'Visor | 100PRESSÃO', description: 'Área reservada à equipa.' },
   { path: '/empresa', noindex: true, title: 'Portal da empresa | 100PRESSÃO', description: 'Área reservada a empresas de entrega parceiras.' },
+  { path: '/acompanhar', noindex: true, title: 'Acompanhar entrega | 100PRESSÃO', description: 'Acompanhe a sua entrega do restaurante online 100PRESSÃO.' },
   { path: '/estafeta', noindex: true, title: 'Estafetas | 100PRESSÃO', description: 'Área reservada a estafetas das empresas parceiras.' },
   { path: '/beta-balcao', noindex: true, title: 'Balcão Beta | 100PRESSÃO', description: 'Área reservada à equipa.' },
 ]

@@ -78,3 +78,12 @@ em /empresa e /estafeta. Páginas: `src/pages/Empresa.jsx`, `src/pages/Estafeta.
 de estafeta e interruptor `definicoes.entrega.despacho_teste` (ligado = só empresas de simulação).
 A migração também fecha a leitura de `products`/`stock_*` a sessões que não sejam da equipa.
 Por fazer: notificações push (Web Push + chaves VAPID na Vercel) — por agora, tempo real + som com a app aberta.
+
+**Fase 2B — código pronto (13/10/2026), migração `20261013120000_despacho_entregas_2b.sql` por aplicar.**
+Proximidade: `definicoes.entrega.despacho_modo` ('todos'|'proximidade', interruptor no admin); oferta ao
+mais próximo da loja com posição < 5 min; `escalar_ofertas_proximidade()` (pg_cron, 20 s) passa ao seguinte
+ao fim de 60 s e, esgotados, oferece a todos. Posição: só a actual (`estafetas.posicao_*`), enviada pela app
+só com a app aberta e só em modo proximidade ou a meio de uma entrega; apagada ao ficar indisponível, ao
+entregar (se indisponível) e quando tem > 15 min (cron 5 min). Cliente: `/acompanhar?p=<id>` via
+`acompanhar_entrega()` (posição só em 'recolhido'; link morto 2 h após entregue), link na confirmação e no
+email. Relatório mensal + "Lançar fatura" (Financeiro, Serviços externos) em `admin/RelatorioEntregas.jsx`.

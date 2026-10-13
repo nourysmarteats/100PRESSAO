@@ -44,7 +44,6 @@ function Despacho({ pedido }) {
     const { data, error } = await supabase.rpc('chamar_estafeta', { p_order: pedido.id })
     setOcupado(false)
     if (error) return setMsg(error.message || 'Não foi possível chamar.')
-    if (data > 0) avisarDespacho(supabase, 'oferta', pedido.id)
     setMsg(data > 0 ? `Oferecido a ${data} estafeta${data > 1 ? 's' : ''}.` : 'Nenhum estafeta disponível neste momento.')
   }
   return (
@@ -301,6 +300,10 @@ function Staff() {
       .channel('staff-pedidos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, carregar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, carregar)
+      // Ofertas criadas pelo escalonamento (modo proximidade) também têm de tocar no telemóvel.
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entregas_ofertas' }, (ev) => {
+        if (ev.new?.order_id) avisarDespacho(supabase, 'oferta', ev.new.order_id, ev.new.id)
+      })
       .subscribe()
     const tick = setInterval(() => forcarTick((n) => n + 1), 30000)
     return () => {

@@ -33,13 +33,13 @@ export async function ativarNotificacoes(cliente) {
 }
 
 // Chamado pelo Staff (sessão da equipa). Nunca bloqueia o fluxo: se falhar, falha calado.
-export async function avisarDespacho(supabase, acao, orderId) {
+export async function avisarDespacho(supabase, acao, orderId, ofertaId = null) {
   try {
     const { data } = await supabase.auth.getSession()
     await fetch('/api/push-despacho', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token}` },
-      body: JSON.stringify({ acao, order_id: orderId }),
+      body: JSON.stringify({ acao, order_id: orderId, oferta_id: ofertaId }),
     })
   } catch {
     /* sem rede ou sem chaves: o tempo real e o alerta no ecrã continuam a funcionar */

@@ -142,7 +142,10 @@ function AceitarConvite({ convite, aoEntrar }) {
       </label>
       <p className="text-xs text-grafite-600/80">
         Usamos o teu nome e telemóvel para te oferecer entregas e o cliente te poder contactar durante a entrega.
-        Não guardamos a tua localização nesta fase. Dúvidas: geral@100pressao.pt
+        Com a app aberta, e só enquanto estás disponível ou a meio de uma entrega, usamos a tua posição atual
+        para te oferecer entregas próximas e para o cliente ver a entrega a chegar. Nunca guardamos o percurso:
+        a posição é apagada quando ficas indisponível. Não é usada para te avaliar. Responsável: Sintonia dos
+        Temperos. Dúvidas e direitos: geral@100pressao.pt
       </p>
       {erro && <p className="text-sm text-red-600">{erro}</p>}
       <button type="submit" disabled={ocupado} className={`${BOTAO} bg-cobre-600 text-creme-50`}>Aceitar convite</button>
@@ -197,6 +200,32 @@ function Painel() {
     return () => clearInterval(r)
   }, [ofertas.length])
 
+  // Posição (Fase 2B): só é enviada quando serve para alguma coisa — despacho por
+  // proximidade ligado, ou uma entrega a decorrer (o cliente acompanha). Só com a app
+  // aberta, a cada 60 s. Ficar indisponível apaga-a no servidor. Nunca há histórico.
+  const [modo, setModo] = useState('todos')
+  useEffect(() => {
+    sb.from('definicoes').select('valor').eq('chave', 'entrega').maybeSingle()
+      .then(({ data }) => setModo(data?.valor?.despacho_modo || 'todos'))
+  }, [])
+  const enviaPosicao = !!eu?.ativo && ((eu?.disponivel && modo === 'proximidade') || !!entrega)
+  const [gps, setGps] = useState('')
+  useEffect(() => {
+    if (!enviaPosicao || !('geolocation' in navigator)) return
+    const enviar = () =>
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          setGps('ok')
+          sb.rpc('estafeta_posicao', { p_lat: p.coords.latitude, p_lng: p.coords.longitude })
+        },
+        () => setGps('recusado'),
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 },
+      )
+    enviar()
+    const t = setInterval(enviar, 60000)
+    return () => clearInterval(t)
+  }, [enviaPosicao])
+
   useEffect(() => {
     manterEcraLigado(!!eu?.disponivel)
     return () => manterEcraLigado(false)
@@ -248,6 +277,12 @@ function Painel() {
           className="w-full cursor-pointer rounded-xl border border-grafite-600/30 bg-white px-4 py-3 text-sm font-semibold text-grafite-800">
           🔈 Tocar aqui para ativar o som dos alertas
         </button>
+      )}
+      {enviaPosicao && gps === 'recusado' && (
+        <p className="rounded-xl border border-ambar-500/40 bg-ambar-500/10 p-3 text-xs text-ambar-900">
+          Sem acesso à localização: recebes as ofertas na mesma, mas não por proximidade, e o cliente não vê a entrega no mapa.
+          Usamos só a posição atual, enquanto estás disponível ou a meio de uma entrega — nunca o percurso.
+        </p>
       )}
       {som && (
         <p className="text-center text-xs text-grafite-600">

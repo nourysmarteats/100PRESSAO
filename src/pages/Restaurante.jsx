@@ -1220,6 +1220,12 @@ function Restaurante() {
                 : ` Podes levantar no restaurante em cerca de ${cfg.prazo_preparacao} min.`}
             </p>
             <Acompanhamento estado={estadoPedido} entrega={tipo === 'entrega'} />
+            {tipo === 'entrega' && pedido.id && (
+              <a href={`/acompanhar?p=${pedido.id}`} target="_blank" rel="noreferrer"
+                className="mt-4 inline-block text-sm font-semibold text-cobre-600 hover:underline">
+                Acompanhar a entrega no mapa →
+              </a>
+            )}
 
             <button type="button" onClick={() => { setCarrinho({}); setPedido(null); setRefMB(null); setEstadoPedido('recebido'); setFase('menu') }} className={`${BOTAO} mt-6`}>Nova encomenda</button>
 
