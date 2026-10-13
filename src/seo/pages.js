@@ -82,7 +82,7 @@ export const SEO_PAGES = {
     noindex: true,
     title: 'Parceiros de entrega | 100PRESSÃO',
     description:
-      'Registo de empresas de estafetas para as entregas do restaurante online 100PRESSÃO, em Carnaxide.',
+      'Seja parceiro de entregas do 100PRESSÃO: empresas de estafetas e parceiros de frota para encomendas da app e do site, em Carnaxide, Algés, Oeiras e Queijas.',
   },
   beta: {
     // Registo de beta testers. Indexável desde 2026-09-15 (decisão do Leandro):
