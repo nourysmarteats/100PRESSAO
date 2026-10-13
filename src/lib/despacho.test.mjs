@@ -1,7 +1,7 @@
 // Testes das regras do despacho.   npm test
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { inicioSemana, porSemana, rotuloSemana, linkEquipa, inicioDoMes, linkConvite, mensagemConvite, podeChamar, precisaAtencao, totaisEntregas } from './despacho.js'
+import { inicioSemana, mudarSemana, porSemana, rotuloSemana, linkEquipa, inicioDoMes, linkConvite, mensagemConvite, podeChamar, precisaAtencao, totaisEntregas } from './despacho.js'
 
 test('link de convite codifica o token', () => {
   assert.equal(linkConvite('https://x.pt', 'a+b/c'), 'https://x.pt/estafeta?convite=a%2Bb%2Fc')
@@ -54,3 +54,9 @@ test('agrupa por semana, mais recente primeiro, com km somados', () => {
 test('rótulo da semana', () => assert.equal(rotuloSemana('2026-10-12'), '12/10 a 18/10'))
 
 test('link de equipa usa o parâmetro equipa', () => assert.equal(linkEquipa('https://x.pt', 'abc'), 'https://x.pt/estafeta?equipa=abc'))
+
+test('mudarSemana anda de segunda em segunda', () => {
+  assert.equal(mudarSemana('2026-10-12', -1), '2026-10-05')
+  assert.equal(mudarSemana('2026-10-12', 1), '2026-10-19')
+  assert.equal(mudarSemana('2026-03-23', 1), '2026-03-30') // mudança de hora
+})

@@ -3,6 +3,8 @@
 // As empresas registam-se em /parceiro-entregas e aparecem aqui como
 // "Por decidir". Aprovar fixa o preço acordado: se ninguém o mexer, fica o
 // proposto (a base de dados faz isso no trigger, não este ecrã).
+// Preço acordado (13/10/2026): fixo por entrega (recolha + entrega) + € por km
+// além dos km incluídos. Faturação semanal — ver RelatorioEntregas.
 //
 // Cada mudança de estado ou de preço fica no audit_log pelo próprio trigger
 // da tabela. Este ecrã só regista à parte as datas de contrato e de acordo de
@@ -14,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import { registarAuditoria } from '../../../lib/equipa'
-import { ESTADOS, custoEntrega, paraNumero } from '../../../lib/empresasEntrega'
+import { ESTADOS, EXPERIENCIAS, custoEntrega, paraNumero, textoPreco } from '../../../lib/empresasEntrega'
 import { linkConvite } from '../../../lib/despacho'
 import { ativarNotificacoes, pushAtivo, pushDisponivel } from '../../../lib/push'
 import RelatorioEntregas from './RelatorioEntregas'
@@ -53,6 +55,7 @@ function Etiqueta({ estado, simulacao }) {
 function Ficha({ empresa, aoGuardar, mostrarAviso }) {
   const [base, setBase] = useState(String(empresa.tarifa_base ?? empresa.tarifa_proposta_base))
   const [km, setKm] = useState(String(empresa.tarifa_km ?? empresa.tarifa_proposta_km))
+  const [incluidos, setIncluidos] = useState(String(empresa.km_incluidos_acordados ?? empresa.km_incluidos ?? 0))
   // Começa vazio de propósito: o motivo da decisão anterior não pode servir
   // de motivo para a seguinte (foi assim que se terminou uma empresa sem motivo novo).
   const [motivo, setMotivo] = useState('')
@@ -61,6 +64,7 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
   const [ocupado, setOcupado] = useState(false)
 
   const precoValido = paraNumero(base) >= 0 && paraNumero(base) <= 50 && paraNumero(km) >= 0 && paraNumero(km) <= 10
+    && paraNumero(incluidos) >= 0 && paraNumero(incluidos) <= 30
 
   async function atualizar(campos, mensagem) {
     setOcupado(true)
@@ -78,6 +82,7 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
   const preco = () => ({
     tarifa_base: Math.round(paraNumero(base) * 100) / 100,
     tarifa_km: Math.round(paraNumero(km) * 100) / 100,
+    km_incluidos_acordados: Math.round(paraNumero(incluidos) * 100) / 100,
   })
 
   async function decidir(estado) {
@@ -137,9 +142,26 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
             {e.contacto_email && <> · <a className="text-cobre-600 hover:underline" href={`mailto:${e.contacto_email}`}>{e.contacto_email}</a></>}
             {e.contacto_telefone && <> · <a className="text-cobre-600 hover:underline" href={`tel:${e.contacto_telefone}`}>{e.contacto_telefone}</a></>}
           </dd></div>
-        <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Zona · estafetas</dt><dd>{e.zona || '—'} · {e.n_estafetas ?? '—'}</dd></div>
-        <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Preço proposto</dt>
-          <dd>{fmt(e.tarifa_proposta_base)} + {fmt(e.tarifa_proposta_km)}/km</dd></div>
+        <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Zonas · estafetas em hora de ponta</dt><dd>{e.zona || '—'} · {e.n_estafetas ?? '—'}</dd></div>
+        <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Preço proposto (sem IVA)</dt>
+          <dd>{e.tarifa_recolha != null
+            ? <>Recolha {fmt(e.tarifa_recolha)} + entrega {fmt(e.tarifa_entrega)} · inclui {String(e.km_incluidos ?? 0).replace('.', ',')} km · {fmt(e.tarifa_km_adicional)} por km adicional</>
+            : <>{fmt(e.tarifa_proposta_base)} + {fmt(e.tarifa_proposta_km)}/km</>}</dd></div>
+        {e.horarios && (
+          <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Horários</dt><dd>{e.horarios}</dd></div>
+        )}
+        {e.experiencia_refeicoes && (
+          <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Experiência com refeições quentes</dt>
+            <dd>{EXPERIENCIAS.find(([id]) => id === e.experiencia_refeicoes)?.[1] || e.experiencia_refeicoes}</dd></div>
+        )}
+        {e.mochila_termica != null && (
+          <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Declarou</dt>
+            <dd>{e.mochila_termica ? 'Mochila/caixa térmica ✓' : 'Mochila/caixa térmica ✗'} · {e.seguros_confirmados ? 'Seguros AT e RC ✓' : 'Seguros ✗'}</dd></div>
+        )}
+        {e.suplementos && (
+          <div className="sm:col-span-2"><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Suplementos ou condições especiais propostos</dt>
+            <dd className="whitespace-pre-line">{e.suplementos}</dd></div>
+        )}
         <div><dt className="text-xs uppercase tracking-widest text-grafite-600/70">Condições aceites</dt>
           <dd>v. {e.termos_versao} em {data(e.aceitou_termos_em)}</dd></div>
         {e.decidido_em && (
@@ -155,9 +177,11 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Preço acordado</p>
         <div className="mt-2 flex flex-wrap items-end gap-3">
-          <label className="block"><span className="text-xs text-grafite-600/70">Por entrega (€)</span>
+          <label className="block"><span className="text-xs text-grafite-600/70">Fixo por entrega (€)</span>
             <input value={base} onChange={(ev) => setBase(ev.target.value)} inputMode="decimal" className={`${CAMPO} w-28`} /></label>
-          <label className="block"><span className="text-xs text-grafite-600/70">Por km (€)</span>
+          <label className="block"><span className="text-xs text-grafite-600/70">Km incluídos</span>
+            <input value={incluidos} onChange={(ev) => setIncluidos(ev.target.value)} inputMode="decimal" className={`${CAMPO} w-24`} /></label>
+          <label className="block"><span className="text-xs text-grafite-600/70">Por km adicional (€)</span>
             <input value={km} onChange={(ev) => setKm(ev.target.value)} inputMode="decimal" className={`${CAMPO} w-28`} /></label>
           {e.estado === 'aprovada' && (
             <button type="button" disabled={ocupado || !precoValido} className={BOTAO_SECUNDARIO}
@@ -166,7 +190,8 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
         </div>
         {precoValido && (
           <p className="mt-2 text-xs text-grafite-600/70">
-            Exemplo: uma entrega de 3,25 km custa {fmt(custoEntrega(preco(), 3.25))} (sem IVA).
+            Fixo = recolha + entrega. Exemplo: 3 km custam {fmt(custoEntrega(preco(), 3))} e 6 km {fmt(custoEntrega(preco(), 6))} (sem IVA, sem suplementos).
+            Os suplementos acordados ficam no contrato e entram na fatura semanal.
           </p>
         )}
       </div>
@@ -400,8 +425,8 @@ function EmpresasEntrega() {
                   <span className="block font-semibold text-grafite-900">{e.nome_comercial || e.nome_legal}</span>
                   <span className="block text-xs text-grafite-600/70">
                     {e.nome_legal} · {e.tarifa_base != null
-                      ? `${fmt(e.tarifa_base)} + ${fmt(e.tarifa_km)}/km`
-                      : `proposta ${fmt(e.tarifa_proposta_base)} + ${fmt(e.tarifa_proposta_km)}/km`}
+                      ? textoPreco(e.tarifa_base, e.km_incluidos_acordados, e.tarifa_km, fmt)
+                      : `proposta ${textoPreco(e.tarifa_proposta_base, e.km_incluidos, e.tarifa_proposta_km, fmt)}`}
                   </span>
                 </span>
                 <Etiqueta estado={e.estado} simulacao={e.simulacao} />

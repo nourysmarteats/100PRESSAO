@@ -4,13 +4,15 @@
 // admin convidou depois de aprovar a empresa: o registo de contas está fechado no
 // Supabase e `shouldCreateUser: false` garante que um email desconhecido não cria nada.
 //
-// A empresa gere os SEUS estafetas (convidar, desativar) e vê as suas entregas do
-// mês SEM dados de clientes — o suficiente para conferir a fatura.
+// A empresa gere os SEUS estafetas (convidar, desativar) e vê as suas entregas da
+// semana (segunda a domingo) SEM dados de clientes — o suficiente para emitir e
+// conferir a fatura semanal consolidada (13/10/2026).
 import { useCallback, useEffect, useState } from 'react'
 import { supabaseEmpresa as sb } from '../lib/supabase'
 import SEOHead from '../components/SEOHead'
 import { fmt } from '../lib/pedidos'
-import { ESTADO_ENTREGA, inicioDoMes, linkConvite, linkEquipa, mensagemConvite, mensagemEquipa, totaisEntregas } from '../lib/despacho'
+import { textoPreco } from '../lib/empresasEntrega'
+import { ESTADO_ENTREGA, inicioSemana, linkConvite, mudarSemana, linkEquipa, mensagemConvite, mensagemEquipa, rotuloSemana, totaisEntregas } from '../lib/despacho'
 
 const CARTAO = 'rounded-2xl border border-creme-300 bg-white/70 p-6'
 const CAMPO = 'mt-2 w-full rounded-xl border border-creme-300 bg-creme-50 px-4 py-3 text-grafite-900 outline-none focus:border-ambar-500'
@@ -58,7 +60,7 @@ function Portal({ sessao }) {
   const [info, setInfo] = useState(null)
   const [estafetas, setEstafetas] = useState([])
   const [entregas, setEntregas] = useState([])
-  const [mes, setMes] = useState(inicioDoMes())
+  const [semana, setSemana] = useState(inicioSemana(new Date()))
   const [nome, setNome] = useState('')
   const [convite, setConvite] = useState(null)
   const [aviso, setAviso] = useState('')
@@ -71,14 +73,14 @@ function Portal({ sessao }) {
     const [rInfo, rEst, rEnt, rEq] = await Promise.all([
       sb.rpc('minha_empresa_info'),
       sb.from('estafetas').select('id, nome, telefone, ativo, disponivel, aprovado').order('nome'),
-      sb.rpc('entregas_da_minha_empresa', { p_mes: mes }),
+      sb.rpc('entregas_da_minha_empresa_semana', { p_semana: semana }),
       sb.from('estafeta_convites_equipa').select('id, limite, usos, expira_em, cancelado_em, criado_em').order('criado_em', { ascending: false }),
     ])
     setInfo(rInfo.data?.[0] || false)
     setEstafetas(rEst.data || [])
     setEntregas(rEnt.data || [])
     setLinksEquipa((rEq.data || []).filter((c) => !c.cancelado_em && new Date(c.expira_em) > new Date() && c.usos < c.limite))
-  }, [mes])
+  }, [semana])
 
   async function criarEquipa(e) {
     e.preventDefault()
@@ -147,7 +149,7 @@ function Portal({ sessao }) {
         <div>
           <p className="font-display text-2xl font-bold uppercase text-grafite-900">{info.nome}</p>
           <p className="text-sm text-grafite-600">
-            Preço acordado: {fmt(info.tarifa_base)} + {fmt(info.tarifa_km)}/km (sem IVA)
+            Preço acordado: {textoPreco(info.tarifa_base, info.km_incluidos, info.tarifa_km, fmt)} (sem IVA)
             {info.estado === 'suspensa' && <span className="ml-2 font-semibold text-red-600">· Suspensa</span>}
           </p>
         </div>
@@ -258,9 +260,16 @@ function Portal({ sessao }) {
 
       <section className={CARTAO}>
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="font-display text-xl font-bold uppercase text-grafite-900">Entregas do mês</h2>
-          <input type="month" value={mes.slice(0, 7)} onChange={(e) => setMes(`${e.target.value}-01`)} className="rounded-lg border border-creme-300 bg-creme-50 px-3 py-2 text-sm" />
+          <h2 className="font-display text-xl font-bold uppercase text-grafite-900">Entregas da semana</h2>
+          <div className="flex items-center gap-2 text-sm">
+            <button type="button" aria-label="Semana anterior" className={BOTAO_2} onClick={() => setSemana((s) => mudarSemana(s, -1))}>‹</button>
+            <span className="min-w-28 text-center font-semibold text-grafite-700">{rotuloSemana(semana)}</span>
+            <button type="button" aria-label="Semana seguinte" disabled={semana >= inicioSemana(new Date())} className={BOTAO_2} onClick={() => setSemana((s) => mudarSemana(s, 1))}>›</button>
+          </div>
         </div>
+        <p className="mt-2 text-xs text-grafite-600/70">
+          Semana de segunda a domingo. A fatura semanal consolidada inclui as entregas concluídas da semana anterior.
+        </p>
         <p className="mt-3 text-sm text-grafite-700">
           <strong>{t.entregas}</strong> entregas concluídas · {String(t.km).replace('.', ',')} km · <strong>{fmt(t.custo)}</strong> sem IVA
         </p>

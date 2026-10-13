@@ -127,6 +127,18 @@ export function mensagemErro(error) {
   return 'Não foi possível enviar o registo. Tente daqui a pouco ou escreva para geral@100pressao.pt.'
 }
 
-// Custo previsto de uma entrega com o preço acordado.
-export const custoEntrega = (empresa, km) =>
-  Math.round((Number(empresa?.tarifa_base || 0) + Number(empresa?.tarifa_km || 0) * Number(km || 0)) * 100) / 100
+// Custo previsto de uma entrega com o preço acordado — a mesma conta que a base de
+// dados faz em aceitar_oferta: fixo por entrega + € por km além dos km incluídos.
+export const custoEntrega = (empresa, km) => {
+  const extra = Math.max(0, Number(km || 0) - Number(empresa?.km_incluidos_acordados || 0))
+  return Math.round((Number(empresa?.tarifa_base || 0) + Number(empresa?.tarifa_km || 0) * extra) * 100) / 100
+}
+
+// Preço em texto, para o admin e para o portal da empresa. `fmt` formata euros.
+export function textoPreco(base, kmIncluidos, porKm, fmt) {
+  const inc = Number(kmIncluidos || 0)
+  const km = String(inc).replace('.', ',')
+  return inc > 0
+    ? `${fmt(base)} por entrega (inclui ${km} km) + ${fmt(porKm)} por km adicional`
+    : `${fmt(base)} por entrega + ${fmt(porKm)}/km`
+}

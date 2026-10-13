@@ -66,6 +66,13 @@ export function porSemana(linhas) {
     .sort((a, b) => (a.semana < b.semana ? 1 : -1))
 }
 
+// Segunda-feira (AAAA-MM-DD) deslocada n semanas.
+export function mudarSemana(segunda, n) {
+  const d = new Date(`${segunda}T12:00:00`)
+  d.setDate(d.getDate() + 7 * n)
+  return inicioSemana(d)
+}
+
 export function rotuloSemana(segunda) {
   const ini = new Date(`${segunda}T12:00:00`)
   const fim = new Date(ini)

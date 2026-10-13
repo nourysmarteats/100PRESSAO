@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  config, custoEntrega, exemploPreco, mensagemErro, normalizarTelefone, parametros, paraNumero, telefoneValido, validar,
+  config, custoEntrega, exemploPreco, textoPreco, mensagemErro, normalizarTelefone, parametros, paraNumero, telefoneValido, validar,
 } from './empresasEntrega.js'
 
 const OK = {
@@ -99,4 +99,17 @@ test('config cai para registo fechado', () => assert.equal(config(null).registo_
 
 test('custo previsto usa o preço acordado', () => {
   assert.equal(custoEntrega({ tarifa_base: 2, tarifa_km: 0.4 }, 3.25), 3.3)
+})
+
+test('custo previsto desconta os km incluídos', () => {
+  const e = { tarifa_base: 2.5, tarifa_km: 0.3, km_incluidos_acordados: 2 }
+  assert.equal(custoEntrega(e, 1.2), 2.5)
+  assert.equal(custoEntrega(e, 2), 2.5)
+  assert.equal(custoEntrega(e, 5), 3.4)
+})
+
+test('texto do preço', () => {
+  const fmt = (n) => `${Number(n).toFixed(2).replace('.', ',')} €`
+  assert.equal(textoPreco(2.5, 2, 0.3, fmt), '2,50 € por entrega (inclui 2 km) + 0,30 € por km adicional')
+  assert.equal(textoPreco(2, 0, 0.4, fmt), '2,00 € por entrega + 0,40 €/km')
 })
