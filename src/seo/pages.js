@@ -39,7 +39,7 @@ export const SEO_PAGES = {
     path: '/quem-somos',
     title: 'Quem Somos | 100PRESSÃO Draft House Carnaxide',
     description:
-      'A história de uma cervejaria nascida entre Portugal, Brasil e Bélgica, hoje no Mercado Municipal de Carnaxide. Conheça o 100PRESSÃO.',
+      'A história de uma cervejaria com alma luso-brasileira, entre Portugal e o Brasil, hoje no Mercado Municipal de Carnaxide. Conheça o 100PRESSÃO.',
   },
   cardapio: {
     // Sistema de pedidos à mesa: pede nome e lugar antes de mostrar a ementa.
