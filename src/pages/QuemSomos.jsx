@@ -23,7 +23,7 @@ const POSTER_URL = '/quem-somos-poster.jpg'
 
 const HISTORIA = [
   'Chamo-me Leandro Miranda e o 100PRESSÃO nasceu de uma vida dividida ao meio, e de uma sócia que acreditou nisso antes de mim.',
-  'Vivo na Bélgica há anos, terra onde a cerveja não é só bebida. É cultura, é rigor, é paciência. Ali aprendi o que separa uma cerveja feita a martelo de uma cerveja feita a sério. Mas o coração continua do outro lado, entre Portugal e o Brasil, onde a mesa nunca é só para comer. É para ficar, para contar histórias, para rir alto.',
+  'Vivi na Bélgica durante anos, terra onde a cerveja não é só bebida. É cultura, é rigor, é paciência. Ali aprendi o que separa uma cerveja feita a martelo de uma cerveja feita a sério. Mas o coração sempre esteve entre Portugal e o Brasil, onde a mesa nunca é só para comer. É para ficar, para contar histórias, para rir alto.',
   'Foi a Neide quem viu a oportunidade primeiro. Quando surgiu a possibilidade de uma loja no Mercado Municipal de Carnaxide, foi ela quem me propôs a sociedade. Foi essa proposta que transformou uma ideia que vivia na minha cabeça há anos num projeto real, com endereço e data para abrir portas.',
   'O 100PRESSÃO é o que acontece quando essas peças se juntam. É um trocadilho, sim, cerveja de pressão, mas é também uma promessa: aqui a pressão é boa. É a pressão do copo bem tirado, do petisco feito na hora, da conversa que não tem pressa de acabar.',
   'Instalados no Mercado Municipal de Carnaxide, trazemos uma cervejaria artesanal com alma luso-brasileira: cerveja europeia a sério, petiscos que atravessam o Atlântico e um atendimento que não conhece formalidades, só hospitalidade.',
