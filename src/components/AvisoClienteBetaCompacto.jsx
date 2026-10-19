@@ -23,7 +23,7 @@ export default function AvisoClienteBetaCompacto({ versao }) {
       <dl className="space-y-3">
         <Linha termo="Responsável">
           Sintonia dos Temperos, entidade que opera o 100PRESSÃO Draft House.
-          NIPC 519 521 463. Praceta Eugénio de Castro, Loja 6 e 7, 2790-063
+          NIPC 519 521 463. Praceta Eugénio de Castro, Loja 6, 2790-063
           Carnaxide. Contacto: geral@100pressao.pt
         </Linha>
 

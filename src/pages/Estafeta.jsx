@@ -17,7 +17,7 @@ import { ativarNotificacoes, pushAtivo, pushDisponivel } from '../lib/push'
 
 const CARTAO = 'rounded-2xl border border-creme-300 bg-white/80 p-5'
 const BOTAO = 'w-full cursor-pointer rounded-xl px-5 py-4 font-display text-base font-bold uppercase tracking-widest disabled:opacity-60'
-const RECOLHA = 'Mercado Municipal de Carnaxide, Loja 6 e 7 — Praceta Eugénio de Castro'
+const RECOLHA = 'Mercado Municipal de Carnaxide, Loja 6 — Praceta Eugénio de Castro'
 
 // Alerta sonoro. Os browsers (sobretudo o Safari do iPhone) só deixam tocar som depois
 // de um toque do utilizador no ecrã: criar o AudioContext dentro do aviso de tempo real

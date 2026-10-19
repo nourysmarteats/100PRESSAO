@@ -32,7 +32,7 @@ Verba aprovada: 300 € (teste 40 € · abertura 150 € · sustentação 80 �
 2. **Dados de faturação** (para as faturas virem com IVA para a empresa):
    - Nome: Sintonia dos Temperos
    - NIF/NIPC: 519521463
-   - Morada: Praceta Eugénio de Castro, Loja 6 e 7, 2790-063 Carnaxide, Portugal
+   - Morada: Praceta Eugénio de Castro, Loja 6, 2790-063 Carnaxide, Portugal
    - Email das faturas: geral@100pressao.pt
 3. **Método de pagamento**: cartão da empresa, introduzido pelo Leandro (nunca pelos agentes).
 4. **Limite de gastos da conta**: 300 € — impede gastar acima da verba aprovada.
@@ -63,7 +63,7 @@ Verba aprovada: 300 € (teste 40 € · abertura 150 € · sustentação 80 �
 | Pagamento | **por configurar a 10 Out 2026**: página `ads.google.com/aw/signup/payment` (aceitar os Termos do Google Ads, informações fiscais NIPC 519521463, cartão pelo Leandro) |
 | Verba | não prevista nos 300 € do plano — não ativar campanhas sem decisão do Leandro |
 
-Pendente: a morada do Perfil de Empresa diz só "Loja 6" — corrigir para "Loja 6 e 7".
+Morada do Perfil de Empresa: "Loja 6" (decisão do Leandro a 19 Out 2026 — retirado o n.º 7 em todo o lado).
 
 ## Outros
 - WhatsApp Business: +351 935 995 011 (número do 100PRESSÃO desde 27 Set 2026).
