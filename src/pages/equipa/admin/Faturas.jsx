@@ -11,6 +11,7 @@ import { fmt, METODOS_PAGAMENTO } from '../../../lib/pedidos'
 import { chamarApiFaturar } from '../../../lib/equipa'
 import { nifOpcionalValido } from '../../../lib/nif'
 import { CARTAO, BOTAO_SECUNDARIO, useAviso } from './comuns'
+import { imprimirTalao } from '../../../lib/talao'
 
 const rotuloMetodo = (id) =>
   METODOS_PAGAMENTO.find((m) => m.id === id)?.rotulo || id || '—'
@@ -127,7 +128,7 @@ function Faturas() {
     const { data, error } = await supabase
       .from('orders')
       .select(
-        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_documento_numero, fatura_url, fatura_erro, sessions ( nome_cliente, posicao_mesa )',
+        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_documento_id, fatura_documento_numero, fatura_url, fatura_erro, sessions ( nome_cliente, posicao_mesa )',
       )
       // Entregues (venda ao balcão, onde se paga no fim) e também as online já
       // pagas mas ainda em preparação — essas têm fatura devida desde o momento
@@ -415,6 +416,27 @@ function Faturas() {
                         {aEmitir === p.id ? 'A obter…' : 'Obter PDF'}
                       </button>
                     )
+                  )}
+                  {/* Reimpressão no balcão: sai sempre como 2.ª via, porque quem
+                      vem aqui é porque o original já saiu (ou se perdeu). */}
+                  {estadoFatura(p) === 'emitida' && p.fatura_documento_id && (
+                    <button
+                      type="button"
+                      disabled={aEmitir === p.id}
+                      onClick={async () => {
+                        setAEmitir(p.id)
+                        try {
+                          await imprimirTalao(p.id, p.fatura_documento_id, { segundaVia: true })
+                          mostrarAviso('Talão enviado (2.ª via) ✓')
+                        } catch (e) {
+                          mostrarAviso(`Talão não imprimiu: ${e.message}`)
+                        }
+                        setAEmitir(null)
+                      }}
+                      className={BOTAO_SECUNDARIO}
+                    >
+                      Imprimir talão
+                    </button>
                   )}
                   {estadoFatura(p) !== 'emitida' && (
                     <button

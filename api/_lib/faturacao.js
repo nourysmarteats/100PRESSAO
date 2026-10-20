@@ -542,6 +542,85 @@ export async function obterPdf(admin, pedidoId) {
   throw new Error(`O Vendus não devolveu o PDF nem um endereço aberto. Recebido: ${amostra}`)
 }
 
+// Talão para a impressora térmica do balcão (iggual TP EASY 58, papel de 58 mm,
+// ligada por USB ao Mac do ponto de recolha — out 2026). Pede-se à Vendus o
+// próprio documento em formato imprimível, em vez de o desenhar na app: assim
+// o talão traz tudo o que a lei exige numa fatura (ATCUD, QR, menção ao
+// programa certificado) sem depender de nós acertarmos esses elementos.
+//
+// Primeiro tenta-se output=html (o formato que a Vendus usa para talões no
+// browser). Se não vier HTML reconhecível, cai para o PDF — que se imprime na
+// mesma, só que escalado à largura do papel.
+//
+// `via`: 'ORIGINAL' na primeira impressão; 'SECOND' (2.ª via) nas seguintes.
+export async function obterTalao(admin, pedidoId, { via = 'ORIGINAL' } = {}) {
+  const chave = process.env.VENDUS_API_KEY
+  if (!chave) throw new Error('VENDUS_API_KEY não configurada no Vercel.')
+
+  const { data: pedido } = await admin
+    .from('orders')
+    .select('id, fatura_documento_id')
+    .eq('id', pedidoId)
+    .single()
+  if (!pedido?.fatura_documento_id) throw new Error('Esta encomenda ainda não tem fatura emitida.')
+
+  const versao = via === 'SECOND' ? 'SECOND' : 'ORIGINAL'
+  const base = `/documents/${pedido.fatura_documento_id}/?mode=${modoVendus()}&output_version=${versao}`
+
+  let doc = null
+  try {
+    doc = await vendusFetch(`${base}&output=html`, chave)
+  } catch (e) {
+    if (/404/.test(e.message)) {
+      throw new Error(
+        `O Vendus não encontra o documento ${pedido.fatura_documento_id} no espaço "${modoVendus()}" (HTTP 404).`,
+      )
+    }
+    // Outro erro no HTML: tenta-se o PDF antes de desistir.
+  }
+  const html = doc ? htmlDoDocumento(doc) : null
+  if (html) return { ok: true, formato: 'html', html, via: versao }
+
+  const docPdf = await vendusFetch(`${base}&output=pdf`, chave)
+  const pdf = pdfDoDocumento(docPdf)
+  if (pdf) return { ok: true, formato: 'pdf', pdf_base64: pdf, via: versao }
+
+  const amostra = JSON.stringify({ output: doc?.output, output_data: doc?.output_data }).slice(0, 200)
+  throw new Error(`O Vendus não devolveu o talão em HTML nem em PDF. Recebido: ${amostra}`)
+}
+
+// O HTML vem na mesma forma {type,data,content} dos outros formatos — em texto
+// ou em base64. Só se aceita se, aberto, parecer mesmo HTML.
+function comoHtml(v, profundidade = 0) {
+  if (v && typeof v === 'object' && profundidade < 3) {
+    return comoHtml(v.content ?? v.data ?? v.html, profundidade + 1)
+  }
+  if (typeof v !== 'string') return null
+  const s = v.trim()
+  if (!s) return null
+  const pareceHtml = (t) => /<(html|body|div|table|p|span|img|br)[\s>/]/i.test(t)
+  if (pareceHtml(s)) return s
+  if (profundidade < 3 && (s.startsWith('{') || s.startsWith('['))) {
+    try {
+      return comoHtml(JSON.parse(s), profundidade + 1)
+    } catch {
+      return null
+    }
+  }
+  if (/^[A-Za-z0-9+/\s]+={0,2}$/.test(s)) {
+    try {
+      const aberto = Buffer.from(s.replace(/\s+/g, ''), 'base64').toString('utf8')
+      if (pareceHtml(aberto)) return aberto
+    } catch {
+      /* não era base64 de HTML */
+    }
+  }
+  return null
+}
+
+const htmlDoDocumento = (doc) =>
+  comoHtml(doc?.output_data) || comoHtml(doc?.output) || comoHtml(doc?.content) || null
+
 // Regista a falha na própria encomenda. A razão tem de ficar onde alguém a vá
 // procurar (painel de Faturas), e não apenas nos logs — que podem não estar
 // acessíveis quando fazem falta.

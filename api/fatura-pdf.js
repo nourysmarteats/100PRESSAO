@@ -2,7 +2,7 @@
 // devolve o endereço do documento no momento da emissão — sem isto, uma fatura
 // nossa só se alcançava entrando no backoffice do Vendus.
 import { createClient } from '@supabase/supabase-js'
-import { obterPdf } from './_lib/faturacao.js'
+import { obterPdf, obterTalao } from './_lib/faturacao.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ erro: 'Método não suportado' })
@@ -27,10 +27,14 @@ export default async function handler(req, res) {
     .single()
   if (!perfil?.ativo) return res.status(403).json({ erro: 'Conta inativa.' })
 
-  const { pedido_id } = req.body || {}
+  // formato 'talao': a fatura pronta para a impressora térmica do balcão
+  // (ver obterTalao). Fica nesta rota, e não numa nova, para não somar mais
+  // uma função ao Vercel.
+  const { pedido_id, formato, via } = req.body || {}
   if (!pedido_id) return res.status(400).json({ erro: 'pedido_id em falta.' })
 
   try {
+    if (formato === 'talao') return res.status(200).json(await obterTalao(admin, pedido_id, { via }))
     return res.status(200).json(await obterPdf(admin, pedido_id))
   } catch (e) {
     return res.status(502).json({ erro: e.message })

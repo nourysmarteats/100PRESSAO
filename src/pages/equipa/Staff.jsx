@@ -16,6 +16,7 @@ import { nifOpcionalValido } from '../../lib/nif'
 import { useAviso } from './admin/comuns'
 import { ESTADO_ENTREGA, podeChamar, precisaAtencao } from '../../lib/despacho'
 import { avisarDespacho } from '../../lib/push'
+import { imprimirTalao, jaFoiImpresso } from '../../lib/talao'
 
 function Kpi({ rotulo, valor, destaque }) {
   return (
@@ -78,7 +79,7 @@ const ROTULO_METODO = {
 const ATALHO =
   'inline-flex items-center rounded-full border border-grafite-900/20 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-800 transition-colors hover:border-grafite-900'
 
-function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
+function CartaoPedido({ pedido, aoAvancar, aoEntregar, aoImprimir }) {
   const entrega = temEntrega(pedido)
   const porCobrar = pedido.estado_pagamento === 'na_entrega'
   const [metodo, setMetodo] = useState(pedido.metodo_pagamento || null)
@@ -88,6 +89,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
   // a confirmação da entrega apagar o NIF que o cliente escreveu.
   const [querFatura, setQuerFatura] = useState(!!pedido.fatura_pedida)
   const [nif, setNif] = useState(pedido.fatura_nif || '')
+  const [aImprimir, setAImprimir] = useState(false)
   // Eletrónico é sempre faturado; em numerário a fatura fica ao critério do
   // cliente. O NIF é sempre opcional, mas se for escrito tem de ser válido.
   const faturaObrigatoria = exigeFatura(metodo)
@@ -125,6 +127,34 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar }) {
           <p className="mt-1 text-xs text-grafite-600/70">{minutosDesde(pedido.criado_em)} min</p>
         </div>
       </header>
+
+      {/* Talão da fatura na impressora térmica do balcão. Só aparece quando a
+          Vendus já emitiu o documento (nas encomendas online pagas, logo ao
+          pagamento). A primeira impressão sai como original; as seguintes
+          como 2.ª via. */}
+      {pedido.fatura_documento_id && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-creme-300 bg-creme-100/60 px-4 py-2">
+          <p className="text-xs text-grafite-600">
+            Fatura {pedido.fatura_documento_numero || 'emitida'}
+          </p>
+          <button
+            type="button"
+            disabled={aImprimir}
+            onClick={async () => {
+              setAImprimir(true)
+              await aoImprimir(pedido)
+              setAImprimir(false)
+            }}
+            className="cursor-pointer rounded-full border border-grafite-600/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-900 transition-colors hover:border-ambar-500 hover:text-ambar-600 disabled:opacity-40"
+          >
+            {aImprimir
+              ? 'A imprimir…'
+              : jaFoiImpresso(pedido.fatura_documento_id)
+                ? 'Reimprimir (2.ª via)'
+                : 'Imprimir talão'}
+          </button>
+        </div>
+      )}
 
       {entrega && (
         <div className="mt-4 rounded-xl border border-ambar-500/50 bg-ambar-500/10 p-4">
@@ -343,7 +373,18 @@ function Staff() {
     if (opcoesFatura?.querFatura) {
       try {
         const r = await chamarApiFaturar({ pedido_id: id, nif: opcoesFatura.nif })
-        if (r.url) window.open(r.url, '_blank', 'noopener')
+        // O talão sai logo na impressora do balcão. Se a impressão falhar, a
+        // fatura continua emitida e reimprime-se no painel de Faturas.
+        if (r.documento_id && !jaFoiImpresso(String(r.documento_id))) {
+          try {
+            await imprimirTalao(id, String(r.documento_id))
+          } catch (e) {
+            mostrarAviso(`Fatura emitida, mas o talão não imprimiu: ${e.message}`)
+            return
+          }
+        } else if (r.url) {
+          window.open(r.url, '_blank', 'noopener')
+        }
         mostrarAviso(
           r.modo_teste
             ? 'Fatura emitida em modo de teste (Vendus) ✓'
@@ -355,6 +396,16 @@ function Staff() {
         mostrarAviso(`Erro a emitir fatura: ${erro.message}`)
       }
     }
+  }
+
+  async function imprimir(pedido) {
+    try {
+      const { via } = await imprimirTalao(pedido.id, pedido.fatura_documento_id)
+      mostrarAviso(via === 'SECOND' ? 'Talão enviado (2.ª via) ✓' : 'Talão enviado ✓')
+    } catch (e) {
+      mostrarAviso(`Talão não imprimiu: ${e.message}`)
+    }
+    forcarTick((t) => t + 1)
   }
 
   // "Prontos" é o que já saiu da cozinha e espera fecho: pronto ao balcão, ou
@@ -380,7 +431,7 @@ function Staff() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {prontos.map((p) => (
-              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} />
+              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} aoImprimir={imprimir} />
             ))}
           </div>
         )}
@@ -393,7 +444,7 @@ function Staff() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {emCurso.map((p) => (
-              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} />
+              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} aoImprimir={imprimir} />
             ))}
           </div>
         )}
