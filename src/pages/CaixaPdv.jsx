@@ -22,6 +22,7 @@ import {
 import { useCanalVisor, linhaVisor, totalLinhas } from '../lib/visor'
 import { servidoHoje } from '../lib/dias'
 import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor } from '../lib/equipa'
+import { imprimirTalao } from '../lib/talao'
 import logoStamp from '../assets/logo-100pressao.png'
 
 // ----------------------------
@@ -305,6 +306,19 @@ function PinGate({ sessaoId, aoDesbloquear }) {
 // Nota (Leandro, teste de 2026-08-14): pedidos que chegam por aqui vêm do menu
 // QR, com o cliente sentado à mesa. Não passam pelo visor de propósito — o
 // visor é do balcão, para quem está de pé à frente do operador.
+// Talão da fatura na impressora térmica do balcão, logo a seguir à emissão.
+// Devolve o texto a juntar ao aviso: a venda e a fatura já estão feitas, uma
+// falha de impressão não as desfaz — reimprime-se em Admin → Faturas.
+async function talaoAposFatura(pedidoId, r) {
+  if (!r?.documento_id || r.ja_existia) return ''
+  try {
+    await imprimirTalao(pedidoId, String(r.documento_id))
+    return ' · talão impresso'
+  } catch (e) {
+    return ` · talão não imprimiu (${e.message})`
+  }
+}
+
 function PainelPedidos({ onFaturar }) {
   const [pedidos, setPedidos] = useState([])
   const [aProcessar, setAProcessar] = useState(null)
@@ -348,7 +362,8 @@ function PainelPedidos({ onFaturar }) {
       if (exigeFatura(metodoPag)) {
         try {
           const r = await chamarApiFaturar({ pedido_id: pedido.id })
-          setAviso(`✓ Pago · Fatura ${r.numero || ''} emitida`)
+          const talao = await talaoAposFatura(pedido.id, r)
+          setAviso(`✓ Pago · Fatura ${r.numero || ''} emitida${talao}`)
         } catch (eFatura) {
           setAviso(`✓ Pago · Fatura falhou: ${eFatura.message}`)
         }
@@ -666,7 +681,8 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       if (precisaFatura || (metodo === 'dinheiro' && nif)) {
         try {
           const r = await chamarApiFaturar({ pedido_id: orderId, nif: nif || undefined })
-          setAviso(`✓ Venda concluída · Fatura ${r.numero || ''} emitida`)
+          const talao = await talaoAposFatura(orderId, r)
+          setAviso(`✓ Venda concluída · Fatura ${r.numero || ''} emitida${talao}`)
         } catch (eFatura) {
           setAviso(`✓ Venda concluída · Fatura falhou: ${eFatura.message}`)
         }

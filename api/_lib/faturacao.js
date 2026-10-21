@@ -54,6 +54,18 @@ export const modoVendus = () => (process.env.VENDUS_MODE === 'normal' ? 'normal'
 // por produto; a constante fica então como valor por omissão.
 const TAX_ID_DEFAULT = 'NOR'
 
+// Referência do artigo na fatura. Era "100P-<uuid completo>", que no talão de
+// 58 mm ocupava duas linhas por produto e tornava a fatura ilegível (talão da
+// FR 01P2026/3, out 2026). Passa a P- (produto) ou C- (combo) + os primeiros
+// 8 caracteres do id: curto, estável para o mesmo artigo e, com o catálogo
+// actual, sem colisões. A Vendus cria o artigo novo na primeira fatura com
+// esta referência; as faturas antigas mantêm a que tinham.
+function referenciaCurta(i) {
+  if (i.product_id) return `P-${String(i.product_id).slice(0, 8).toUpperCase()}`
+  if (i.combo_id) return `C-${String(i.combo_id).slice(0, 8).toUpperCase()}`
+  return `L-${String(i.id).slice(0, 8).toUpperCase()}`
+}
+
 // Método de pagamento interno → "type" oficial do Vendus. Os IDs de cada método
 // são específicos da conta, por isso vão-se buscar à API em vez de serem fixos
 // aqui. Os códigos abaixo foram confirmados contra a lista real devolvida por
@@ -213,7 +225,7 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
     const bruto = Number(i.preco_unitario)
     const liquido = pct > 0 ? Math.round(bruto * (100 - pct) + 1e-6) / 100 : bruto
     return {
-      reference: `100P-${i.product_id || i.combo_id || i.id}`,
+      reference: referenciaCurta(i),
       title: pct > 0 ? `${nomeItem(i)} (Cliente Beta −${pct}%)` : nomeItem(i),
       qty: Number(i.quantidade),
       gross_price: liquido,
