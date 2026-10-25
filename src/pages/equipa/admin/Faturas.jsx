@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt, METODOS_PAGAMENTO } from '../../../lib/pedidos'
 import { chamarApiFaturar } from '../../../lib/equipa'
-import { nifOpcionalValido } from '../../../lib/nif'
+import { nifOpcionalValido, nifDeEmpresa, dadosEmpresaValidos } from '../../../lib/nif'
 import { CARTAO, BOTAO_SECUNDARIO, useAviso } from './comuns'
 import { imprimirTalao } from '../../../lib/talao'
 
@@ -117,6 +117,10 @@ function Faturas() {
   // depois de emitido, o NIF já não se corrige por aqui, corrige-se com nota
   // de crédito.
   const [nifs, setNifs] = useState({})
+  // Nome e morada da empresa, por pedido, quando o NIF é de empresa: a Vendus
+  // recusa a fatura sem morada (A001 — encomenda nº 40). Mesma regra dos NIFs:
+  // só enquanto não há documento emitido.
+  const [empresas, setEmpresas] = useState({})
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
@@ -128,7 +132,7 @@ function Faturas() {
     const { data, error } = await supabase
       .from('orders')
       .select(
-        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_documento_id, fatura_documento_numero, fatura_url, fatura_erro, sessions ( nome_cliente, posicao_mesa )',
+        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_nome, fatura_morada, fatura_codigo_postal, fatura_localidade, fatura_documento_id, fatura_documento_numero, fatura_url, fatura_erro, sessions ( nome_cliente, posicao_mesa )',
       )
       // Entregues (venda ao balcão, onde se paga no fim) e também as online já
       // pagas mas ainda em preparação — essas têm fatura devida desde o momento
@@ -216,16 +220,33 @@ function Faturas() {
     carregar()
   }
 
+  // O que está escrito no painel, ou o que já vinha gravado na encomenda.
+  const empresaDe = (p) => ({
+    nome: p.fatura_nome ?? '',
+    morada: p.fatura_morada ?? '',
+    codigo_postal: p.fatura_codigo_postal ?? '',
+    localidade: p.fatura_localidade ?? '',
+    ...(empresas[p.id] || {}),
+  })
+  const precisaEmpresa = (p) => nifDeEmpresa(nifs[p.id] ?? p.fatura_nif ?? '')
+  const mudarEmpresa = (p, campo, valor) =>
+    setEmpresas((atual) => ({ ...atual, [p.id]: { ...empresaDe(p), [campo]: valor } }))
+
   async function reemitir(p) {
     setAEmitir(p.id)
     try {
       const nif = (nifs[p.id] ?? p.fatura_nif ?? '').replace(/\D/g, '')
-      const r = await chamarApiFaturar({ pedido_id: p.id, nif: nif || undefined })
+      const empresa = nifDeEmpresa(nif) ? empresaDe(p) : undefined
+      const r = await chamarApiFaturar({ pedido_id: p.id, nif: nif || undefined, empresa })
       mostrarAviso(
         r.ja_existia ? 'Já existia fatura para este pedido.' : `Fatura ${r.numero || ''} emitida ✓`,
       )
       setNifs((atual) => {
         const { [p.id]: _usado, ...resto } = atual
+        return resto
+      })
+      setEmpresas((atual) => {
+        const { [p.id]: _usada, ...resto } = atual
         return resto
       })
     } catch (e) {
@@ -391,6 +412,28 @@ function Faturas() {
                   <p className="mt-1 text-xs leading-relaxed text-red-600">{p.fatura_erro}</p>
                 )}
 
+                {estadoFatura(p) !== 'emitida' && precisaEmpresa(p) && (
+                  <div className="mt-2 grid max-w-md gap-1 text-xs text-grafite-600">
+                    <span className="font-semibold">NIF de empresa — a fatura precisa do nome e da morada fiscal</span>
+                    {[
+                      { campo: 'nome', rotulo: 'Nome da empresa', ph: 'Empresa, Lda.' },
+                      { campo: 'morada', rotulo: 'Morada fiscal', ph: 'Rua, n.º, andar' },
+                      { campo: 'codigo_postal', rotulo: 'Código postal', ph: '0000-000' },
+                      { campo: 'localidade', rotulo: 'Localidade', ph: 'Lisboa' },
+                    ].map(({ campo, rotulo, ph }) => (
+                      <label key={campo} className="block">
+                        {rotulo}
+                        <input
+                          value={empresaDe(p)[campo]}
+                          onChange={(e) => mudarEmpresa(p, campo, e.target.value)}
+                          placeholder={ph}
+                          className="mt-1 w-full rounded-lg border border-creme-300 px-2 py-1 text-sm outline-none focus:border-ambar-500"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+
                 <div className="mt-2 flex justify-end gap-2">
                   {/* A decisão é pelo endereço ser aproveitável, não por o
                       campo estar preenchido: preenchido com lixo, mostrava
@@ -443,7 +486,8 @@ function Faturas() {
                       type="button"
                       disabled={
                         aEmitir === p.id ||
-                        !nifOpcionalValido(nifs[p.id] ?? p.fatura_nif ?? '')
+                        !nifOpcionalValido(nifs[p.id] ?? p.fatura_nif ?? '') ||
+                        (precisaEmpresa(p) && !dadosEmpresaValidos(empresaDe(p)))
                       }
                       onClick={() => reemitir(p)}
                       className={BOTAO_SECUNDARIO}

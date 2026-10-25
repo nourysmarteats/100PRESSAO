@@ -30,3 +30,27 @@ export const nifOpcionalValido = (valor) => {
   const n = String(valor ?? '').replace(/\D/g, '')
   return n === '' || nifValido(n)
 }
+
+// NIF de empresa (pessoa coletiva, entidade pública, herança indivisa,
+// condomínio, etc.): começa por 5, 6, 7, 8 ou 9. Os particulares começam por
+// 1, 2, 3 ou 45. Numa fatura a empresa, a lei (art. 36.º do CIVA) e a Vendus
+// exigem o nome e a morada do adquirente — sem morada a Vendus recusa a
+// fatura com "A001", como aconteceu à encomenda nº 40.
+// Espelha nifDeEmpresa() em api/_lib/faturacao.js.
+export function nifDeEmpresa(valor) {
+  const n = String(valor ?? '').replace(/\D/g, '')
+  return /^[5-9]/.test(n)
+}
+
+export const codigoPostalValido = (valor) => /^\d{4}-\d{3}$/.test(String(valor ?? '').trim())
+
+// Nome, morada, código postal e localidade da empresa, todos preenchidos e o
+// código postal no formato 0000-000. Espelha normalizarEmpresa() no servidor.
+export function dadosEmpresaValidos(e) {
+  return (
+    !!String(e?.nome ?? '').trim() &&
+    !!String(e?.morada ?? '').trim() &&
+    codigoPostalValido(e?.codigo_postal) &&
+    !!String(e?.localidade ?? '').trim()
+  )
+}

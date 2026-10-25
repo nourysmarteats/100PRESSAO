@@ -21,13 +21,6 @@ const VENDUS_BASE = 'https://www.vendus.pt/ws/v1.1'
 // emissão de faturas dependente de o empacotamento resolver um caminho para
 // fora da pasta. É o mesmo critério de exigeFatura(), que também vive dos dois
 // lados. Se uma mudar, a outra tem de mudar com ela.
-// NIF de pessoa coletiva/entidade (não singular): começa por 5, 6, 7, 8 ou 9.
-// Os singulares começam por 1, 2, 3 ou 45 (não residente).
-function nifDeEmpresa(valor) {
-  const n = String(valor ?? '').replace(/\D/g, '')
-  return /^[5-9]/.test(n)
-}
-
 function nifPortuguesValido(valor) {
   const n = String(valor ?? '').replace(/\D/g, '')
   if (!/^[1-9]\d{8}$/.test(n)) return false
@@ -37,6 +30,36 @@ function nifPortuguesValido(valor) {
     .reduce((acc, d, i) => acc + Number(d) * (9 - i), 0)
   const resto = soma % 11
   return Number(n[8]) === (resto < 2 ? 0 : 11 - resto)
+}
+
+// NIF de pessoa coletiva/entidade (não singular): começa por 5, 6, 7, 8 ou 9.
+// Os singulares começam por 1, 2, 3 ou 45 (não residente). Espelha
+// nifDeEmpresa() em src/lib/nif.js — se uma mudar, a outra muda com ela.
+export function nifDeEmpresa(valor) {
+  const n = String(valor ?? '').replace(/\D/g, '')
+  return /^[5-9]/.test(n)
+}
+
+// Dados da empresa para a fatura (nome e morada fiscal), vindos do painel de
+// Faturas. Limpa e valida; devolve null se nada vier, lança se vier mal.
+// Espelha dadosEmpresaValidos() em src/lib/nif.js.
+export function normalizarEmpresa(empresa) {
+  if (!empresa || typeof empresa !== 'object') return null
+  const limpar = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+  const e = {
+    fatura_nome: limpar(empresa.nome, 120),
+    fatura_morada: limpar(empresa.morada, 200),
+    fatura_codigo_postal: limpar(empresa.codigo_postal, 8),
+    fatura_localidade: limpar(empresa.localidade, 80),
+  }
+  if (!Object.values(e).some(Boolean)) return null
+  if (!e.fatura_nome || !e.fatura_morada || !e.fatura_localidade) {
+    throw new Error('Dados da empresa incompletos: nome, morada e localidade são obrigatórios.')
+  }
+  if (!/^\d{4}-\d{3}$/.test(e.fatura_codigo_postal)) {
+    throw new Error('Código postal inválido (formato 0000-000).')
+  }
+  return e
 }
 
 // Testes e produção são espaços separados no Vendus. Um documento emitido em
@@ -155,10 +178,22 @@ export const podeFaturar = (pedido) =>
 // Devolve { ok, documento_id, numero, url, ja_existia } ou lança com a razão.
 // Nunca é chamada com totais vindos do browser: o pedido é lido do servidor,
 // porque isto é um documento fiscal.
-export async function emitirFatura(admin, pedidoId, { nif } = {}) {
+export async function emitirFatura(admin, pedidoId, { nif, empresa } = {}) {
   const vendusKey = process.env.VENDUS_API_KEY
   if (!vendusKey) {
     throw new Error('VENDUS_API_KEY não configurada no Vercel (Settings → Environment Variables).')
+  }
+
+  // Nome e morada da empresa completados no painel de Faturas: gravam-se na
+  // encomenda antes de a ler, para a fatura e o registo dizerem o mesmo. Só
+  // enquanto não houver documento — uma fatura emitida não se reescreve.
+  const dadosEmpresa = normalizarEmpresa(empresa)
+  if (dadosEmpresa) {
+    await admin
+      .from('orders')
+      .update(dadosEmpresa)
+      .eq('id', pedidoId)
+      .is('fatura_documento_id', null)
   }
 
   const { data: pedido, error } = await admin
@@ -211,13 +246,26 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   // da conta, por isso não pode ser fixo no código)
   const metodos = await vendusFetch('/documents/paymentmethods/', vendusKey)
   const lista = Array.isArray(metodos) ? metodos : metodos?.data || []
-  const metodo = lista.find((m) => m.type === tipoVendus && m.status !== 'off')
+  // O código do MB WAY não é igual em todas as contas Vendus (não é um código
+  // SAF-T): se o tipo exato não existir, procura-se pelo nome. Nenhuma fatura
+  // MB WAY tinha saído até 25 Out 2026 (encomendas 27, 35 e 41).
+  const ativos = lista.filter((m) => m.status !== 'off')
+  const porNome = {
+    MBWAY: /mb\s*-?\s*way/i,
+  }
+  const metodo =
+    ativos.find((m) => m.type === tipoVendus) ||
+    (porNome[tipoVendus] && ativos.find((m) => porNome[tipoVendus].test(m.title || '')))
   if (!metodo) {
     console.error(
       `Sem método "${tipoVendus}" na conta Vendus. Métodos devolvidos:`,
       JSON.stringify(lista),
     )
-    throw new Error(`Sem método de pagamento "${tipoVendus}" ativo na conta Vendus.`)
+    const disponiveis = ativos.map((m) => `${m.type} (${m.title})`).join(', ')
+    throw new Error(
+      `Sem método de pagamento "${tipoVendus}" ativo na conta Vendus.` +
+        (disponiveis ? ` Ativos na conta: ${disponiveis}.` : ''),
+    )
   }
 
   // 2. Montar os itens — a Vendus exige id OU reference em cada item (title

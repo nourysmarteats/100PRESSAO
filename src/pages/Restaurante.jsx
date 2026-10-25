@@ -15,7 +15,7 @@ import { fmt, ROTULO_ESTADO } from '../lib/pedidos'
 import { imagemCategoria } from '../lib/imagensCategoria'
 import SEOHead from '../components/SEOHead'
 import { servidoHoje } from '../lib/dias'
-import { nifValido } from '../lib/nif'
+import { nifValido, nifDeEmpresa, dadosEmpresaValidos } from '../lib/nif'
 import FormularioFeedback from '../components/FormularioFeedback'
 import logoStamp from '../assets/logo-100pressao.png'
 import { trackEvento } from '../lib/analytics'
@@ -111,6 +111,9 @@ function Restaurante() {
   const [cpf, setCpf] = useState('') // só para Pix
   const [querFatura, setQuerFatura] = useState(false)
   const [nif, setNif] = useState('')
+  // Fatura a empresa: nome e morada fiscal são obrigatórios (art. 36.º CIVA;
+  // a Vendus recusa sem morada — encomenda nº 40). Só aparecem com NIF de empresa.
+  const [empresa, setEmpresa] = useState({ nome: '', morada: '', codigo_postal: '', localidade: '' })
   const [idade, setIdade] = useState(false) // 18+ (Brandão E)
   const [aceito, setAceito] = useState(false) // Condições de Venda (Brandão J)
   // Cliente Beta: número + telemóvel validados no servidor, que devolve um
@@ -424,6 +427,7 @@ function Restaurante() {
     metodo &&
     (metodo !== 'pix' || cpf.replace(/\D/g, '').length === 11) &&
     (!querFatura || nifValido(nif)) &&
+    (!querFatura || !nifDeEmpresa(nif) || dadosEmpresaValidos(empresa)) &&
     idade &&
     aceito
 
@@ -494,6 +498,7 @@ function Restaurante() {
           p_aceitou: aceito,
           p_itens: itens,
           p_nif: querFatura ? nif : null,
+          p_fatura: querFatura && nifDeEmpresa(nif) ? empresa : null,
           p_beta_token: betaAtivo ? beta.token : null,
           p_origem: origemDaEncomenda(window.location.search),
         })
@@ -929,6 +934,41 @@ function Restaurante() {
                     </span>
                   )}
                 </label>
+              )}
+              {querFatura && nifValido(nif) && nifDeEmpresa(nif) && (
+                <div className="mt-2">
+                  <p className="text-xs text-grafite-600">
+                    É um NIF de empresa: a fatura leva o nome e a morada fiscal da empresa.
+                  </p>
+                  {[
+                    { campo: 'nome', rotulo: 'Nome da empresa', ph: 'Empresa, Lda.' },
+                    { campo: 'morada', rotulo: 'Morada fiscal', ph: 'Rua, n.º, andar' },
+                    { campo: 'codigo_postal', rotulo: 'Código postal', ph: '0000-000' },
+                    { campo: 'localidade', rotulo: 'Localidade', ph: 'Lisboa' },
+                  ].map(({ campo, rotulo, ph }) => (
+                    <label key={campo} className="mt-2 block text-sm font-semibold uppercase tracking-widest text-ambar-600">
+                      {rotulo}
+                      <input
+                        value={empresa[campo]}
+                        onChange={(e) =>
+                          setEmpresa((atual) => ({
+                            ...atual,
+                            [campo]:
+                              campo === 'codigo_postal'
+                                ? e.target.value.replace(/[^\d-]/g, '').slice(0, 8)
+                                : e.target.value.slice(0, campo === 'morada' ? 200 : 120),
+                          }))
+                        }
+                        inputMode={campo === 'codigo_postal' ? 'numeric' : undefined}
+                        className={CAMPO}
+                        placeholder={ph}
+                      />
+                    </label>
+                  ))}
+                  {empresa.codigo_postal !== '' && !/^\d{4}-\d{3}$/.test(empresa.codigo_postal) && (
+                    <span className="mt-1 block text-xs text-red-600">O código postal tem o formato 0000-000.</span>
+                  )}
+                </div>
               )}
 
               {/* Cliente Beta: opcional, validado com o telemóvel da inscrição. */}

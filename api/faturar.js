@@ -43,14 +43,16 @@ export default async function handler(req, res) {
     return res.status(403).json({ erro: 'Conta inativa.' })
   }
 
-  const { pedido_id, nif } = req.body || {}
+  // `empresa`: nome e morada fiscal, quando o NIF é de empresa (a Vendus
+  // recusa a fatura sem morada). Validados em normalizarEmpresa().
+  const { pedido_id, nif, empresa } = req.body || {}
   if (!pedido_id) return res.status(400).json({ erro: 'pedido_id em falta.' })
   if (nif && !/^\d{9}$/.test(nif)) {
     return res.status(400).json({ erro: 'NIF inválido — tem de ter 9 dígitos.' })
   }
 
   try {
-    return res.status(200).json(await emitirFatura(admin, pedido_id, { nif }))
+    return res.status(200).json(await emitirFatura(admin, pedido_id, { nif, empresa }))
   } catch (e) {
     await registarFalhaFatura(admin, pedido_id, e.message, nif)
     return res.status(502).json({ erro: `Vendus: ${e.message}` })
