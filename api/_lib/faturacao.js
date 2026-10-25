@@ -21,6 +21,13 @@ const VENDUS_BASE = 'https://www.vendus.pt/ws/v1.1'
 // emissão de faturas dependente de o empacotamento resolver um caminho para
 // fora da pasta. É o mesmo critério de exigeFatura(), que também vive dos dois
 // lados. Se uma mudar, a outra tem de mudar com ela.
+// NIF de pessoa coletiva/entidade (não singular): começa por 5, 6, 7, 8 ou 9.
+// Os singulares começam por 1, 2, 3 ou 45 (não residente).
+function nifDeEmpresa(valor) {
+  const n = String(valor ?? '').replace(/\D/g, '')
+  return /^[5-9]/.test(n)
+}
+
 function nifPortuguesValido(valor) {
   const n = String(valor ?? '').replace(/\D/g, '')
   if (!/^[1-9]\d{8}$/.test(n)) return false
@@ -299,7 +306,23 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   // se identificou. Nas vendas à mesa estes campos são nulos e o corpo fica
   // exatamente como estava.
   const email = (pedido.cliente_email || '').trim() || null
-  const nome = (pedido.cliente_nome || '').trim() || null
+  // Nome da fatura (denominação da empresa) tem prioridade sobre o nome de
+  // quem fez o pedido: numa fatura a empresa, o adquirente é a empresa.
+  const nome = (pedido.fatura_nome || '').trim() || (pedido.cliente_nome || '').trim() || null
+  const morada = (pedido.fatura_morada || '').trim() || null
+  const codigoPostal = (pedido.fatura_codigo_postal || '').trim() || null
+  const localidade = (pedido.fatura_localidade || '').trim() || null
+
+  // NIF de empresa: a Vendus recusa a fatura sem morada ("A001: Em documentos
+  // do tipo Fatura, é obrigatório indicar a Morada do cliente quando este é uma
+  // empresa") — foi o que aconteceu à encomenda nº 40, takeaway sem morada.
+  // Recusar aqui dá uma mensagem que diz o que falta, em vez do erro da Vendus.
+  if (fiscalId && nifDeEmpresa(fiscalId) && !(nome && morada)) {
+    throw new Error(
+      `O NIF ${fiscalId} é de empresa: a fatura precisa do nome da empresa e da morada fiscal. ` +
+        'Preencha-os no pedido e volte a emitir.',
+    )
+  }
 
   // O `send_email` vive DENTRO do cliente, não ao nível do documento. Posto
   // no sítio errado, o Vendus recusa o pedido inteiro com "P001: O campo
@@ -308,6 +331,10 @@ export async function emitirFatura(admin, pedidoId, { nif } = {}) {
   const cliente = {
     ...(fiscalId ? { fiscal_id: fiscalId } : {}),
     ...(nome ? { name: nome } : {}),
+    ...(morada ? { address: morada } : {}),
+    ...(codigoPostal ? { postalcode: codigoPostal } : {}),
+    ...(localidade ? { city: localidade } : {}),
+    ...(morada ? { country: 'PT' } : {}),
     ...(email ? { email, send_email: 'yes' } : {}),
   }
 
