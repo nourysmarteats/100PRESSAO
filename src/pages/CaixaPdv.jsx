@@ -21,6 +21,7 @@ import {
 } from '../lib/pedidos'
 import { useCanalVisor, linhaVisor, totalLinhas } from '../lib/visor'
 import { servidoHoje } from '../lib/dias'
+import { construirVendaveis, categoriasComArtigos, pesquisarVendaveis } from '../lib/caixaEmenta'
 import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor } from '../lib/equipa'
 import { imprimirTalao } from '../lib/talao'
 import logoStamp from '../assets/logo-100pressao.png'
@@ -482,6 +483,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   const [comVariantes, setComVariantes] = useState(() => new Set())
   const [erroCarga, setErroCarga] = useState('')
   const [catAtiva, setCatAtiva] = useState(null)
+  const [pesquisa, setPesquisa] = useState('')
   // Chave do carrinho: 'p:<id>' | 'v:<id>' | 'c:<id>' — um produto com
   // variantes nunca se mistura com o produto base.
   const [carrinho, setCarrinho] = useState({})
@@ -508,56 +510,73 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   // `.data` vinha null e o painel ficava com as categorias e zero produtos,
   // sem qualquer aviso. Daí o erro ser silencioso: agora falhas de
   // carregamento aparecem no ecrã.
+  //
+  // A ementa refresca-se sozinha. Antes carregava uma única vez, ao abrir a
+  // página: com o ecrã sempre ligado, uma categoria criada depois (ex.: Sabores
+  // do Brasil) nunca chegava ao balcão e a feijoada era impossível de vender.
+  // Agora recarrega quando o ecrã volta a ter foco e a cada 3 minutos.
+  const carregar = useCallback(async () => {
+    if (!db) return
+    const [rCat, rProd, rVar, rCombos] = await Promise.all([
+      db.from('categories').select('id, nome, visivel, ordem').order('ordem'),
+      db
+        .from('products')
+        .select('id, nome, preco, category_id, disponivel, dias_semana')
+        .eq('disponivel', true)
+        .order('ordem'),
+      // Sem o filtro de disponivel: distinguir "não tem variantes" de "tem,
+      // mas nenhuma serve hoje". Sem essa distinção o produto-pai volta a
+      // aparecer, e vende-se pelo preço dele.
+      db
+        .from('product_variants')
+        .select('id, product_id, nome, preco, disponivel, dias_semana')
+        .order('ordem'),
+      db
+        .from('combos')
+        .select('id, nome, preco, category_id, disponivel')
+        .eq('disponivel', true)
+        .order('ordem'),
+    ])
+
+    const falha = rCat.error || rProd.error
+    if (falha) {
+      setErroCarga(falha.message)
+      return
+    }
+    setErroCarga('')
+
+    // 'Ingredientes' é matéria-prima de stock, não se vende ao balcão.
+    const cats = (rCat.data || []).filter(
+      (c) => c.visivel !== false && c.nome?.toLowerCase() !== 'ingredientes',
+    )
+    const idsCats = new Set(cats.map((c) => c.id))
+    setCategorias(cats)
+    // O balcão vende o mesmo que a ementa do dia: um prato fora da rotação
+    // não deve estar ao alcance de um clique com o cliente à frente.
+    setProdutos(
+      (rProd.data || []).filter((p) => idsCats.has(p.category_id) && servidoHoje(p.dias_semana)),
+    )
+    const todas = rVar.error ? [] : rVar.data || []
+    setVariantes(todas.filter((v) => v.disponivel && servidoHoje(v.dias_semana)))
+    setComVariantes(new Set(todas.map((v) => v.product_id)))
+    setCombos(rCombos.error ? [] : (rCombos.data || []).filter((c) => idsCats.has(c.category_id)))
+  }, [db])
+
   useEffect(() => {
     if (!db) return
-    async function carregar() {
-      const [rCat, rProd, rVar, rCombos] = await Promise.all([
-        db.from('categories').select('id, nome, visivel, ordem').order('ordem'),
-        db
-          .from('products')
-          .select('id, nome, preco, category_id, disponivel')
-          .eq('disponivel', true)
-          .order('ordem'),
-        // Sem o filtro de disponivel: distinguir "não tem variantes" de "tem,
-        // mas nenhuma serve hoje". Sem essa distinção o produto-pai volta a
-        // aparecer, e vende-se pelo preço dele.
-        db
-          .from('product_variants')
-          .select('id, product_id, nome, preco, disponivel, dias_semana')
-          .order('ordem'),
-        db
-          .from('combos')
-          .select('id, nome, preco, category_id, disponivel')
-          .eq('disponivel', true)
-          .order('ordem'),
-      ])
-
-      const falha = rCat.error || rProd.error
-      if (falha) {
-        setErroCarga(falha.message)
-        return
-      }
-      setErroCarga('')
-
-      // 'Ingredientes' é matéria-prima de stock, não se vende ao balcão.
-      const cats = (rCat.data || []).filter(
-        (c) => c.visivel !== false && c.nome?.toLowerCase() !== 'ingredientes',
-      )
-      const idsCats = new Set(cats.map((c) => c.id))
-      setCategorias(cats)
-      // O balcão vende o mesmo que a ementa do dia: um prato fora da rotação
-      // não deve estar ao alcance de um clique com o cliente à frente.
-      setProdutos(
-        (rProd.data || []).filter((p) => idsCats.has(p.category_id) && servidoHoje(p.dias_semana)),
-      )
-      const todas = rVar.error ? [] : rVar.data || []
-      setVariantes(todas.filter((v) => v.disponivel && servidoHoje(v.dias_semana)))
-      setComVariantes(new Set(todas.map((v) => v.product_id)))
-      setCombos(rCombos.error ? [] : (rCombos.data || []).filter((c) => idsCats.has(c.category_id)))
-      if (cats.length > 0) setCatAtiva((atual) => atual ?? cats[0].id)
-    }
     carregar()
-  }, [db])
+    const refrescar = () => {
+      if (document.visibilityState === 'visible') carregar()
+    }
+    document.addEventListener('visibilitychange', refrescar)
+    window.addEventListener('focus', refrescar)
+    const intervalo = setInterval(refrescar, 3 * 60 * 1000)
+    return () => {
+      document.removeEventListener('visibilitychange', refrescar)
+      window.removeEventListener('focus', refrescar)
+      clearInterval(intervalo)
+    }
+  }, [db, carregar])
 
   // Espelha o carrinho no visor sempre que algo muda — itens, método, NIF,
   // dinheiro entregue. É o que o cliente vê enquanto o operador marca.
@@ -704,47 +723,29 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
     setTimeout(() => setAviso(''), 6000)
   }
 
-  // Lista de botões da categoria activa. Um produto com variantes desaparece
-  // e dá lugar às suas variantes — assim o Almoço PF já não pode ser vendido
-  // ao preço base de 8,40 € quando o prato real custa 12,90 €.
-  const vendaveisDaCat = useMemo(() => {
-    const daCat = produtos.filter((p) => String(p.category_id) === String(catAtiva))
-    const lista = []
-    daCat.forEach((p) => {
-      const suas = variantes.filter((v) => String(v.product_id) === String(p.id))
-      // Tem variantes mas nenhuma hoje: não se vende, nem pelo preço do pai.
-      if (suas.length === 0 && comVariantes.has(p.id)) return
-      if (suas.length === 0) {
-        lista.push({
-          chave: `p:${p.id}`,
-          nome: p.nome,
-          preco: Number(p.preco || 0),
-          product_id: p.id,
-        })
-        return
-      }
-      suas.forEach((v) => {
-        lista.push({
-          chave: `v:${v.id}`,
-          nome: `${p.nome} · ${v.nome}`,
-          preco: Number(v.preco || 0),
-          product_id: p.id,
-          variant_id: v.id,
-        })
-      })
-    })
-    combos
-      .filter((c) => String(c.category_id) === String(catAtiva))
-      .forEach((c) => {
-        lista.push({
-          chave: `c:${c.id}`,
-          nome: `Combo ${c.nome}`,
-          preco: Number(c.preco || 0),
-          combo_id: c.id,
-        })
-      })
-    return lista
-  }, [produtos, variantes, combos, catAtiva, comVariantes])
+  // Tudo o que se vende agora. Um produto com variantes dá lugar às suas
+  // variantes — assim o Almoço PF não pode ser vendido ao preço base.
+  const vendaveis = useMemo(
+    () => construirVendaveis({ produtos, variantes, combos, comVariantes }),
+    [produtos, variantes, combos, comVariantes],
+  )
+  // Abas sem nada vendável não aparecem: uma aba vazia manda procurar no sítio errado.
+  const abas = useMemo(() => categoriasComArtigos(categorias, vendaveis), [categorias, vendaveis])
+
+  // Se a aba activa ficou vazia (ou nunca foi escolhida), passa para a primeira com artigos.
+  useEffect(() => {
+    if (abas.length === 0) return
+    if (!abas.some((c) => String(c.id) === String(catAtiva))) setCatAtiva(abas[0].id)
+  }, [abas, catAtiva])
+
+  const aPesquisar = pesquisa.trim().length > 0
+  const vendaveisDaCat = useMemo(
+    () =>
+      aPesquisar
+        ? pesquisarVendaveis(vendaveis, pesquisa)
+        : vendaveis.filter((v) => String(v.category_id) === String(catAtiva)),
+    [vendaveis, pesquisa, aPesquisar, catAtiva],
+  )
 
   return (
     <div className="flex h-full flex-col gap-4">
@@ -752,15 +753,41 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
         Venda manual
       </h2>
 
-      {/* Tabs de categorias */}
-      <div className="flex flex-wrap gap-2">
-        {categorias.map((c) => (
+      {/* Pesquisa — procura em todas as categorias */}
+      <div className="relative">
+        <input
+          type="search"
+          value={pesquisa}
+          onChange={(e) => setPesquisa(e.target.value)}
+          onKeyDown={(e) => e.key === 'Escape' && setPesquisa('')}
+          placeholder="Procurar artigo (ex.: feijoada)"
+          aria-label="Procurar artigo"
+          className="w-full rounded-xl border border-grafite-600 bg-grafite-900 px-4 py-2 pr-10 text-sm text-creme-50 placeholder:text-creme-500/40 focus:border-ambar-500 focus:outline-none"
+        />
+        {aPesquisar && (
+          <button
+            type="button"
+            onClick={() => setPesquisa('')}
+            aria-label="Limpar pesquisa"
+            className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer px-2 text-lg leading-none text-creme-400 hover:text-creme-50"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
+      {/* Tabs de categorias (só as que têm artigos para vender agora) */}
+      <div className={`flex flex-wrap gap-2 ${aPesquisar ? 'opacity-40' : ''}`}>
+        {abas.map((c) => (
           <button
             key={c.id}
             type="button"
-            onClick={() => setCatAtiva(c.id)}
+            onClick={() => {
+              setPesquisa('')
+              setCatAtiva(c.id)
+            }}
             className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
-              catAtiva === c.id
+              !aPesquisar && String(catAtiva) === String(c.id)
                 ? 'bg-ambar-500 text-grafite-950'
                 : 'border border-grafite-600 text-creme-400 hover:border-creme-300'
             }`}
@@ -806,7 +833,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
         })}
         {!erroCarga && vendaveisDaCat.length === 0 && (
           <p className="col-span-2 py-4 text-center text-sm text-creme-500/40 xl:col-span-3">
-            Sem produtos nesta categoria
+            {aPesquisar ? `Nada encontrado para "${pesquisa.trim()}"` : 'Sem produtos nesta categoria'}
           </p>
         )}
       </div>
