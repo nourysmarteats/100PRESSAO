@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import {
   fmt,
+  beep,
   minutosDesde,
   proximoEstado,
   ROTULO_ESTADO,
@@ -17,6 +18,8 @@ import { useAviso } from './admin/comuns'
 import { ESTADO_ENTREGA, podeChamar, precisaAtencao } from '../../lib/despacho'
 import { avisarDespacho } from '../../lib/push'
 import { imprimirTalao, jaFoiImpresso } from '../../lib/talao'
+import { idsNovos } from '../../lib/novosPedidos'
+import { useRessincronizar } from '../../lib/ressincronizar'
 
 function Kpi({ rotulo, valor, destaque }) {
   return (
@@ -301,6 +304,10 @@ function Staff() {
   const [entreguesHoje, setEntreguesHoje] = useState({ n: 0, receita: 0 })
   const [, forcarTick] = useState(0)
   const { mostrarAviso, Aviso } = useAviso()
+  const [somLigado, setSomLigado] = useState(true)
+  const somRef = useRef(true)
+  somRef.current = somLigado
+  const conhecidosRef = useRef(null) // ids da última leitura (null = ainda não leu)
 
   const carregar = useCallback(async () => {
     const hoje = new Date()
@@ -315,7 +322,12 @@ function Staff() {
         .gte('criado_em', hoje.toISOString()),
     ])
 
-    if (!ativos.error) setPedidos(ativos.data)
+    if (!ativos.error) {
+      const novos = idsNovos(conhecidosRef.current, ativos.data)
+      conhecidosRef.current = new Set(ativos.data.map((p) => p.id))
+      if (novos.length > 0 && somRef.current) beep()
+      setPedidos(ativos.data)
+    }
 
     if (!entregues.error)
       setEntreguesHoje({
@@ -341,6 +353,8 @@ function Staff() {
       clearInterval(tick)
     }
   }, [carregar])
+
+  useRessincronizar(carregar)
 
   async function avancarPedido(pedido) {
     const proximo = proximoEstado(pedido.estado, temEntrega(pedido))
@@ -415,6 +429,16 @@ function Staff() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setSomLigado((v) => !v)}
+          aria-pressed={somLigado}
+          className="cursor-pointer rounded-full border border-creme-300 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-grafite-600 hover:border-ambar-500"
+        >
+          Som: {somLigado ? 'ligado' : 'desligado'}
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi rotulo="Prontos" valor={prontos.length} destaque={prontos.length > 0} />
         <Kpi rotulo="Em curso" valor={emCurso.length} />

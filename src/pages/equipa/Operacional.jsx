@@ -10,6 +10,8 @@ import {
   categoriaItemPedido,
   obterPedidosAtivos,
 } from '../../lib/pedidos'
+import { idsNovos } from '../../lib/novosPedidos'
+import { useRessincronizar } from '../../lib/ressincronizar'
 
 const ESTADO_ITEM = {
   pendente: { rotulo: 'Pendente', botao: '→ Preparar' },
@@ -37,6 +39,7 @@ function Operacional() {
   const [entreguesHoje, setEntreguesHoje] = useState(0)
   const somRef = useRef(true)
   somRef.current = somLigado
+  const conhecidosRef = useRef(null) // ids da última leitura (null = ainda não leu)
   const [, forcarTick] = useState(0)
 
   const carregar = useCallback(async () => {
@@ -51,7 +54,14 @@ function Operacional() {
         .eq('estado', 'entregue')
         .gte('criado_em', hoje.toISOString()),
     ])
-    if (!ativos.error) setPedidos(ativos.data)
+    if (!ativos.error) {
+      // Toca quando um pedido aparece na lista (já pago, no caso do online),
+      // mesmo que o evento de tempo real se tenha perdido com o ecrã apagado.
+      const novos = idsNovos(conhecidosRef.current, ativos.data)
+      conhecidosRef.current = new Set(ativos.data.map((p) => p.id))
+      if (novos.length > 0 && somRef.current) beep([660, 880])
+      setPedidos(ativos.data)
+    }
     if (!rCat.error) setCategorias(rCat.data)
     if (entregues.count != null) setEntreguesHoje(entregues.count)
   }, [])
@@ -60,11 +70,7 @@ function Operacional() {
     carregar()
     const canal = supabase
       .channel('op-pedidos')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => {
-        if (somRef.current) beep([660, 880])
-        carregar()
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, carregar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, carregar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, carregar)
       .subscribe()
     const tick = setInterval(() => forcarTick((n) => n + 1), 30000)
@@ -73,6 +79,8 @@ function Operacional() {
       clearInterval(tick)
     }
   }, [carregar])
+
+  useRessincronizar(carregar)
 
   async function avancarItem(pedido, item) {
     const novoEstadoItem = proximoEstadoItem(item.estado)
