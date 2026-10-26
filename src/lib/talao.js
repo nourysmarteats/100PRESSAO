@@ -221,18 +221,18 @@ export async function imprimirTalao(pedidoId, documentoId, { segundaVia } = {}) 
   const json = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(json.erro || 'Erro no servidor.')
 
-  let viaRawBT = false
-  if (json.formato === 'html' && json.html && eAndroid()) {
+  // No tablet não há recurso à janela do Android: o teste de 26 out mostrou
+  // que ela abre em A4 e não chega à térmica. Se o RawBT falhar, diz-se porquê.
+  const viaRawBT = eAndroid()
+  if (viaRawBT) {
+    if (!(json.formato === 'html' && json.html)) {
+      throw new Error('a Vendus devolveu o talão em PDF; no tablet só imprime em HTML')
+    }
     try {
       await imprimirNoRawBT(json.html)
-      viaRawBT = true
-    } catch {
-      /* segue para a impressão normal, com janela */
+    } catch (e) {
+      throw new Error(`RawBT: ${e.message || e}`)
     }
-  }
-
-  if (viaRawBT) {
-    /* já foi para o RawBT */
   } else if (json.formato === 'html' && json.html) {
     await imprimirNumIframe((iframe) => {
       const html = /<head[\s>]/i.test(json.html)
@@ -252,5 +252,5 @@ export async function imprimirTalao(pedidoId, documentoId, { segundaVia } = {}) 
   }
 
   marcarImpresso(documentoId)
-  return { via }
+  return { via, rawbt: viaRawBT }
 }
