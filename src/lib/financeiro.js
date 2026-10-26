@@ -24,11 +24,11 @@ export const METODOS_DESPESA = [
   { id: 'outro', rotulo: 'Outro' },
 ]
 
+// Uber Eats, Glovo e Bolt Food saíram daqui a 2026-10-26: os pedidos lançam-se
+// no caixa (canal da encomenda) e a transferência da plataforma no extrato NÃO
+// é receita — lançá-la aqui duplicava a venda. A BD já não aceita estes canais.
 export const CANAIS_RECEITA_EXTERNA = [
   { id: 'pos_externo', rotulo: 'POS externo' },
-  { id: 'glovo', rotulo: 'Glovo' },
-  { id: 'ubereats', rotulo: 'Uber Eats' },
-  { id: 'boltfood', rotulo: 'Bolt Food' },
   { id: 'eventos', rotulo: 'Eventos' },
   { id: 'outro', rotulo: 'Outro' },
 ]

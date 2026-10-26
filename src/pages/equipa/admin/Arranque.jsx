@@ -3,7 +3,8 @@
 //
 // Fontes (nada é lançado duas vezes):
 //  - site: orders + order_items (só a partir da abertura online; as simulações ficam de fora)
-//  - plataformas: financeiro.receitas_externas (o mesmo lançamento serve o Financeiro)
+//  - plataformas: orders lançados no caixa (canal ubereats/glovo/boltfood, desde 2026-10-26);
+//    receitas_externas só para lançamentos antigos (a BD já não aceita novos)
 //  - custos: fichas técnicas (stock_receitas × stock_items.custo)
 //  - arranque_config, arranque_checklist, arranque_ocorrencias (só admin)
 //  - cliente_beta_validacoes (falhas de validação)
@@ -12,7 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { fmt } from '../../../lib/pedidos'
 import { custosPorChave } from '../../../lib/rentabilidade'
-import { fin, guardarReceitaExterna, hojeISO } from '../../../lib/financeiro'
+import { fin, hojeISO } from '../../../lib/financeiro'
 import {
   calcularArranque,
   estadoChecklist,
@@ -69,8 +70,8 @@ function Arranque() {
     const [rPed, rRec, rPlat, rOc, rBeta, rCk] = await Promise.all([
       supabase
         .from('orders')
-        .select('id, criado_em, estado, estado_pagamento, metodo_pagamento, total, portes, estafeta_taxa, desconto_beta, order_items(product_id, variant_id, combo_id, quantidade, preco_unitario)')
-        .eq('canal', 'online')
+        .select('id, canal, criado_em, estado, estado_pagamento, metodo_pagamento, total, portes, estafeta_taxa, desconto_beta, order_items(product_id, variant_id, combo_id, quantidade, preco_unitario)')
+        .in('canal', ['online', ...PLATAFORMAS])
         .gte('criado_em', `${inicio}T00:00:00`)
         .limit(5000),
       supabase.from('stock_receitas').select('product_id, variant_id, combo_id, quantidade, stock_items(custo)'),
@@ -260,37 +261,8 @@ function VisaoGeral({ r, config, checklist, irPara }) {
 }
 
 function Registo({ r, dados, hoje, recarregar, mostrarAviso }) {
-  const [plat, setPlat] = useState({ data: hoje, canal: 'ubereats', num_transacoes: '', valor: '', comissao: '', notas: '' })
   const [oc, setOc] = useState({ data: hoje, canal: 'online', tipo: 'atraso', valor: '', descricao: '' })
   const [aGuardar, setAGuardar] = useState(false)
-
-  async function guardarPlataforma(e) {
-    e.preventDefault()
-    const pedidos = Number(plat.num_transacoes)
-    const valor = Number(String(plat.valor).replace(',', '.'))
-    if (!Number.isInteger(pedidos) || pedidos < 0 || !(valor >= 0) || plat.valor === '') {
-      mostrarAviso('Indica o número de pedidos e a faturação do dia.')
-      return
-    }
-    setAGuardar(true)
-    try {
-      await guardarReceitaExterna({
-        data: plat.data,
-        canal: plat.canal,
-        num_transacoes: pedidos,
-        valor,
-        comissao: plat.comissao === '' ? 0 : Number(String(plat.comissao).replace(',', '.')),
-        notas: plat.notas || null,
-      })
-      mostrarAviso('Dia registado')
-      setPlat({ ...plat, num_transacoes: '', valor: '', comissao: '', notas: '' })
-      recarregar()
-    } catch {
-      mostrarAviso('Não foi possível guardar. Tenta de novo.')
-    } finally {
-      setAGuardar(false)
-    }
-  }
 
   async function guardarOcorrencia(e) {
     e.preventDefault()
@@ -315,25 +287,13 @@ function Registo({ r, dados, hoje, recarregar, mostrarAviso }) {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-2">
-        <form onSubmit={guardarPlataforma} className={`${CARTAO} space-y-3 p-4`}>
-          <h4 className="text-sm font-bold uppercase tracking-widest text-grafite-600">Fecho do dia nas plataformas</h4>
+        <div className={`${CARTAO} space-y-2 p-4`}>
+          <h4 className="text-sm font-bold uppercase tracking-widest text-grafite-600">Pedidos das plataformas</h4>
           <p className="text-xs text-grafite-600/70">
-            Um registo por dia e plataforma; relançar o mesmo dia corrige. Entra também no Financeiro. Comissão vazia usa a percentagem da configuração.
+            Desde 26 Out 2026 cada pedido da Uber Eats, Glovo e Bolt Food lança-se no caixa (Venda manual → escolher a plataforma),
+            com o n.º do pedido. Entram aqui e no Financeiro sozinhos. A comissão real entra como despesa, a partir da fatura da plataforma.
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Data<input type="date" value={plat.data} max={hoje} onChange={(e) => setPlat({ ...plat, data: e.target.value })} className={CAMPO} /></label>
-            <label className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Plataforma
-              <select value={plat.canal} onChange={(e) => setPlat({ ...plat, canal: e.target.value })} className={CAMPO}>
-                {PLATAFORMAS.map((p) => <option key={p} value={p}>{rotuloCanal(p)}</option>)}
-              </select>
-            </label>
-            <label className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Pedidos<input inputMode="numeric" value={plat.num_transacoes} onChange={(e) => setPlat({ ...plat, num_transacoes: e.target.value.replace(/\D/g, '') })} className={CAMPO} /></label>
-            <label className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Faturação (€)<input inputMode="decimal" value={plat.valor} onChange={(e) => setPlat({ ...plat, valor: e.target.value })} className={CAMPO} /></label>
-            <label className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Comissão (€)<input inputMode="decimal" value={plat.comissao} onChange={(e) => setPlat({ ...plat, comissao: e.target.value })} className={CAMPO} placeholder="da fatura da plataforma" /></label>
-            <label className="text-xs font-semibold uppercase tracking-widest text-ambar-600">Notas<input value={plat.notas} onChange={(e) => setPlat({ ...plat, notas: e.target.value })} className={CAMPO} /></label>
-          </div>
-          <button type="submit" disabled={aGuardar} className={BOTAO_PRIMARIO}>Registar dia</button>
-        </form>
+        </div>
 
         <form onSubmit={guardarOcorrencia} className={`${CARTAO} space-y-3 p-4`}>
           <h4 className="text-sm font-bold uppercase tracking-widest text-grafite-600">Ocorrência</h4>

@@ -18,26 +18,44 @@ export const normalizarTexto = (s) =>
  * em cada linha. Um produto com variantes dá lugar às variantes de hoje; se tem
  * variantes mas nenhuma serve hoje, não se vende (nem pelo preço do pai).
  */
-export function construirVendaveis({ produtos = [], variantes = [], combos = [], comVariantes = new Set() }) {
+// Preço do artigo no canal em que se está a vender. Ao balcão é o preço de
+// menu; num pedido de plataforma é o preco_plataforma, e um artigo sem ele não
+// se vende por esse canal (entraria com um valor que não foi o cobrado).
+function precoNoCanal(linha, plataforma) {
+  if (!plataforma) return Number(linha.preco || 0)
+  return linha.preco_plataforma == null ? null : Number(linha.preco_plataforma)
+}
+
+export function construirVendaveis({
+  produtos = [],
+  variantes = [],
+  combos = [],
+  comVariantes = new Set(),
+  plataforma = false,
+}) {
   const lista = []
   produtos.forEach((p) => {
     const suas = variantes.filter((v) => String(v.product_id) === String(p.id))
     if (suas.length === 0 && comVariantes.has(p.id)) return
     if (suas.length === 0) {
+      const preco = precoNoCanal(p, plataforma)
+      if (preco == null) return
       lista.push({
         chave: `p:${p.id}`,
         nome: p.nome,
-        preco: Number(p.preco || 0),
+        preco,
         product_id: p.id,
         category_id: p.category_id,
       })
       return
     }
     suas.forEach((v) => {
+      const preco = precoNoCanal(v, plataforma)
+      if (preco == null) return
       lista.push({
         chave: `v:${v.id}`,
         nome: `${p.nome} · ${v.nome}`,
-        preco: Number(v.preco || 0),
+        preco,
         product_id: p.id,
         variant_id: v.id,
         category_id: p.category_id,
@@ -45,10 +63,12 @@ export function construirVendaveis({ produtos = [], variantes = [], combos = [],
     })
   })
   combos.forEach((c) => {
+    const preco = precoNoCanal(c, plataforma)
+    if (preco == null) return
     lista.push({
       chave: `c:${c.id}`,
       nome: `Combo ${c.nome}`,
-      preco: Number(c.preco || 0),
+      preco,
       combo_id: c.id,
       category_id: c.category_id,
     })

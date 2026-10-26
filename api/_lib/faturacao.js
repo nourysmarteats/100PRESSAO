@@ -111,6 +111,11 @@ export const TIPO_VENDUS_POR_METODO = {
   // Vendus. Fica por configurar em VENDUS_TIPO_PIX em vez de adivinhado aqui:
   // um código fiscal errado numa fatura é pior do que uma fatura por emitir.
   pix: process.env.VENDUS_TIPO_PIX || null,
+  // Pedidos da Uber Eats, Glovo e Bolt Food lançados no caixa (2026-10-26): o
+  // cliente pagou à plataforma, que nos transfere depois. O código SAF-T certo
+  // (transferência, outro…) é decisão do contabilista, por isso fica em
+  // VENDUS_TIPO_PLATAFORMA e não adivinhado aqui — mesma regra do Pix.
+  plataforma: process.env.VENDUS_TIPO_PLATAFORMA || null,
 }
 
 // Só o dinheiro tem fatura opcional; tudo o resto é faturado (regra do Leandro,
@@ -245,7 +250,9 @@ export async function emitirFatura(admin, pedidoId, { nif, empresa } = {}) {
       `Método de pagamento sem mapeamento Vendus: ${pedido.metodo_pagamento}.` +
         (pedido.metodo_pagamento === 'pix'
           ? ' Define VENDUS_TIPO_PIX no Vercel com o código adequado.'
-          : '') +
+          : pedido.metodo_pagamento === 'plataforma'
+            ? ' Define VENDUS_TIPO_PLATAFORMA no Vercel com o código indicado pelo contabilista.'
+            : '') +
         extra,
     )
   }

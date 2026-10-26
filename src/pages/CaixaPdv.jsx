@@ -26,6 +26,13 @@ import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor }
 import { imprimirTalao } from '../lib/talao'
 import logoStamp from '../assets/logo-100pressao.png'
 import PainelVendas from './caixa/PainelVendas'
+import {
+  PLATAFORMAS_ENTREGA,
+  ePlataforma,
+  rotuloPlataforma,
+  normalizarRefPlataforma,
+  refPlataformaValida,
+} from '../lib/plataformas'
 
 // ----------------------------
 // Configuração do PIN
@@ -498,6 +505,13 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   const [recebido, setRecebido] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [aviso, setAviso] = useState('')
+  // De onde vem a venda: 'balcao' ou uma plataforma (ubereats/glovo/boltfood).
+  // Num pedido de plataforma o cliente já pagou na app dela: muda o preço
+  // (preco_plataforma), não há método de pagamento nem visor, e o n.º do
+  // pedido na plataforma é obrigatório.
+  const [origem, setOrigem] = useState('balcao')
+  const [refPlataforma, setRefPlataforma] = useState('')
+  const plataforma = ePlataforma(origem)
   // Só devolvemos o visor ao estado neutro se este painel chegou a escrever
   // nele — senão, esvaziar o carrinho manual apagava o pedido que o painel da
   // esquerda tinha posto no ecrã do cliente.
@@ -522,7 +536,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       db.from('categories').select('id, nome, visivel, ordem').order('ordem'),
       db
         .from('products')
-        .select('id, nome, preco, category_id, disponivel, dias_semana')
+        .select('id, nome, preco, preco_plataforma, category_id, disponivel, dias_semana')
         .eq('disponivel', true)
         .order('ordem'),
       // Sem o filtro de disponivel: distinguir "não tem variantes" de "tem,
@@ -530,11 +544,11 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       // aparecer, e vende-se pelo preço dele.
       db
         .from('product_variants')
-        .select('id, product_id, nome, preco, disponivel, dias_semana')
+        .select('id, product_id, nome, preco, preco_plataforma, disponivel, dias_semana')
         .order('ordem'),
       db
         .from('combos')
-        .select('id, nome, preco, category_id, disponivel')
+        .select('id, nome, preco, preco_plataforma, category_id, disponivel')
         .eq('disponivel', true)
         .order('ordem'),
     ])
@@ -583,7 +597,8 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   // dinheiro entregue. É o que o cliente vê enquanto o operador marca.
   useEffect(() => {
     const linhas = Object.values(carrinho)
-    if (linhas.length === 0) {
+    // Pedido de plataforma: não há cliente ao balcão, o visor não mostra nada.
+    if (linhas.length === 0 || plataforma) {
       if (escreveuNoVisorRef.current) {
         escreveuNoVisorRef.current = false
         limpar()
@@ -605,7 +620,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       troco: temTroco ? valorRecebido - total : null,
       aProcessar: ocupado,
     })
-  }, [carrinho, metodo, pedirNif, recebido, ocupado, emitir, limpar])
+  }, [carrinho, metodo, pedirNif, recebido, ocupado, emitir, limpar, plataforma])
 
   // `vendavel` é a forma única de produto simples, variante e combo. O preço
   // vem sempre da linha certa — o servidor revalida em criar_pedido, mas o
@@ -633,12 +648,61 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
     setNif('')
     setPedirNif(false)
     setRecebido('')
+    setRefPlataforma('')
+  }
+
+  // Mudar de origem esvazia o carrinho: os preços são outros, e um carrinho
+  // montado a preço de balcão não pode seguir como pedido da Glovo.
+  function mudarOrigem(nova) {
+    if (nova === origem) return
+    limparCarrinho()
+    setOrigem(nova)
+  }
+
+  // Pedido de plataforma: lança, emite a fatura (consumidor final) e imprime o
+  // talão para o saco. Se a fatura falhar, a venda fica lançada na mesma e a
+  // fatura emite-se depois em Vendas.
+  async function lancarPedidoPlataforma() {
+    if (!temItens || !refOk) return
+    setOcupado(true)
+    setAviso('')
+    try {
+      if (!supabase) throw new Error('Sessão expirada — volta a entrar para lançar o pedido.')
+      const { data, error } = await supabase.rpc('criar_pedido_plataforma', {
+        p_canal: origem,
+        p_ref: refPlataforma,
+        p_itens: itensCarrinho.map((i) => ({
+          product_id: i.product_id || null,
+          variant_id: i.variant_id || null,
+          combo_id: i.combo_id || null,
+          quantidade: i.quantidade,
+        })),
+      })
+      if (error) throw new Error(error.message)
+      const pedido = Array.isArray(data) ? data[0] : data
+      if (!pedido?.id) throw new Error('Pedido lançado sem ID.')
+
+      const base = `✓ ${rotuloPlataforma(origem)} ${normalizarRefPlataforma(refPlataforma)} lançado (venda n.º ${pedido.numero})`
+      try {
+        const r = await chamarApiFaturar({ pedido_id: pedido.id })
+        const talao = await talaoAposFatura(pedido.id, r)
+        setAviso(`${base} · Fatura ${r.numero || ''} emitida${talao}`)
+      } catch (eFatura) {
+        setAviso(`${base} · Fatura falhou: ${eFatura.message} — emite-a depois em Vendas.`)
+      }
+      limparCarrinho()
+    } catch (e) {
+      setAviso(`Erro: ${e.message}`)
+    }
+    setOcupado(false)
+    setTimeout(() => setAviso(''), 8000)
   }
 
   const itensCarrinho = Object.values(carrinho)
   const totalCarrinho = itensCarrinho.reduce((s, i) => s + i.preco * i.quantidade, 0)
   const temItens = itensCarrinho.length > 0
   const precisaFatura = exigeFatura(metodo)
+  const refOk = refPlataformaValida(refPlataforma)
 
   async function concluirVenda() {
     if (!temItens) return
@@ -727,8 +791,8 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   // Tudo o que se vende agora. Um produto com variantes dá lugar às suas
   // variantes — assim o Almoço PF não pode ser vendido ao preço base.
   const vendaveis = useMemo(
-    () => construirVendaveis({ produtos, variantes, combos, comVariantes }),
-    [produtos, variantes, combos, comVariantes],
+    () => construirVendaveis({ produtos, variantes, combos, comVariantes, plataforma }),
+    [produtos, variantes, combos, comVariantes, plataforma],
   )
   // Abas sem nada vendável não aparecem: uma aba vazia manda procurar no sítio errado.
   const abas = useMemo(() => categoriasComArtigos(categorias, vendaveis), [categorias, vendaveis])
@@ -753,6 +817,31 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       <h2 className="font-display text-sm font-bold uppercase tracking-widest text-ambar-500">
         Venda manual
       </h2>
+
+      {/* Origem da venda: balcão ou pedido de uma plataforma de entrega */}
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Origem da venda">
+        {[{ id: 'balcao', rotulo: 'Balcão' }, ...PLATAFORMAS_ENTREGA].map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={origem === o.id}
+            onClick={() => mudarOrigem(o.id)}
+            className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
+              origem === o.id
+                ? 'bg-creme-100 text-grafite-950'
+                : 'border border-grafite-600 text-creme-400 hover:border-creme-300'
+            }`}
+          >
+            {o.rotulo}
+          </button>
+        ))}
+      </div>
+      {plataforma && (
+        <p className="-mt-2 text-xs text-creme-500/60">
+          Pedido {rotuloPlataforma(origem)}: preços de plataforma, sem desconto Beta, já pago na plataforma.
+        </p>
+      )}
 
       {/* Pesquisa — procura em todas as categorias */}
       <div className="relative">
@@ -842,7 +931,16 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       {/* Carrinho */}
       <div className="flex-1 overflow-y-auto rounded-2xl border border-grafite-700 bg-grafite-900 p-4">
         {itensCarrinho.length === 0 ? (
-          <p className="text-center text-sm text-creme-500/40">Carrinho vazio</p>
+          // O resultado da última venda fica à vista depois de o carrinho
+          // esvaziar — antes ficava dentro do bloco do total e desaparecia
+          // com ele, e o "✓ lançado" nunca chegava a ser lido.
+          aviso ? (
+            <p className="rounded-xl border border-ambar-500/30 bg-ambar-500/10 px-3 py-2 text-sm text-ambar-400">
+              {aviso}
+            </p>
+          ) : (
+            <p className="text-center text-sm text-creme-500/40">Carrinho vazio</p>
+          )
         ) : (
           <ul className="space-y-2">
             {itensCarrinho.map((item) => (
@@ -887,6 +985,45 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
             </span>
           </div>
 
+          {plataforma ? (
+            <div className="space-y-3">
+              <label className="block text-xs font-semibold uppercase tracking-widest text-creme-500/60">
+                N.º do pedido na {rotuloPlataforma(origem)}
+                <input
+                  type="text"
+                  value={refPlataforma}
+                  onChange={(e) => setRefPlataforma(e.target.value.slice(0, 50))}
+                  placeholder="como aparece no tablet"
+                  autoComplete="off"
+                  className={`mt-1 w-full rounded-xl border bg-grafite-800 px-3 py-2 text-sm normal-case tracking-normal text-creme-50 outline-none ${
+                    refPlataforma === '' || refOk ? 'border-grafite-600 focus:border-ambar-500' : 'border-red-500'
+                  }`}
+                />
+              </label>
+              {refPlataforma !== '' && !refOk && (
+                <span className="block text-xs text-red-400">Só letras, números e - . / _ (até 40).</span>
+              )}
+              {aviso && (
+                <p className="rounded-xl border border-ambar-500/30 bg-ambar-500/10 px-3 py-2 text-sm text-ambar-400">
+                  {aviso}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button type="button" onClick={limparCarrinho} className={`${BTN_PERIGO} flex-1 text-xs`}>
+                  Limpar
+                </button>
+                <button
+                  type="button"
+                  onClick={lancarPedidoPlataforma}
+                  disabled={ocupado || !temItens || !refOk}
+                  className={`${BTN_PRIMARIO} flex-1`}
+                >
+                  {ocupado ? 'A lançar…' : `Lançar ${rotuloPlataforma(origem)}`}
+                </button>
+              </div>
+            </div>
+          ) : (
+          <>
           {/* Método de pagamento */}
           <div className="flex gap-2 flex-wrap">
             {METODOS_PAGAMENTO.map((m) => (
@@ -976,6 +1113,8 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
                 {ocupado ? 'A processar…' : 'Concluir venda'}
               </button>
             </div>
+          )}
+          </>
           )}
         </div>
       )}

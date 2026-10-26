@@ -4,7 +4,7 @@
 // parte do ecrã. Regra da casa: nunca inventar números. Quando falta um dado
 // (comissão, IVA, embalagem, ficha técnica), a margem desse pedido fica null e
 // o motivo vai para `faltas`, em vez de se assumir zero.
-import { custoDaLinha } from './rentabilidade'
+import { custoDaLinha } from './rentabilidade.js'
 
 export const CANAIS = [
   { id: 'online', rotulo: 'Restaurante Online' },
@@ -113,7 +113,48 @@ export function margemPedidoSite(pedido, config, custos) {
   return { ...base, margem: receitaSemIva - custo - embalagem - comissao + entrega }
 }
 
-// Dia de uma plataforma (linha de financeiro.receitas_externas).
+// Pedido de uma plataforma, lançado no caixa (desde 2026-10-26).
+// Venda ao preco_plataforma, custo exacto pelas fichas técnicas (o mesmo do
+// site: a Elayne recebe pelo preço do site, não pelo da plataforma). A
+// comissão é estimada pela percentagem da configuração — a real chega na
+// fatura da plataforma e entra no Financeiro como despesa.
+export function margemPedidoPlataforma(pedido, config, custos) {
+  const faltas = []
+  const iva = num(config.iva_medio_pct)
+  if (iva == null) faltas.push('iva')
+  const embalagem = num(config.embalagem_por_pedido)
+  if (embalagem == null) faltas.push('embalagem')
+  const total = Number(pedido.total || 0)
+  let custo = 0
+  for (const l of pedido.order_items || []) {
+    const c = custoDaLinha(l, custos)
+    if (c == null) {
+      faltas.push('ficha')
+      break
+    }
+    custo += c * Number(l.quantidade)
+  }
+  const pct = num(config.comissao_plataforma_pct?.[pedido.canal])
+  const comissao = pct == null ? null : (pct / 100) * total
+  if (comissao == null) faltas.push(`comissao:${pedido.canal}`)
+  const receitaSemIva = iva == null ? null : total / (1 + iva / 100)
+  const base = {
+    canal: pedido.canal,
+    dia: diaDe(pedido.criado_em),
+    pedidos: 1,
+    faturacao: total,
+    receitaSemIva,
+    custo: faltas.includes('ficha') ? null : custo,
+    estimado: true,
+    faltas,
+  }
+  if (faltas.length) return { ...base, margem: null }
+  return { ...base, margem: receitaSemIva - custo - embalagem - comissao }
+}
+
+// Dia de uma plataforma (linha de financeiro.receitas_externas). Era assim que
+// as plataformas entravam até 2026-10-26; mantém-se só para ler lançamentos
+// antigos — a base de dados já não aceita estes canais em receitas_externas.
 // O custo das plataformas é estimado com o food cost do site no mesmo período.
 export function margemDiaPlataforma(linha, config, foodCost) {
   const faltas = []
@@ -154,7 +195,8 @@ function agrupar(registos) {
 }
 
 // Cálculo principal.
-// dados: { config, pedidos (site, com order_items), custos (Map), plataformas (receitas_externas),
+// dados: { config, pedidos (site e plataformas, com canal e order_items), custos (Map),
+//          plataformas (receitas_externas antigas, se houver),
 //          ocorrencias, falhasBeta ([{ criado_em }]), checklist, hoje, janela (dias, por omissão 7) }
 export function calcularArranque(dados) {
   const { config, custos, hoje } = dados
@@ -171,16 +213,22 @@ export function calcularArranque(dados) {
   if (platSemComissao.length) faltasConfig.push(`Comissões das plataformas (${platSemComissao.map(rotuloCanal).join(', ')})`)
 
   // Só conta o que acontece a partir da abertura online (as simulações ficam de fora).
-  const pedidosSite = (dados.pedidos || []).filter((p) => diaDe(p.criado_em) >= inicio && diaDe(p.criado_em) <= hoje && pedidoConta(p))
+  const noPeriodo = (p) => diaDe(p.criado_em) >= inicio && diaDe(p.criado_em) <= hoje && pedidoConta(p)
+  // Pedidos sem canal são do site: era o único canal que esta consulta trazia.
+  const pedidosSite = (dados.pedidos || []).filter((p) => (p.canal ?? 'online') === 'online' && noPeriodo(p))
   const site = pedidosSite.map((p) => margemPedidoSite(p, config, custos))
+  const platPedidos = (dados.pedidos || [])
+    .filter((p) => PLATAFORMAS.includes(p.canal) && noPeriodo(p))
+    .map((p) => margemPedidoPlataforma(p, config, custos))
 
   // Food cost do site (custo / receita sem IVA), para estimar as plataformas.
   const comCusto = site.filter((s) => s.custo != null && s.receitaSemIva)
   const foodCost = comCusto.length ? soma(comCusto.map((s) => s.custo)) / soma(comCusto.map((s) => s.receitaSemIva)) : null
 
-  const plat = (dados.plataformas || [])
+  const platAntigas = (dados.plataformas || [])
     .filter((l) => PLATAFORMAS.includes(l.canal) && diaDe(l.data) >= inicio && diaDe(l.data) <= hoje)
     .map((l) => margemDiaPlataforma(l, config, foodCost))
+  const plat = [...platPedidos, ...platAntigas]
 
   const todos = [...site, ...plat]
   const abriu = hoje >= inicio

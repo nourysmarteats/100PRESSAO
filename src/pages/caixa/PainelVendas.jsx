@@ -15,6 +15,7 @@ import { fmt, METODOS_PAGAMENTO, nomeItemPedido, SELECT_PEDIDO_COMPLETO } from '
 import { nifOpcionalValido, nifDeEmpresa } from '../../lib/nif'
 import { chamarApiFaturar } from '../../lib/equipa'
 import { imprimirTalao, jaFoiImpresso } from '../../lib/talao'
+import { ePlataforma, rotuloPlataforma } from '../../lib/plataformas'
 
 const BTN =
   'cursor-pointer rounded-2xl px-4 py-3 text-xs font-semibold uppercase tracking-widest transition-colors disabled:opacity-40'
@@ -41,10 +42,14 @@ function limitesDoDia(diaISO) {
 const hora = (iso) =>
   new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })
 
-const rotuloMetodo = (id) => METODOS_PAGAMENTO.find((m) => m.id === id)?.rotulo || id || '—'
+const rotuloMetodo = (id) =>
+  id === 'plataforma' ? 'Pago na plataforma' : METODOS_PAGAMENTO.find((m) => m.id === id)?.rotulo || id || '—'
 
 function origemDaVenda(p) {
   const posicao = p.sessions?.posicao_mesa || ''
+  if (ePlataforma(p.canal)) {
+    return `${rotuloPlataforma(p.canal)}${p.plataforma_ref ? ` · ${p.plataforma_ref}` : ''}`
+  }
   if (p.canal === 'online') {
     if (/entrega/i.test(posicao) || p.tipo_entrega === 'entrega') return 'Site · Entrega'
     return 'Site · Takeaway'
