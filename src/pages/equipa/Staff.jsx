@@ -48,7 +48,7 @@ function Despacho({ pedido }) {
     const { data, error } = await supabase.rpc('chamar_estafeta', { p_order: pedido.id })
     setOcupado(false)
     if (error) return setMsg(error.message || 'Não foi possível chamar.')
-    setMsg(data > 0 ? `Oferecido a ${data} estafeta${data > 1 ? 's' : ''}.` : 'Nenhum estafeta disponível neste momento.')
+    setMsg(data > 0 ? `Oferecido a ${data} estafeta${data > 1 ? 's' : ''}.` : 'Nenhum estafeta disponível neste momento, nem da frota própria.')
   }
   return (
     <div className={`mt-4 rounded-xl border p-4 ${precisaAtencao(pedido) ? 'border-red-500/50 bg-red-500/10' : 'border-creme-300 bg-creme-100/60'}`}>
@@ -56,9 +56,10 @@ function Despacho({ pedido }) {
       <p className={`mt-1 font-semibold ${precisaAtencao(pedido) ? 'text-red-600' : 'text-grafite-900'}`}>
         {estado ? ESTADO_ENTREGA[estado] : 'Ainda não chamado'}
         {estado === 'a_chamar' && pedido.entrega_chamada_em && ` · há ${minutosDesde(pedido.entrega_chamada_em)} min`}
+        {['a_chamar', 'aceite', 'recolhido'].includes(estado) && pedido.entrega_modo === 'propria' && ' · frota própria'}
       </p>
       {precisaAtencao(pedido) && (
-        <p className="mt-1 text-xs text-red-600">Ninguém aceitou a tempo. Chama de novo ou contacta a empresa de entregas.</p>
+        <p className="mt-1 text-xs text-red-600">Ninguém aceitou a tempo, nem a frota própria. Chama de novo ou contacta a empresa de entregas.</p>
       )}
       {podeChamar(pedido) && (
         <button type="button" disabled={ocupado} onClick={chamar}

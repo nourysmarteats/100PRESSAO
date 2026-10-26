@@ -37,12 +37,17 @@ const FILTROS = [
 
 const data = (iso) => (iso ? new Date(iso).toLocaleDateString('pt-PT') : '—')
 
-function Etiqueta({ estado, simulacao }) {
+function Etiqueta({ estado, simulacao, frotaPropria }) {
   return (
     <span className="flex flex-wrap gap-1.5">
       <span className={`rounded-full border px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest ${COR_ESTADO[estado]}`}>
         {ESTADOS[estado] || estado}
       </span>
+      {frotaPropria && (
+        <span className="rounded-full border border-ambar-500/40 bg-ambar-500/10 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-ambar-700">
+          Frota própria
+        </span>
+      )}
       {simulacao && (
         <span className="rounded-full border border-cobre-600/30 bg-cobre-600/10 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-widest text-cobre-600">
           Simulação
@@ -132,6 +137,29 @@ function Ficha({ empresa, aoGuardar, mostrarAviso }) {
   }
 
   const e = empresa
+  if (e.frota_propria) {
+    return (
+      <div className="space-y-4 border-t border-creme-300 px-5 pb-5 pt-4 text-sm text-grafite-700">
+        <p>
+          Último recurso: recebe a chamada só quando não há nenhum estafeta parceiro disponível, ou quando
+          ninguém aceita a tempo. Se também aqui ninguém aceitar, a entrega fica «sem estafeta».
+          Custo 0 € — não há fatura.
+        </p>
+        <p className="text-xs text-grafite-600/70">
+          Só pessoas da casa: sócios-gerentes ou trabalhadores com contrato. Nunca estafetas pagos à entrega.
+        </p>
+        <div>
+          <button type="button" disabled={ocupado} className={BOTAO_SECUNDARIO} onClick={convidarEstafeta}>Criar convite</button>
+          {conviteEstafeta && (
+            <p className="mt-2 break-all rounded-lg bg-creme-100 p-3 text-xs text-grafite-700">
+              {conviteEstafeta}
+              <span className="mt-1 block text-grafite-600/70">Válido 72 horas, uso único. Não volta a ser mostrado.</span>
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="space-y-5 border-t border-creme-300 px-5 pb-5 pt-4">
       <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
@@ -424,12 +452,14 @@ function EmpresasEntrega() {
                 <span>
                   <span className="block font-semibold text-grafite-900">{e.nome_comercial || e.nome_legal}</span>
                   <span className="block text-xs text-grafite-600/70">
-                    {e.nome_legal} · {e.tarifa_base != null
+                    {e.nome_legal} · {e.frota_propria
+                      ? 'último recurso, sem custo nem fatura'
+                      : e.tarifa_base != null
                       ? textoPreco(e.tarifa_base, e.km_incluidos_acordados, e.tarifa_km, fmt)
                       : `proposta ${textoPreco(e.tarifa_proposta_base, e.km_incluidos, e.tarifa_proposta_km, fmt)}`}
                   </span>
                 </span>
-                <Etiqueta estado={e.estado} simulacao={e.simulacao} />
+                <Etiqueta estado={e.estado} simulacao={e.simulacao} frotaPropria={e.frota_propria} />
               </button>
               {aberta === e.id && <Ficha key={e.atualizado_em} empresa={e} aoGuardar={carregar} mostrarAviso={mostrarAviso} />}
             </li>

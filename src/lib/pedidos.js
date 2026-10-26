@@ -99,7 +99,8 @@ export async function obterPedidosAtivos(supabase) {
   // O filtro precisa da coluna 'canal' (migração 2026-08-01); antes dela, as
   // duas primeiras falham e degrada para o comportamento antigo — sem partir.
   const tenta = (sel, comFiltro) => {
-    let q = supabase.from('orders').select(sel).neq('estado', 'entregue')
+    // Fora da fila: o que já foi entregue e o que foi cancelado.
+    let q = supabase.from('orders').select(sel).not('estado', 'in', '(entregue,cancelado)')
     if (comFiltro) q = q.or(FILTRO_ONLINE_PAGO)
     return q.order('criado_em')
   }

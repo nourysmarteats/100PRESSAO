@@ -30,11 +30,11 @@ export default async function handler(req, res) {
   // formato 'talao': a fatura pronta para a impressora térmica do balcão
   // (ver obterTalao). Fica nesta rota, e não numa nova, para não somar mais
   // uma função ao Vercel.
-  const { pedido_id, formato, via } = req.body || {}
+  const { pedido_id, formato, via, saida } = req.body || {}
   if (!pedido_id) return res.status(400).json({ erro: 'pedido_id em falta.' })
 
   try {
-    if (formato === 'talao') return res.status(200).json(await obterTalao(admin, pedido_id, { via }))
+    if (formato === 'talao') return res.status(200).json(await obterTalao(admin, pedido_id, { via, saida }))
     return res.status(200).json(await obterPdf(admin, pedido_id))
   } catch (e) {
     return res.status(502).json({ erro: e.message })

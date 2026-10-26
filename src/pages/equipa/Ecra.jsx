@@ -29,7 +29,7 @@ function Ecra() {
 
   const carregar = useCallback(async () => {
     if (!supabase) return
-    const base = () => supabase.from('orders').select('id, numero, estado').neq('estado', 'entregue')
+    const base = () => supabase.from('orders').select('id, numero, estado').not('estado', 'in', '(entregue,cancelado)')
     // Filtra encomendas online não pagas; degrada se a coluna 'canal' ainda
     // não existir (antes da migração 2026-08-01).
     let { data, error } = await base().or(FILTRO_ONLINE_PAGO).order('criado_em')

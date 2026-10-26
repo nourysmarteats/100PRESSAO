@@ -10,6 +10,7 @@
 // VENDUS_API_KEY (as restantes estão documentadas em api/_lib/faturacao.js).
 import { createClient } from '@supabase/supabase-js'
 import { emitirFatura, registarFalhaFatura } from './_lib/faturacao.js'
+import { cancelarPedido } from './_lib/cancelamento.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -41,6 +42,27 @@ export default async function handler(req, res) {
     .single()
   if (!perfilChamador?.ativo) {
     return res.status(403).json({ erro: 'Conta inativa.' })
+  }
+
+  // Cancelar e reembolsar fica nesta rota (e não numa nova) para não somar
+  // mais uma função ao Vercel. Só admin: mexe em documentos fiscais e dinheiro.
+  if (req.body?.acao === 'cancelar') {
+    if (perfilChamador.papel !== 'admin') {
+      return res.status(403).json({ erro: 'Só um admin pode cancelar pedidos.' })
+    }
+    const { pedido_id: id, motivo, reembolso, nota_reembolso } = req.body
+    if (!id) return res.status(400).json({ erro: 'pedido_id em falta.' })
+    try {
+      const r = await cancelarPedido(admin, id, {
+        motivo,
+        reembolso,
+        notaReembolso: nota_reembolso,
+        userId: chamador.user.id,
+      })
+      return res.status(200).json({ ok: true, ...r })
+    } catch (e) {
+      return res.status(400).json({ erro: e.message })
+    }
   }
 
   // `empresa`: nome e morada fiscal, quando o NIF é de empresa (a Vendus

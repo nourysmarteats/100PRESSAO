@@ -92,7 +92,121 @@ function EstadoVendus() {
 }
 
 const estadoFatura = (p) =>
-  p.fatura_documento_numero ? 'emitida' : p.fatura_erro ? 'falhada' : 'sem'
+  p.estado === 'cancelado'
+    ? 'cancelado'
+    : p.fatura_documento_numero
+      ? 'emitida'
+      : p.fatura_erro
+        ? 'falhada'
+        : 'sem'
+
+const ROTULO_REEMBOLSO = { ifthenpay: 'reembolsado pelo IfThenPay', manual: 'reembolsado por fora' }
+
+// Formulário de cancelamento. Um pedido pago tem três lados: a fatura (anulada
+// com nota de crédito, se existir), o dinheiro (devolvido pelo IfThenPay ou por
+// fora) e o registo (sai das vendas). O servidor faz os três por esta ordem e
+// pára antes do dinheiro se a nota de crédito falhar — ver api/_lib/cancelamento.js.
+function FormCancelar({ p, aoFechar, aoConcluir }) {
+  const pago = ['pago', 'a_reembolsar'].includes(p.estado_pagamento)
+  const soRegisto = p.estado === 'cancelado' // cancelado com reembolso por fazer
+  const [motivo, setMotivo] = useState(p.cancelamento_motivo || '')
+  const [reembolso, setReembolso] = useState(
+    pago ? (p.metodo_pagamento === 'mbway' && !soRegisto ? 'ifthenpay' : 'manual') : 'nenhum',
+  )
+  const [nota, setNota] = useState('')
+  const [confirmo, setConfirmo] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
+  const [erro, setErro] = useState('')
+
+  const valido =
+    motivo.trim().length >= 3 && (reembolso !== 'manual' || nota.trim().length >= 3) && confirmo
+
+  async function enviar() {
+    setOcupado(true)
+    setErro('')
+    try {
+      const r = await chamarApiFaturar({
+        acao: 'cancelar',
+        pedido_id: p.id,
+        motivo,
+        reembolso,
+        nota_reembolso: nota,
+      })
+      aoConcluir(r)
+    } catch (e) {
+      setErro(e.message)
+      setOcupado(false)
+    }
+  }
+
+  const CAMPO_P = 'mt-1 w-full rounded-lg border border-creme-300 px-2 py-1 text-sm outline-none focus:border-ambar-500'
+  return (
+    <div className="mt-3 w-full rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-left text-xs text-grafite-700">
+      <p className="font-semibold text-red-700">
+        {soRegisto ? 'Registar o reembolso' : `Cancelar o pedido nº ${p.numero}`} · {fmt(p.total)}
+      </p>
+      {!soRegisto && p.fatura_documento_numero && (
+        <p className="mt-1">
+          A fatura {p.fatura_documento_numero} vai ser anulada com uma <b>nota de crédito</b> na Vendus.
+        </p>
+      )}
+      {!soRegisto && (
+        <label className="mt-2 block">
+          Motivo (curto, sem dados do cliente)
+          <input
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value.slice(0, 200))}
+            placeholder="Cliente desistiu antes de preparar"
+            className={CAMPO_P}
+          />
+        </label>
+      )}
+      {pago ? (
+        <fieldset className="mt-2">
+          <legend>Reembolso</legend>
+          {p.metodo_pagamento === 'mbway' && !soRegisto && (
+            <label className="mt-1 flex items-center gap-2">
+              <input type="radio" checked={reembolso === 'ifthenpay'} onChange={() => setReembolso('ifthenpay')} />
+              Devolver agora pelo IfThenPay (MB WAY)
+            </label>
+          )}
+          <label className="mt-1 flex items-center gap-2">
+            <input type="radio" checked={reembolso === 'manual'} onChange={() => setReembolso('manual')} />
+            Já foi (ou vai ser) devolvido por fora
+          </label>
+          {reembolso === 'manual' && (
+            <input
+              value={nota}
+              onChange={(e) => setNota(e.target.value.slice(0, 200))}
+              placeholder="Como? Ex.: Neide, do bolso — a empresa deve-lhe o valor"
+              className={CAMPO_P}
+            />
+          )}
+        </fieldset>
+      ) : (
+        <p className="mt-2">Pagamento por cobrar: não há nada a devolver.</p>
+      )}
+      <label className="mt-2 flex items-center gap-2">
+        <input type="checkbox" checked={confirmo} onChange={(e) => setConfirmo(e.target.checked)} />
+        Confirmo — {soRegisto ? 'o dinheiro foi devolvido' : 'isto não se desfaz'}
+      </label>
+      {erro && <p className="mt-2 text-red-600">{erro}</p>}
+      <div className="mt-2 flex justify-end gap-2">
+        <button type="button" onClick={aoFechar} disabled={ocupado} className={BOTAO_SECUNDARIO}>
+          Voltar
+        </button>
+        <button
+          type="button"
+          onClick={enviar}
+          disabled={!valido || ocupado}
+          className="cursor-pointer rounded-full bg-red-600 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {ocupado ? 'A tratar…' : soRegisto ? 'Registar reembolso' : 'Cancelar pedido'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // Um endereço só serve para ser aberto se for mesmo externo. As faturas
 // emitidas antes da validação no servidor têm aqui o objeto JSON que o Vendus
@@ -121,6 +235,7 @@ function Faturas() {
   // recusa a fatura sem morada (A001 — encomenda nº 40). Mesma regra dos NIFs:
   // só enquanto não há documento emitido.
   const [empresas, setEmpresas] = useState({})
+  const [aCancelar, setACancelar] = useState(null)
   const { mostrarAviso, Aviso } = useAviso()
 
   const carregar = useCallback(async () => {
@@ -132,12 +247,12 @@ function Faturas() {
     const { data, error } = await supabase
       .from('orders')
       .select(
-        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_nome, fatura_morada, fatura_codigo_postal, fatura_localidade, fatura_documento_id, fatura_documento_numero, fatura_url, fatura_erro, sessions ( nome_cliente, posicao_mesa )',
+        'id, numero, total, metodo_pagamento, criado_em, fatura_pedida, fatura_nif, fatura_nome, fatura_morada, fatura_codigo_postal, fatura_localidade, fatura_documento_id, fatura_documento_numero, fatura_url, fatura_erro, estado, estado_pagamento, cancelamento_motivo, reembolso_meio, reembolso_nota, reembolso_erro, nota_credito_numero, nota_credito_url, sessions ( nome_cliente, posicao_mesa )',
       )
       // Entregues (venda ao balcão, onde se paga no fim) e também as online já
       // pagas mas ainda em preparação — essas têm fatura devida desde o momento
       // do pagamento, e sem isto nem chegavam a aparecer aqui.
-      .or('estado.eq.entregue,estado_pagamento.eq.pago')
+      .or('estado.eq.entregue,estado_pagamento.eq.pago,estado.eq.cancelado')
       .gte('criado_em', inicio.toISOString())
       .order('criado_em', { ascending: false })
       .limit(500)
@@ -159,6 +274,8 @@ function Faturas() {
   if (pedidos === null) return <p className="text-grafite-600/70">A carregar…</p>
   if (erro) return <p className={`${CARTAO} p-6 text-grafite-600`}>{erro}</p>
 
+  const cancelados = pedidos.filter((p) => estadoFatura(p) === 'cancelado')
+  const ativos = pedidos.filter((p) => estadoFatura(p) !== 'cancelado')
   const emitidas = pedidos.filter((p) => estadoFatura(p) === 'emitida')
   const falhadas = pedidos.filter((p) => estadoFatura(p) === 'falhada')
   const semFatura = pedidos.filter((p) => estadoFatura(p) === 'sem')
@@ -170,7 +287,9 @@ function Faturas() {
         ? falhadas
         : filtro === 'sem'
           ? semFatura
-          : pedidos
+          : filtro === 'cancelados'
+            ? cancelados
+            : pedidos
 
   // Voltar a tentar sem sair do painel: os pedidos entregues já não aparecem no
   // ecrã de Staff, pelo que sem isto uma fatura falhada não teria como ser
@@ -285,7 +404,7 @@ function Faturas() {
       {/* Apuração (€) por grupo */}
       <div className="mt-6 grid grid-cols-3 gap-3">
         {[
-          { rotulo: 'Total apurado', valor: soma(pedidos), n: pedidos.length },
+          { rotulo: 'Total apurado', valor: soma(ativos), n: ativos.length },
           { rotulo: 'Emitidas', valor: soma(emitidas), n: emitidas.length },
           { rotulo: 'Por emitir', valor: soma(falhadas) + soma(semFatura), n: falhadas.length + semFatura.length },
         ].map((k) => (
@@ -308,6 +427,7 @@ function Faturas() {
           { id: 'com', rotulo: `Emitidas (${emitidas.length})` },
           { id: 'falhou', rotulo: `Falharam (${falhadas.length})` },
           { id: 'sem', rotulo: `Sem fatura (${semFatura.length})` },
+          { id: 'cancelados', rotulo: `Cancelados (${cancelados.length})` },
         ].map((f) => (
           <button
             key={f.id}
@@ -355,6 +475,59 @@ function Faturas() {
                 </p>
               </div>
               <div className="max-w-md text-right">
+                {estadoFatura(p) === 'cancelado' ? (
+                  <div>
+                    <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-red-600">
+                      Cancelado
+                    </span>
+                    {p.nota_credito_numero && (
+                      <p className="mt-1 text-xs text-grafite-600">
+                        Fatura {p.fatura_documento_numero} anulada pela{' '}
+                        {linkExterno(p.nota_credito_url) ? (
+                          <a href={linkExterno(p.nota_credito_url)} target="_blank" rel="noopener noreferrer" className="underline">
+                            {p.nota_credito_numero}
+                          </a>
+                        ) : (
+                          p.nota_credito_numero
+                        )}
+                      </p>
+                    )}
+                    {p.cancelamento_motivo && (
+                      <p className="mt-1 text-xs text-grafite-600">Motivo: {p.cancelamento_motivo}</p>
+                    )}
+                    {p.estado_pagamento === 'reembolsado' && (
+                      <p className="mt-1 text-xs text-grafite-600">
+                        {fmt(p.total)} {ROTULO_REEMBOLSO[p.reembolso_meio] || 'reembolsado'}
+                        {p.reembolso_nota ? ` — ${p.reembolso_nota}` : ''}
+                      </p>
+                    )}
+                    {p.estado_pagamento === 'a_reembolsar' && (
+                      <>
+                        <p className="mt-1 text-xs text-red-600">
+                          Falta devolver {fmt(p.total)}. {p.reembolso_erro}
+                        </p>
+                        {aCancelar === p.id ? (
+                          <FormCancelar
+                            p={p}
+                            aoFechar={() => setACancelar(null)}
+                            aoConcluir={() => {
+                              setACancelar(null)
+                              mostrarAviso('Reembolso registado ✓')
+                              carregar()
+                            }}
+                          />
+                        ) : (
+                          <div className="mt-2 flex justify-end">
+                            <button type="button" onClick={() => setACancelar(p.id)} className={BOTAO_SECUNDARIO}>
+                              Registar reembolso
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                <>
                 {estadoFatura(p) === 'emitida' && (
                   <span className="rounded-full bg-ambar-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-ambar-600">
                     {p.fatura_documento_numero}
@@ -499,7 +672,35 @@ function Faturas() {
                           : 'Emitir fatura'}
                     </button>
                   )}
+                  {aCancelar !== p.id && (
+                    <button
+                      type="button"
+                      onClick={() => setACancelar(p.id)}
+                      className="cursor-pointer rounded-full border border-red-500/40 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-red-600 hover:bg-red-500/5"
+                    >
+                      Cancelar e reembolsar
+                    </button>
+                  )}
                 </div>
+                {aCancelar === p.id && (
+                  <FormCancelar
+                    p={p}
+                    aoFechar={() => setACancelar(null)}
+                    aoConcluir={(r) => {
+                      setACancelar(null)
+                      mostrarAviso(
+                        `Pedido nº ${r.numero} cancelado` +
+                          (r.nota_credito ? ` · nota de crédito ${r.nota_credito}` : '') +
+                          (r.reembolso === 'ifthenpay' ? ' · reembolsado pelo IfThenPay' : '') +
+                          (r.reembolso === 'manual' ? ' · reembolso por fora registado' : '') +
+                          (r.aviso ? ` · ATENÇÃO: ${r.aviso}` : ' ✓'),
+                      )
+                      carregar()
+                    }}
+                  />
+                )}
+                </>
+                )}
               </div>
             </li>
           ))}

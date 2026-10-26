@@ -648,7 +648,7 @@ export async function obterPdf(admin, pedidoId) {
 // mesma, só que escalado à largura do papel.
 //
 // `via`: 'ORIGINAL' na primeira impressão; 'SECOND' (2.ª via) nas seguintes.
-export async function obterTalao(admin, pedidoId, { via = 'ORIGINAL' } = {}) {
+export async function obterTalao(admin, pedidoId, { via = 'ORIGINAL', saida } = {}) {
   const chave = process.env.VENDUS_API_KEY
   if (!chave) throw new Error('VENDUS_API_KEY não configurada no Vercel.')
 
@@ -661,6 +661,23 @@ export async function obterTalao(admin, pedidoId, { via = 'ORIGINAL' } = {}) {
 
   const versao = via === 'SECOND' ? 'SECOND' : 'ORIGINAL'
   const base = `/documents/${pedido.fatura_documento_id}/?mode=${modoVendus()}&output_version=${versao}`
+
+  // Tablet Android: a Vendus gera o talão já em ESC/POS (a língua da
+  // térmica), com QR e ATCUD — segue tal e qual para o RawBT, sem desenhar
+  // nada no browser. Se não vier, cai para o HTML como no Mac.
+  if (saida === 'escpos') {
+    try {
+      const docEsc = await vendusFetch(`${base}&output=escpos`, chave)
+      const escpos = escposDoDocumento(docEsc)
+      if (escpos) return { ok: true, formato: 'escpos', escpos_base64: escpos, via: versao }
+    } catch (e) {
+      if (/404/.test(e.message)) {
+        throw new Error(
+          `O Vendus não encontra o documento ${pedido.fatura_documento_id} no espaço "${modoVendus()}" (HTTP 404).`,
+        )
+      }
+    }
+  }
 
   let doc = null
   try {
@@ -739,6 +756,35 @@ function comoHtml(v, profundidade = 0) {
   }
   return null
 }
+
+// ESC/POS: bytes em bruto (com ESC, 0x1B) ou em base64. Devolve sempre
+// base64, e só se os bytes tiverem mesmo comandos ESC/GS.
+function comoEscpos(v, profundidade = 0) {
+  if (v && typeof v === 'object' && profundidade < 3) {
+    return comoEscpos(v.content ?? v.data ?? v.escpos, profundidade + 1)
+  }
+  if (typeof v !== 'string' || !v) return null
+  const temComandos = (buf) => buf.includes(0x1b) || buf.includes(0x1d)
+  if (/[\x1b\x1d]/.test(v)) {
+    const buf = Buffer.from(v, 'latin1')
+    return temComandos(buf) ? buf.toString('base64') : null
+  }
+  const s = v.trim()
+  if (profundidade < 3 && (s.startsWith('{') || s.startsWith('['))) {
+    try {
+      return comoEscpos(JSON.parse(s), profundidade + 1)
+    } catch {
+      return null
+    }
+  }
+  const limpo = s.replace(/^data:[^,]*,/, '').replace(/\s+/g, '')
+  if (limpo.length < 40 || !/^[A-Za-z0-9+/]+={0,2}$/.test(limpo)) return null
+  const buf = Buffer.from(limpo, 'base64')
+  return temComandos(buf) ? limpo : null
+}
+
+const escposDoDocumento = (doc) =>
+  comoEscpos(doc?.output_data) || comoEscpos(doc?.output) || comoEscpos(doc?.content) || null
 
 const htmlDoDocumento = (doc) =>
   comoHtml(doc?.output_data) || comoHtml(doc?.output) || comoHtml(doc?.content) || null

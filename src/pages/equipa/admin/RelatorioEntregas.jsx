@@ -154,6 +154,7 @@ function RelatorioEntregas({ empresas, mostrarAviso }) {
                 <p className="font-semibold text-grafite-900">
                   {g.empresa?.nome_comercial || g.empresa?.nome_legal || '—'}
                   {g.empresa?.simulacao && <span className="ml-2 text-xs font-semibold uppercase text-cobre-600">Simulação</span>}
+                  {g.empresa?.frota_propria && <span className="ml-2 text-xs font-semibold uppercase text-ambar-700">Frota própria · sem fatura</span>}
                 </p>
                 <p className="text-sm text-grafite-600">
                   {g.linhas.length} entregas · {g.km.toFixed(1).replace('.', ',')} km · previsto {fmt(g.previsto)} + IVA = <strong>{fmt(g.previsto * (1 + IVA))}</strong>
@@ -161,7 +162,7 @@ function RelatorioEntregas({ empresas, mostrarAviso }) {
               </div>
               <button type="button" className={BOTAO_SECUNDARIO} onClick={() => exportar(g)}>Exportar CSV</button>
             </div>
-            {temFinanceiro && g.empresa && !g.empresa.simulacao && (
+            {temFinanceiro && g.empresa && !g.empresa.simulacao && !g.empresa.frota_propria && (
               <LancarFatura empresa={g.empresa} periodo={rotuloSemana(semana)} previsto={g.previsto} aoAvisar={mostrarAviso} />
             )}
           </div>

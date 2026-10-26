@@ -216,7 +216,7 @@ export async function imprimirTalao(pedidoId, documentoId, { segundaVia } = {}) 
       'Content-Type': 'application/json',
       Authorization: `Bearer ${data?.session?.access_token}`,
     },
-    body: JSON.stringify({ pedido_id: pedidoId, formato: 'talao', via }),
+    body: JSON.stringify({ pedido_id: pedidoId, formato: 'talao', via, saida: eAndroid() ? 'escpos' : undefined }),
   })
   const json = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(json.erro || 'Erro no servidor.')
@@ -224,7 +224,15 @@ export async function imprimirTalao(pedidoId, documentoId, { segundaVia } = {}) 
   // No tablet não há recurso à janela do Android: o teste de 26 out mostrou
   // que ela abre em A4 e não chega à térmica. Se o RawBT falhar, diz-se porquê.
   const viaRawBT = eAndroid()
-  if (viaRawBT) {
+  if (viaRawBT && json.formato === 'escpos' && json.escpos_base64) {
+    // Talão ESC/POS gerado pela própria Vendus. À frente só o impulso à
+    // gaveta, como no Mac.
+    const corpo = Uint8Array.from(atob(json.escpos_base64), (c) => c.charCodeAt(0))
+    const bytes = new Uint8Array(5 + corpo.length)
+    bytes.set([0x1b, 0x70, 0x00, 0x19, 0xfa])
+    bytes.set(corpo, 5)
+    enviarParaRawBT(bytes)
+  } else if (viaRawBT) {
     if (!(json.formato === 'html' && json.html)) {
       throw new Error('a Vendus devolveu o talão em PDF; no tablet só imprime em HTML')
     }
@@ -252,5 +260,5 @@ export async function imprimirTalao(pedidoId, documentoId, { segundaVia } = {}) 
   }
 
   marcarImpresso(documentoId)
-  return { via, rawbt: viaRawBT }
+  return { via, rawbt: viaRawBT, modo: json.formato }
 }

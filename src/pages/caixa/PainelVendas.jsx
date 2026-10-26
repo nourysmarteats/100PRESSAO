@@ -95,8 +95,8 @@ function DetalheVenda({ venda, aoVoltar, aoAtualizar }) {
     setOcupado(true)
     setAviso('')
     try {
-      const { via, rawbt } = await imprimirTalao(venda.id, venda.fatura_documento_id, { segundaVia: true })
-      setAviso(`${via === 'SECOND' ? '✓ Talão enviado (2.ª via)' : '✓ Talão enviado'}${rawbt ? ' · RawBT' : ''}`)
+      const { via, rawbt, modo } = await imprimirTalao(venda.id, venda.fatura_documento_id, { segundaVia: true })
+      setAviso(`${via === 'SECOND' ? '✓ Talão enviado (2.ª via)' : '✓ Talão enviado'}${rawbt ? ` · RawBT (${modo})` : ''}`)
     } catch (e) {
       setAviso(`Talão não imprimiu: ${e.message}`)
     }

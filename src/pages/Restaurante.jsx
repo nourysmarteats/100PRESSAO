@@ -625,7 +625,7 @@ function Restaurante() {
   // credencial e nenhum dado pessoal sai da base de dados.
   useEffect(() => {
     if (fase !== 'confirmado' || !pedido?.id) return
-    if (estadoPedido === 'entregue') return
+    if (estadoPedido === 'entregue' || estadoPedido === 'cancelado') return
     let vivo = true
     async function ver() {
       const { data, error } = await supabase.rpc('estado_pedido', { p_id: pedido.id })
@@ -1321,6 +1321,14 @@ function Acompanhamento({ estado, entrega }) {
     ? ['recebido', 'em_preparacao', 'pronto', 'a_caminho', 'entregue']
     : ['recebido', 'em_preparacao', 'pronto', 'entregue']
   const atual = passos.indexOf(estado)
+
+  if (estado === 'cancelado') {
+    return (
+      <p className="mt-6 text-center text-sm font-semibold text-grafite-700">
+        Esta encomenda foi cancelada. Se tiveres dúvidas, fala connosco.
+      </p>
+    )
+  }
 
   return (
     <ol className="mt-6 flex items-center justify-center gap-1.5" aria-label="Estado da encomenda">

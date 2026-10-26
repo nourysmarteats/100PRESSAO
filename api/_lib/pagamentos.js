@@ -15,6 +15,12 @@ export async function marcarPago(admin, pedidoId) {
     .update({ estado_pagamento: 'pago', pago_em: new Date().toISOString() })
     .eq('id', pedidoId)
     .neq('estado_pagamento', 'pago')
+    // Um callback repetido do IfThenPay depois de o pedido ter sido cancelado
+    // e reembolsado não pode voltar a pô-lo como pago — isso reabria a venda
+    // e emitia uma fatura nova para dinheiro que já foi devolvido.
+    .neq('estado_pagamento', 'reembolsado')
+    .neq('estado_pagamento', 'a_reembolsar')
+    .neq('estado', 'cancelado')
     .select(
       'id, numero, cliente_email, cliente_nome, tipo_entrega, morada, total, portes, metodo_pagamento, fatura_nif',
     )
