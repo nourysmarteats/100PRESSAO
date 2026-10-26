@@ -144,7 +144,7 @@ export function razaoVendus(json, bruto) {
   return texto ? `resposta inesperada: ${texto.slice(0, 300)}` : 'resposta vazia'
 }
 
-async function vendusFetch(path, apiKey, options = {}) {
+export async function vendusFetch(path, apiKey, options = {}) {
   const resp = await fetch(`${VENDUS_BASE}${path}`, {
     ...options,
     headers: {
@@ -171,8 +171,13 @@ async function vendusFetch(path, apiKey, options = {}) {
 // balcão isso coincide com "entregue" (paga-se no fim); numa encomenda online
 // pré-paga acontece muito antes, e esperar pelo fecho no Staff deixaria a
 // fatura pendurada — foi o que aconteceu à encomenda nº 2.
+// Um pedido cancelado nunca é faturado: se já tinha fatura, foi anulada com
+// nota de crédito (ver api/_lib/cancelamento.js), e emitir outra depois de o
+// dinheiro ter sido devolvido seria faturar uma venda que não existiu.
 export const podeFaturar = (pedido) =>
-  !!pedido.metodo_pagamento && (pedido.estado === 'entregue' || pedido.estado_pagamento === 'pago')
+  pedido.estado !== 'cancelado' &&
+  !!pedido.metodo_pagamento &&
+  (pedido.estado === 'entregue' || pedido.estado_pagamento === 'pago')
 
 // Emite a fatura de um pedido no Vendus e grava o resultado na encomenda.
 // Devolve { ok, documento_id, numero, url, ja_existia } ou lança com a razão.
@@ -216,6 +221,9 @@ export async function emitirFatura(admin, pedidoId, { nif, empresa } = {}) {
     }
   }
 
+  if (pedido.estado === 'cancelado') {
+    throw new Error('O pedido foi cancelado — não se emite fatura.')
+  }
   if (!podeFaturar(pedido)) {
     throw new Error('O pedido ainda não está pago.')
   }
@@ -512,7 +520,7 @@ const enderecoAbrivel = (v) => {
   return e && !ENDERECO_API.test(e) ? e : null
 }
 
-const urlDoDocumento = (doc) =>
+export const urlDoDocumento = (doc) =>
   enderecoAbrivel(doc?.output_data) ||
   enderecoAbrivel(doc?.output) ||
   enderecoAbrivel(doc?.output_url) ||
@@ -666,7 +674,7 @@ export async function obterTalao(admin, pedidoId, { via = 'ORIGINAL' } = {}) {
     // Outro erro no HTML: tenta-se o PDF antes de desistir.
   }
   const html = doc ? htmlDoDocumento(doc) : null
-  if (html) return { ok: true, formato: 'html', html, via: versao }
+  if (html) return { ok: true, formato: 'html', html: await embutirImagens(html), via: versao }
 
   const docPdf = await vendusFetch(`${base}&output=pdf`, chave)
   const pdf = pdfDoDocumento(docPdf)
@@ -674,6 +682,33 @@ export async function obterTalao(admin, pedidoId, { via = 'ORIGINAL' } = {}) {
 
   const amostra = JSON.stringify({ output: doc?.output, output_data: doc?.output_data }).slice(0, 200)
   throw new Error(`O Vendus não devolveu o talão em HTML nem em PDF. Recebido: ${amostra}`)
+}
+
+// Imagens do talão (QR, logótipo) passam a ir dentro do próprio HTML, em
+// data: URI. No tablet Android o talão é desenhado num canvas para seguir para
+// o RawBT, e uma imagem de outro domínio "suja" o canvas e não se exporta —
+// perdia-se o QR, que a lei exige. No Mac não muda nada. Se uma imagem não
+// vier a tempo, fica o endereço original (o browser tenta na mesma).
+async function embutirImagens(html) {
+  const fontes = [...new Set([...html.matchAll(/<img[^>]+src=["'](https?:[^"']+)["']/gi)].map((m) => m[1]))].slice(0, 8)
+  if (fontes.length === 0) return html
+  const pares = await Promise.all(
+    fontes.map(async (url) => {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(4000) })
+        if (!r.ok) return null
+        const tipo = (r.headers.get('content-type') || 'image/png').split(';')[0]
+        if (!tipo.startsWith('image/')) return null
+        const b64 = Buffer.from(await r.arrayBuffer()).toString('base64')
+        return [url, `data:${tipo};base64,${b64}`]
+      } catch {
+        return null
+      }
+    }),
+  )
+  let out = html
+  for (const par of pares) if (par) out = out.split(par[0]).join(par[1])
+  return out
 }
 
 // O HTML vem na mesma forma {type,data,content} dos outros formatos — em texto

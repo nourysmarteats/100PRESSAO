@@ -25,6 +25,7 @@ import { construirVendaveis, categoriasComArtigos, pesquisarVendaveis } from '..
 import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor } from '../lib/equipa'
 import { imprimirTalao } from '../lib/talao'
 import logoStamp from '../assets/logo-100pressao.png'
+import PainelVendas from './caixa/PainelVendas'
 
 // ----------------------------
 // Configuração do PIN
@@ -989,6 +990,8 @@ function Pdv({ aoBloquear }) {
   // Um único canal para o PDV inteiro — partilhado pelos dois painéis, para
   // que o visor nunca receba dois estados em conflito.
   const { emitir, limpar, emitirConcluida } = useCanalVisor()
+  // Vendas efetuadas: reimprimir talão e emitir fatura a posteriori.
+  const [verVendas, setVerVendas] = useState(false)
 
   return (
     <div className="flex min-h-dvh flex-col bg-grafite-950">
@@ -1002,6 +1005,13 @@ function Pdv({ aoBloquear }) {
         </div>
         <div className="flex items-center gap-4">
           <Relogio />
+          <button
+            type="button"
+            onClick={() => setVerVendas(true)}
+            className="cursor-pointer rounded-full border border-ambar-500/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-ambar-400 hover:border-ambar-400 hover:bg-ambar-500/10 transition-colors"
+          >
+            Vendas
+          </button>
           <Link
             to="/visor"
             target="_blank"
@@ -1035,6 +1045,8 @@ function Pdv({ aoBloquear }) {
           <PainelVendaManual emitir={emitir} limpar={limpar} emitirConcluida={emitirConcluida} />
         </div>
       </div>
+
+      {verVendas && <PainelVendas aoFechar={() => setVerVendas(false)} />}
     </div>
   )
 }
