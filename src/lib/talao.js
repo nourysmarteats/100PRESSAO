@@ -222,6 +222,91 @@ function canvasParaEscPos(canvas) {
   return out
 }
 
+// ---------------------------------------------------------------
+// Ajuste do ESC/POS da Vendus ao rolo de 58 mm (teste de 31 out 2026)
+// ---------------------------------------------------------------
+// A Vendus escreve o talão a ~40 colunas e com o logótipo largo. Na iggual,
+// com a letra normal (Font A, 12 pontos) só cabem 32 colunas em 384 pontos:
+// cada linha partia em duas ou três e o selo saía cortado. Aqui:
+//   · passa-se tudo para a Font B (9 pontos → 42 colunas), que comporta as
+//     linhas da Vendus inteiras — inclusive depois de cada ESC @ e ESC !;
+//   · imagens raster (GS v 0) mais largas que LOGO_MAX são reduzidas, para o
+//     selo sair inteiro e mais pequeno;
+//   · o QR (GS ( k) e outros blocos com dados passam sem mexer.
+// Devolve também um resumo do que encontrou, para afinar se for preciso.
+const LOGO_MAX = 192
+
+function reduzirRaster(bytesLinha, altura, dados) {
+  const largura = bytesLinha * 8
+  if (largura <= LOGO_MAX) return null
+  const f = LOGO_MAX / largura
+  const nl = LOGO_MAX
+  const na = Math.max(1, Math.round(altura * f))
+  const nbl = nl / 8
+  const out = new Uint8Array(nbl * na)
+  for (let y = 0; y < na; y++) {
+    const sy = Math.min(altura - 1, Math.floor(y / f))
+    for (let x = 0; x < nl; x++) {
+      const sx = Math.min(largura - 1, Math.floor(x / f))
+      if (dados[sy * bytesLinha + (sx >> 3)] & (0x80 >> (sx & 7))) out[y * nbl + (x >> 3)] |= 0x80 >> (x & 7)
+    }
+  }
+  return { nbl, na, out }
+}
+
+export function ajustarEscpos58(bytes) {
+  const out = [0x1b, 0x4d, 0x01]
+  const resumo = []
+  const copia = (a, b) => {
+    for (let k = a; k < b && k < bytes.length; k++) out.push(bytes[k])
+  }
+  let i = 0
+  while (i < bytes.length) {
+    const b = bytes[i]
+    const b1 = bytes[i + 1]
+    if (b === 0x1b && b1 === 0x40) {
+      out.push(0x1b, 0x40, 0x1b, 0x4d, 0x01)
+      i += 2
+    } else if (b === 0x1b && b1 === 0x21) {
+      out.push(0x1b, 0x21, (bytes[i + 2] | 0x01) & 0xff)
+      i += 3
+    } else if (b === 0x1b && b1 === 0x4d) {
+      out.push(0x1b, 0x4d, 0x01)
+      i += 3
+    } else if (b === 0x1d && b1 === 0x76 && bytes[i + 2] === 0x30) {
+      const m = bytes[i + 3]
+      const bl = bytes[i + 4] + bytes[i + 5] * 256
+      const alt = bytes[i + 6] + bytes[i + 7] * 256
+      const fim = i + 8 + bl * alt
+      const dados = bytes.subarray(i + 8, fim)
+      const r = m === 0 ? reduzirRaster(bl, alt, dados) : null
+      resumo.push(`img ${bl * 8}x${alt}${r ? `→${r.nbl * 8}x${r.na}` : ''}`)
+      if (r) {
+        out.push(0x1d, 0x76, 0x30, 0, r.nbl & 0xff, r.nbl >> 8, r.na & 0xff, r.na >> 8)
+        for (const v of r.out) out.push(v)
+      } else copia(i, fim)
+      i = fim
+    } else if (b === 0x1d && b1 === 0x28) {
+      // GS ( k / GS ( L …: bloco com tamanho próprio (QR, logótipos em memória)
+      const fim = i + 5 + bytes[i + 3] + bytes[i + 4] * 256
+      if (bytes[i + 2] !== 0x6b && !resumo.includes(`GS(${bytes[i + 2]}`)) resumo.push(`GS(${bytes[i + 2]}`)
+      copia(i, fim)
+      i = fim
+    } else if (b === 0x1b && b1 === 0x2a) {
+      // ESC * — imagem em colunas: passa como está, mas fica no resumo
+      const n = bytes[i + 3] + bytes[i + 4] * 256
+      const fim = i + 5 + n * (bytes[i + 2] >= 32 ? 3 : 1)
+      resumo.push(`ESC* ${n}`)
+      copia(i, fim)
+      i = fim
+    } else {
+      out.push(b)
+      i += 1
+    }
+  }
+  return { bytes: Uint8Array.from(out), resumo: resumo.join(', ') }
+}
+
 function enviarParaRawBT(bytes) {
   let bin = ''
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
@@ -250,10 +335,13 @@ export async function imprimirTalao(pedidoId, documentoId, { segundaVia } = {}) 
   // No tablet não há recurso à janela do Android: o teste de 26 out mostrou
   // que ela abre em A4 e não chega à térmica. Se o RawBT falhar, diz-se porquê.
   const viaRawBT = eAndroid()
+  let resumoEscpos = ''
   if (viaRawBT && json.formato === 'escpos' && json.escpos_base64) {
     // Talão ESC/POS gerado pela própria Vendus. À frente só o impulso à
     // gaveta, como no Mac.
-    const corpo = Uint8Array.from(atob(json.escpos_base64), (c) => c.charCodeAt(0))
+    const original = Uint8Array.from(atob(json.escpos_base64), (c) => c.charCodeAt(0))
+    const { bytes: corpo, resumo } = ajustarEscpos58(original)
+    resumoEscpos = resumo
     const bytes = new Uint8Array(5 + corpo.length)
     bytes.set([0x1b, 0x70, 0x00, 0x19, 0xfa])
     bytes.set(corpo, 5)
@@ -286,5 +374,5 @@ export async function imprimirTalao(pedidoId, documentoId, { segundaVia } = {}) 
   }
 
   marcarImpresso(documentoId)
-  return { via, rawbt: viaRawBT, modo: json.formato }
+  return { via, rawbt: viaRawBT, modo: json.formato, resumo: resumoEscpos }
 }
