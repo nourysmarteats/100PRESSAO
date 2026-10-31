@@ -88,7 +88,33 @@ function imprimirNumIframe(montar) {
 // ---------------------------------------------------------------
 // Android → RawBT
 // ---------------------------------------------------------------
-const eAndroid = () => typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
+// Como se sabe que é o tablet do balcão. Teste de 31 out 2026: o Chrome do
+// Lenovo abre em "versão para computador", e aí o userAgent já não diz
+// "Android" (passa a dizer "X11; Linux x86_64") — a app julgava estar num
+// computador e abria a janela de impressão A4. Por isso:
+//   1. "Android" no userAgent ou nos client hints, como antes;
+//   2. Linux com ecrã táctil (um Mac ou PC de balcão não tem os dois);
+//   3. e uma escolha manual que fica guardada neste browser:
+//      ?talao=rawbt  → força o RawBT;   ?talao=sistema → força a janela normal.
+const CHAVE_MODO = 'talao-modo-v1'
+function modoForcado() {
+  try {
+    const q = new URLSearchParams(window.location.search).get('talao')
+    if (q === 'rawbt' || q === 'sistema') localStorage.setItem(CHAVE_MODO, q)
+    return localStorage.getItem(CHAVE_MODO)
+  } catch {
+    return null
+  }
+}
+const eAndroid = () => {
+  if (typeof navigator === 'undefined') return false
+  const forcado = modoForcado()
+  if (forcado) return forcado === 'rawbt'
+  const ua = navigator.userAgent || ''
+  if (/Android/i.test(ua)) return true
+  if (/Android/i.test(navigator.userAgentData?.platform || '')) return true
+  return /Linux/i.test(ua) && !/CrOS/i.test(ua) && (navigator.maxTouchPoints || 0) > 0
+}
 
 // 48 mm de área útil a 203 dpi = 384 pontos. Desenha-se a 192 px CSS e
 // escala-se ×2 — o mesmo tamanho de letra que sai no Mac (10px em 48 mm).
