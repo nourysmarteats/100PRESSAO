@@ -235,7 +235,7 @@ function canvasParaEscPos(canvas) {
 //     selo sair inteiro e mais pequeno;
 //   · o QR (GS ( k) e outros blocos com dados passam sem mexer.
 // Devolve também um resumo do que encontrou, para afinar se for preciso.
-const LOGO_MAX = 192
+const LOGO_MAX = 256
 
 function reduzirRaster(bytesLinha, altura, dados) {
   const largura = bytesLinha * 8
