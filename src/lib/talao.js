@@ -18,6 +18,7 @@
 //
 // O documento vem da Vendus (rota /api/fatura-pdf com formato 'talao'): não se
 // desenha a fatura aqui, para o talão sair com tudo o que a lei exige.
+import QRCode from 'qrcode'
 import { supabase } from './supabase'
 
 // Lembra, neste browser, que faturas já saíram em original — as reimpressões
@@ -254,9 +255,35 @@ function reduzirRaster(bytesLinha, altura, dados) {
   return { nbl, na, out }
 }
 
+// QR da fatura (obrigatório). A Vendus manda-o como comando nativo de QR
+// (GS ( k), que a iggual ignora em silêncio — o talão de 31 out saiu sem QR.
+// Guarda-se o texto (fn 80) e, na ordem de imprimir (fn 81), desenha-se o QR
+// como imagem raster, com correcção de erros M como pede a especificação da AT.
+function qrRaster(texto) {
+  const qr = QRCode.create(texto, { errorCorrectionLevel: 'M' })
+  const n = qr.modules.size
+  const margem = 2
+  const escala = Math.max(3, Math.floor(300 / (n + margem * 2)))
+  const lado = (n + margem * 2) * escala
+  const largura = Math.ceil(lado / 8) * 8
+  const bl = largura / 8
+  const dados = new Uint8Array(bl * lado)
+  for (let y = 0; y < lado; y++) {
+    const my = Math.floor(y / escala) - margem
+    for (let x = 0; x < lado; x++) {
+      const mx = Math.floor(x / escala) - margem
+      if (mx >= 0 && my >= 0 && mx < n && my < n && qr.modules.get(my, mx)) {
+        dados[y * bl + (x >> 3)] |= 0x80 >> (x & 7)
+      }
+    }
+  }
+  return [0x1d, 0x76, 0x30, 0, bl & 0xff, bl >> 8, lado & 0xff, lado >> 8, ...dados]
+}
+
 export function ajustarEscpos58(bytes) {
   const out = [0x1b, 0x4d, 0x01]
   const resumo = []
+  let textoQr = ''
   const copia = (a, b) => {
     for (let k = a; k < b && k < bytes.length; k++) out.push(bytes[k])
   }
@@ -286,10 +313,27 @@ export function ajustarEscpos58(bytes) {
         for (const v of r.out) out.push(v)
       } else copia(i, fim)
       i = fim
-    } else if (b === 0x1d && b1 === 0x28) {
-      // GS ( k / GS ( L …: bloco com tamanho próprio (QR, logótipos em memória)
+    } else if (b === 0x1d && b1 === 0x28 && bytes[i + 2] === 0x6b && bytes[i + 5] === 0x31) {
+      // GS ( k, QR (cn 49): só nos interessam guardar (80) e imprimir (81)
       const fim = i + 5 + bytes[i + 3] + bytes[i + 4] * 256
-      if (bytes[i + 2] !== 0x6b && !resumo.includes(`GS(${bytes[i + 2]}`)) resumo.push(`GS(${bytes[i + 2]}`)
+      const fn = bytes[i + 6]
+      if (fn === 0x50) {
+        textoQr = new TextDecoder('latin1').decode(bytes.subarray(i + 8, fim))
+      } else if (fn === 0x51 && textoQr) {
+        try {
+          for (const v of qrRaster(textoQr)) out.push(v)
+          out.push(0x0a)
+          resumo.push('QR→imagem')
+        } catch {
+          copia(i, fim)
+          resumo.push('QR falhou')
+        }
+      }
+      i = fim
+    } else if (b === 0x1d && b1 === 0x28) {
+      // outros GS ( …: bloco com tamanho próprio — passa como está
+      const fim = i + 5 + bytes[i + 3] + bytes[i + 4] * 256
+      if (!resumo.includes(`GS(${bytes[i + 2]}`)) resumo.push(`GS(${bytes[i + 2]}`)
       copia(i, fim)
       i = fim
     } else if (b === 0x1b && b1 === 0x2a) {
