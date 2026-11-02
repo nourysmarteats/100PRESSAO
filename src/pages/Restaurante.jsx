@@ -317,7 +317,7 @@ function Restaurante() {
       const resp = await fetch('/api/distancia', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ origem: { lat: cfg.loja_lat, lng: cfg.loja_lng }, morada }),
+        body: JSON.stringify({ morada }),
       })
       const json = await resp.json().catch(() => ({}))
       if (!resp.ok) {

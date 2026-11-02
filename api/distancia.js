@@ -1,6 +1,10 @@
 // Calcula a distância de condução da loja até uma morada, via Google Distance
 // Matrix. Usada pelo checkout do restaurante online para calcular os portes.
 // Requer a env var GOOGLE_MAPS_API_KEY no Vercel — a chave nunca chega ao browser.
+// A origem é sempre a loja, lida no servidor, e há limites para proteger a fatura da Google.
+import { createClient } from '@supabase/supabase-js'
+import { dentroDoLimite, ipDoPedido, marcaPrivada } from './_lib/limites.js'
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ erro: 'Método não suportado' })
@@ -10,14 +14,36 @@ export default async function handler(req, res) {
     return res.status(500).json({ erro: 'GOOGLE_MAPS_API_KEY não configurada no Vercel.' })
   }
 
-  const { origem, morada } = req.body || {}
-  if (!origem || origem.lat == null || origem.lng == null || !morada?.trim()) {
-    return res.status(400).json({ erro: 'Origem (coordenadas da loja) e morada são obrigatórias.' })
+  const morada = String(req.body?.morada || '').trim()
+  if (!morada || morada.length > 200) {
+    return res.status(400).json({ erro: 'Indica uma morada válida.' })
+  }
+
+  const url = process.env.VITE_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) {
+    return res.status(500).json({ erro: 'Configuração do Supabase em falta no Vercel.' })
+  }
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+
+  const ipMarca = marcaPrivada(ipDoPedido(req), serviceKey)
+  if (
+    !(await dentroDoLimite(admin, 'distancia_ip', ipMarca, 20, 3600)) ||
+    !(await dentroDoLimite(admin, 'distancia_global', 'todos', 300, 86400))
+  ) {
+    return res.status(429).json({ erro: 'Demasiados pedidos. Tenta daqui a bocado ou escolhe levantamento.' })
+  }
+
+  const { data: cfg } = await admin.from('definicoes').select('valor').eq('chave', 'entrega').single()
+  const lat = Number(cfg?.valor?.loja_lat)
+  const lng = Number(cfg?.valor?.loja_lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(503).json({ erro: 'Não conseguimos calcular os portes neste momento.' })
   }
 
   const params = new URLSearchParams({
-    origins: `${origem.lat},${origem.lng}`,
-    destinations: morada.trim(),
+    origins: `${lat},${lng}`,
+    destinations: morada,
     mode: 'driving',
     units: 'metric',
     region: 'pt',

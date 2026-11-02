@@ -15,6 +15,7 @@
 //                                domínio do próprio pedido
 import { createClient } from '@supabase/supabase-js'
 import { enviarConfirmacao } from './_lib/pagamentos.js'
+import { dentroDoLimite, ipDoPedido, marcaPrivada } from './_lib/limites.js'
 
 const IFT = 'https://api.ifthenpay.com'
 
@@ -46,6 +47,12 @@ export default async function handler(req, res) {
     auth: { persistSession: false, autoRefreshToken: false },
   })
 
+  const excesso = () =>
+    res.status(429).json({ erro: 'Demasiadas tentativas de pagamento. Aguarda alguns minutos e tenta de novo.' })
+  if (!(await dentroDoLimite(admin, 'pagamento_ip', marcaPrivada(ipDoPedido(req), serviceKey), 30, 3600))) {
+    return excesso()
+  }
+
   // Encomenda lida no servidor — o total autoritativo vem daqui, nunca do browser.
   const { data: pedido, error } = await admin
     .from('orders')
@@ -55,6 +62,9 @@ export default async function handler(req, res) {
   if (error || !pedido) return res.status(404).json({ erro: 'Encomenda não encontrada.' })
   if (pedido.canal !== 'online') return res.status(400).json({ erro: 'Encomenda inválida.' })
   if (pedido.estado_pagamento === 'pago') return res.status(200).json({ ja_pago: true })
+
+  const limiteEncomenda = pedido.metodo_pagamento === 'mbway' ? 3 : 5
+  if (!(await dentroDoLimite(admin, 'pagamento_encomenda', pedido.id, limiteEncomenda, 600))) return excesso()
 
   // ── Dinheiro: nada a cobrar, só confirmar ──
   // A encomenda foi criada pela RPC já em 'na_entrega' e está na cozinha. Falta
@@ -83,6 +93,7 @@ export default async function handler(req, res) {
     if (!key) return res.status(500).json({ erro: 'IFTHENPAY_MBWAY_KEY não configurada no Vercel.' })
     const tel = String(telefone || pedido.cliente_telefone || '').replace(/\D/g, '').slice(-9)
     if (!/^\d{9}$/.test(tel)) return res.status(400).json({ erro: 'Telemóvel inválido para MB Way.' })
+    if (!(await dentroDoLimite(admin, 'mbway_telemovel', marcaPrivada(tel, serviceKey), 3, 600))) return excesso()
 
     const r = await fetch(`${IFT}/spg/payment/mbway`, {
       method: 'POST',

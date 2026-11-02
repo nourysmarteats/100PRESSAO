@@ -38,3 +38,6 @@ dist-ssr
 
 # Ficheiros a aguardar apagamento manual - nunca versionados
 _to_delete/
+
+# Saidas de trabalho com dados pessoais - nunca versionar
+Claude outputs/
