@@ -25,7 +25,18 @@ export const METODOS_PAGAMENTO = [
   { id: 'multibanco', rotulo: 'Multibanco' },
   { id: 'mbway', rotulo: 'MB Way' },
   { id: 'cartao', rotulo: 'Cartão' },
+  // Os TPA são só do Caixa (/caixa), para pagamentos presenciais.
+  { id: 'tpa_revolut', rotulo: 'TPA Revolut', soCaixa: true },
+  { id: 'tpa_teya', rotulo: 'TPA Teya', soCaixa: true },
 ]
+
+// TPA: o operador indica débito ou crédito (vê-se no talão do terminal). É isto
+// que define o tipo de pagamento na fatura da Vendus.
+export const TIPOS_CARTAO = [
+  { id: 'debito', rotulo: 'Débito' },
+  { id: 'credito', rotulo: 'Crédito' },
+]
+export const eTpa = (metodo) => metodo === 'tpa_revolut' || metodo === 'tpa_teya'
 
 // Regra fiscal (Leandro, 2026-08-07): só o numerário deixa a fatura ao critério
 // do cliente. Tudo o que é pagamento eletrónico deixa rasto e é sempre faturado

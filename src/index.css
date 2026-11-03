@@ -25,6 +25,32 @@
   --font-sans: "Barlow", system-ui, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Tema claro do Caixa (/caixa): fundo no creme mais claro da marca. As classes
+   do ecrã mantêm-se; aqui só se trocam os valores das cores dentro dele.
+   Grafite = superfícies, creme = texto, âmbar passa a cobre para ter contraste
+   sobre o creme. */
+.tema-caixa {
+  color-scheme: light;
+  color: var(--color-creme-50);
+
+  --color-grafite-950: #f6f1e7; /* fundo: creme-50 original */
+  --color-grafite-900: #fffcf6; /* cartões */
+  --color-grafite-800: #fbf7ef; /* campos */
+  --color-grafite-700: #e6dfd0; /* linhas */
+  --color-grafite-600: #cdc3ae; /* contornos de botões */
+
+  --color-creme-50: #16181d; /* texto principal */
+  --color-creme-100: #16181d;
+  --color-creme-300: #2a2e35;
+  --color-creme-500: #16181d; /* usado sempre com transparência */
+
+  --color-ambar-400: #a45f2d; /* cobre-500 */
+  --color-ambar-500: #8a4c22; /* cobre-600 */
+
+  --color-red-400: #b42318;
+  --color-red-500: #b42318;
+}
+
 html {
   scroll-behavior: smooth;
 }

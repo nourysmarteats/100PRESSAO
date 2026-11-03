@@ -77,6 +77,8 @@ const ROTULO_METODO = {
   multibanco: 'Multibanco',
   mbway: 'MB Way',
   cartao: 'Cartão',
+  tpa_revolut: 'TPA Revolut',
+  tpa_teya: 'TPA Teya',
   pix: 'Pix',
 }
 
@@ -218,7 +220,7 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar, aoImprimir }) {
             </p>
           ) : (
           <div className="grid grid-cols-2 gap-2">
-            {METODOS_PAGAMENTO.map((m) => (
+            {METODOS_PAGAMENTO.filter((m) => !m.soCaixa).map((m) => (
               <button
                 key={m.id}
                 type="button"

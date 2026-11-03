@@ -14,6 +14,8 @@ import { nifOpcionalValido } from '../lib/nif'
 import {
   fmt,
   METODOS_PAGAMENTO,
+  TIPOS_CARTAO,
+  eTpa,
   obterPedidosAtivos,
   nomeItemPedido,
   exigeFatura,
@@ -24,6 +26,8 @@ import { servidoHoje } from '../lib/dias'
 import { construirVendaveis, categoriasComArtigos, pesquisarVendaveis } from '../lib/caixaEmenta'
 import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor } from '../lib/equipa'
 import { imprimirTalao } from '../lib/talao'
+import { useEcraLigado } from '../lib/ecraLigado'
+import IndicadorEcra from '../components/IndicadorEcra'
 import logoStamp from '../assets/logo-100pressao.png'
 import PainelVendas from './caixa/PainelVendas'
 import {
@@ -196,9 +200,9 @@ function Login({ aoEntrar }) {
         onSubmit={entrar}
         className="w-full max-w-sm rounded-2xl border border-grafite-700 bg-grafite-900 p-8"
       >
-        <img src={logoStamp} alt="100PRESSÃO" className="mx-auto h-20 w-20 rounded-full mix-blend-lighten" />
+        <img src={logoStamp} alt="100PRESSÃO" className="mx-auto h-20 w-20 rounded-full" />
         <h1 className="mt-4 text-center font-display text-lg font-bold uppercase tracking-tight text-creme-50">
-          PDV — Acesso
+          Caixa — Acesso
         </h1>
         <label className="mt-6 block">
           <span className="text-xs font-semibold uppercase tracking-widest text-ambar-500">Email</span>
@@ -288,7 +292,7 @@ function PinGate({ sessaoId, aoDesbloquear }) {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-grafite-950">
-      <img src={logoStamp} alt="100PRESSÃO" className="h-24 w-24 rounded-full mix-blend-lighten" />
+      <img src={logoStamp} alt="100PRESSÃO" className="h-24 w-24 rounded-full" />
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-creme-500/60">
         {usaProprio ? 'O teu PIN pessoal' : 'PIN do turno'}
       </p>
@@ -331,6 +335,8 @@ async function talaoAposFatura(pedidoId, r) {
 function PainelPedidos({ onFaturar }) {
   const [pedidos, setPedidos] = useState([])
   const [aProcessar, setAProcessar] = useState(null)
+  // TPA escolhido num pedido, à espera de débito ou crédito.
+  const [tpaPendente, setTpaPendente] = useState(null)
   const [aviso, setAviso] = useState('')
   const pedidosRef = useRef([])
   pedidosRef.current = pedidos
@@ -354,7 +360,8 @@ function PainelPedidos({ onFaturar }) {
     return () => supabase.removeChannel(canal)
   }, [carregar])
 
-  async function receberPagamento(pedido, metodoPag) {
+  async function receberPagamento(pedido, metodoPag, tipoCartao) {
+    setTpaPendente(null)
     setAProcessar(pedido.id)
     setAviso('')
     try {
@@ -364,6 +371,7 @@ function PainelPedidos({ onFaturar }) {
           metodo_pagamento: metodoPag,
           estado_pagamento: 'pago',
           estado: 'entregue',
+          ...(eTpa(metodoPag) ? { tipo_cartao: tipoCartao } : {}),
         })
         .eq('id', pedido.id)
       if (error) throw new Error(error.message)
@@ -416,7 +424,7 @@ function PainelPedidos({ onFaturar }) {
             const total = Number(p.total || 0)
             const ocupa = aProcessar === p.id
             return (
-              <li key={p.id} className="rounded-2xl border border-grafite-700 bg-grafite-900 p-4">
+              <li key={p.id} className="rounded-2xl border border-grafite-700 bg-grafite-900 p-4 shadow-sm">
                 <div className="flex items-center justify-between">
                   <span className="font-display text-xl font-bold text-ambar-500">
                     nº {p.numero}
@@ -433,7 +441,7 @@ function PainelPedidos({ onFaturar }) {
                         <span>
                           {item.quantidade}× {nomeItemPedido(item)}
                         </span>
-                        <span className="text-creme-500/60">
+                        <span className="shrink-0 whitespace-nowrap pl-2 text-creme-500/60">
                           {fmt(item.preco_unitario * item.quantidade)}
                         </span>
                       </li>
@@ -441,17 +449,46 @@ function PainelPedidos({ onFaturar }) {
                   </ul>
                 )}
 
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="font-display text-2xl font-bold text-creme-50">{fmt(total)}</span>
-                  {!ocupa && (
-                    <div className="flex flex-wrap justify-end gap-2">
+                <div className="mt-3 space-y-3">
+                  <span className="block whitespace-nowrap font-display text-2xl font-bold text-creme-50">{fmt(total)}</span>
+                  {!ocupa && tpaPendente?.pedidoId === p.id && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <p className="col-span-2 text-xs font-semibold uppercase tracking-wider text-creme-500/60">
+                        {METODOS_PAGAMENTO.find((m) => m.id === tpaPendente.metodo)?.rotulo}: como pagou?
+                      </p>
+                      {TIPOS_CARTAO.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          disabled={!!aProcessar}
+                          onClick={() => receberPagamento(p, tpaPendente.metodo, t.id)}
+                          className="cursor-pointer rounded-full bg-ambar-500 px-2 py-2 text-xs font-semibold uppercase tracking-wider text-grafite-950 transition-colors hover:bg-ambar-400 disabled:opacity-40"
+                        >
+                          {t.rotulo}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setTpaPendente(null)}
+                        className="col-span-2 cursor-pointer text-xs font-semibold uppercase tracking-wider text-creme-500/60 hover:text-creme-300"
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                  )}
+                  {!ocupa && tpaPendente?.pedidoId !== p.id && (
+                    <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
                       {METODOS_PAGAMENTO.map((m) => (
                         <button
                           key={m.id}
                           type="button"
                           disabled={!!aProcessar}
-                          onClick={() => receberPagamento(p, m.id)}
-                          className={`cursor-pointer rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors disabled:opacity-40 ${
+                          onClick={() =>
+                            eTpa(m.id)
+                              ? setTpaPendente({ pedidoId: p.id, metodo: m.id })
+                              : receberPagamento(p, m.id)
+                          }
+                          className={`cursor-pointer whitespace-nowrap rounded-full border px-1 py-2 text-[11px] font-semibold uppercase tracking-wide transition-colors disabled:opacity-40 ${
                             m.id === 'dinheiro'
                               ? 'border-creme-500/40 text-creme-400 hover:border-ambar-500 hover:text-ambar-400'
                               : 'border-ambar-500/60 text-ambar-400 hover:border-ambar-400 hover:bg-ambar-500/10'
@@ -496,6 +533,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   // variantes nunca se mistura com o produto base.
   const [carrinho, setCarrinho] = useState({})
   const [metodo, setMetodo] = useState('dinheiro')
+  const [tipoCartao, setTipoCartao] = useState(null)
   const [pedirNif, setPedirNif] = useState(false)
   const [nif, setNif] = useState('')
   // O NIF é opcional ao balcão, mas escrito tem de ser válido: a fatura é
@@ -649,6 +687,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
     setPedirNif(false)
     setRecebido('')
     setRefPlataforma('')
+    setTipoCartao(null)
   }
 
   // Mudar de origem esvazia o carrinho: os preços são outros, e um carrinho
@@ -703,9 +742,10 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   const temItens = itensCarrinho.length > 0
   const precisaFatura = exigeFatura(metodo)
   const refOk = refPlataformaValida(refPlataforma)
+  const falhaTipoCartao = eTpa(metodo) && !tipoCartao
 
   async function concluirVenda() {
-    if (!temItens) return
+    if (!temItens || falhaTipoCartao) return
     setOcupado(true)
     setAviso('')
     try {
@@ -752,6 +792,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
           estado_pagamento: 'pago',
           estado: 'entregue',
           metodo_pagamento: metodo,
+          ...(eTpa(metodo) ? { tipo_cartao: tipoCartao } : {}),
         })
         .eq('id', orderId)
       if (errPago) {
@@ -813,7 +854,9 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   )
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-5 lg:flex-row">
+      {/* Coluna dos artigos */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
       <h2 className="font-display text-sm font-bold uppercase tracking-widest text-ambar-500">
         Venda manual
       </h2>
@@ -895,7 +938,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       )}
 
       {/* Grelha de produtos */}
-      <div className="grid max-h-52 grid-cols-2 gap-2 overflow-y-auto pr-1 xl:grid-cols-3">
+      <div className="grid min-h-44 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto p-0.5 xl:grid-cols-3">
         {vendaveisDaCat.map((v) => {
           const qtd = carrinho[v.chave]?.quantidade || 0
           return (
@@ -903,10 +946,10 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
               key={v.chave}
               type="button"
               onClick={() => adicionar(v)}
-              className={`cursor-pointer rounded-xl border px-3 py-3 text-left transition-colors ${
+              className={`min-h-16 cursor-pointer rounded-xl border px-3 py-3 text-left shadow-sm transition-colors ${
                 qtd > 0
-                  ? 'border-ambar-500/60 bg-ambar-500/10 text-creme-50'
-                  : 'border-grafite-600 text-creme-400 hover:border-creme-300'
+                  ? 'border-ambar-500 bg-ambar-500/10 text-creme-50'
+                  : 'border-grafite-700 bg-grafite-900 text-creme-50 hover:border-ambar-500'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -917,7 +960,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
                   </span>
                 )}
               </div>
-              <span className="mt-0.5 block text-xs text-creme-500/60">{fmt(v.preco)}</span>
+              <span className="mt-1 block font-display text-sm font-bold text-ambar-500">{fmt(v.preco)}</span>
             </button>
           )
         })}
@@ -928,8 +971,15 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
         )}
       </div>
 
+      </div>
+
+      {/* Coluna da conta: carrinho, total e pagamento sempre à vista */}
+      <div className="flex min-h-0 w-full shrink-0 flex-col gap-3 overflow-y-auto lg:w-96">
+      <h2 className="font-display text-sm font-bold uppercase tracking-widest text-ambar-500">
+        Conta
+      </h2>
       {/* Carrinho */}
-      <div className="flex-1 overflow-y-auto rounded-2xl border border-grafite-700 bg-grafite-900 p-4">
+      <div className="min-h-24 flex-1 overflow-y-auto rounded-2xl border border-grafite-700 bg-grafite-900 p-4 shadow-sm">
         {itensCarrinho.length === 0 ? (
           // O resultado da última venda fica à vista depois de o carrinho
           // esvaziar — antes ficava dentro do bloco do total e desaparecia
@@ -975,7 +1025,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
 
       {/* Total + método + conclusão */}
       {temItens && (
-        <div className="space-y-3">
+        <div className="shrink-0 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold uppercase tracking-widest text-creme-500/60">
               Total
@@ -1025,16 +1075,17 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
           ) : (
           <>
           {/* Método de pagamento */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="grid grid-cols-3 gap-2">
             {METODOS_PAGAMENTO.map((m) => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => {
                   setMetodo(m.id)
+                  setTipoCartao(null)
                   setRecebido('')
                 }}
-                className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
+                className={`cursor-pointer whitespace-nowrap rounded-full px-1 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
                   metodo === m.id
                     ? 'bg-ambar-500 text-grafite-950'
                     : 'border border-grafite-600 text-creme-400 hover:border-creme-300'
@@ -1044,6 +1095,29 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
               </button>
             ))}
           </div>
+
+          {/* TPA: débito ou crédito, que define o tipo na fatura */}
+          {eTpa(metodo) && (
+            <div className="flex items-center gap-2" role="radiogroup" aria-label="Tipo de cartão">
+              <span className="text-xs font-semibold uppercase tracking-widest text-creme-500/60">Pagou com</span>
+              {TIPOS_CARTAO.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={tipoCartao === t.id}
+                  onClick={() => setTipoCartao(t.id)}
+                  className={`cursor-pointer rounded-full px-4 py-1.5 text-xs font-semibold uppercase tracking-widest transition-colors ${
+                    tipoCartao === t.id
+                      ? 'bg-ambar-500 text-grafite-950'
+                      : 'border border-grafite-600 text-creme-400 hover:border-creme-300'
+                  }`}
+                >
+                  {t.rotulo}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* NIF (só para dinheiro, opcional) */}
           {metodo === 'dinheiro' && (
@@ -1107,7 +1181,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
               <button
                 type="button"
                 onClick={concluirVenda}
-                disabled={ocupado || !temItens || !nifOk}
+                disabled={ocupado || !temItens || !nifOk || falhaTipoCartao}
                 className={`${BTN_PRIMARIO} flex-1`}
               >
                 {ocupado ? 'A processar…' : 'Concluir venda'}
@@ -1118,6 +1192,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
           )}
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -1125,7 +1200,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
 // ----------------------------
 // PDV principal
 // ----------------------------
-function Pdv({ aoBloquear }) {
+function Pdv({ aoBloquear, estadoEcra }) {
   // Um único canal para o PDV inteiro — partilhado pelos dois painéis, para
   // que o visor nunca receba dois estados em conflito.
   const { emitir, limpar, emitirConcluida } = useCanalVisor()
@@ -1133,16 +1208,17 @@ function Pdv({ aoBloquear }) {
   const [verVendas, setVerVendas] = useState(false)
 
   return (
-    <div className="flex min-h-dvh flex-col bg-grafite-950">
+    <div className="flex h-dvh flex-col bg-grafite-950">
       {/* Barra de topo */}
-      <header className="flex items-center justify-between border-b border-grafite-700 px-6 py-3">
+      <header className="flex shrink-0 items-center justify-between border-b border-grafite-700 bg-grafite-900 px-6 py-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <img src={logoStamp} alt="" className="h-9 w-9 rounded-full mix-blend-lighten" />
-          <span className="font-display text-base font-bold uppercase tracking-tight text-creme-50">
-            100PRESSÃO PDV
+          <img src={logoStamp} alt="" className="h-11 w-11 rounded-full" />
+          <span className="font-display text-lg font-bold uppercase tracking-tight text-creme-50">
+            100PRESSÃO <span className="font-normal text-ambar-500">Caixa</span>
           </span>
         </div>
         <div className="flex items-center gap-4">
+          <IndicadorEcra estado={estadoEcra} />
           <Relogio />
           <button
             type="button"
@@ -1169,13 +1245,12 @@ function Pdv({ aoBloquear }) {
         </div>
       </header>
 
-      {/* Dois painéis, meio a meio. O da venda manual estava fixo em 384 px, o
-          que o deixava estreito num ecrã de balcão enquanto sobrava espaço à
-          esquerda. `min-w-0` é o que impede um item de nome comprido de
-          empurrar a divisão. */}
-      <div className="flex flex-1 overflow-hidden gap-0">
+      {/* Pedidos à esquerda, venda manual (artigos + conta) a ocupar o resto.
+          `min-w-0` é o que impede um item de nome comprido de empurrar a
+          divisão. */}
+      <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
         {/* Painel esquerdo — pedidos activos */}
-        <div className="min-w-0 flex-1 overflow-y-auto border-r border-grafite-700 p-5">
+        <div className="w-80 min-w-0 shrink-0 overflow-y-auto border-r border-grafite-700 p-5 xl:w-96">
           <PainelPedidos />
         </div>
 
@@ -1201,6 +1276,9 @@ function CaixaPdv() {
   // EquipaLayout), para quem já desbloqueou o turno não ter de repetir o PIN ao
   // passar do Staff para a caixa.
   const [desbloqueado, setDesbloqueado] = useState(false)
+  // Igual ao Staff: com a sessão aberta o ecrã não apaga (também no ecrã do
+  // PIN, para o balcão não adormecer entre turnos).
+  const estadoEcra = useEcraLigado(autenticado === true)
 
   useEffect(() => {
     if (!supabase) {
@@ -1246,17 +1324,22 @@ function CaixaPdv() {
 
   // A carregar
   if (autenticado === null) {
-    return <div className="min-h-dvh bg-grafite-950" />
+    return <div className="tema-caixa min-h-dvh bg-grafite-950" />
   }
 
   // Sem Supabase ou sem auth → login
   if (!supabase || !autenticado) {
-    return <Login aoEntrar={() => setAutenticado(true)} />
+    return (
+      <div className="tema-caixa">
+        <Login aoEntrar={() => setAutenticado(true)} />
+      </div>
+    )
   }
 
   // Autenticado mas bloqueado → PIN
   if (!desbloqueado) {
     return (
+      <div className="tema-caixa">
       <PinGate
         sessaoId={sessao?.user?.id}
         aoDesbloquear={() => {
@@ -1267,11 +1350,16 @@ function CaixaPdv() {
           setDesbloqueado(true)
         }}
       />
+      </div>
     )
   }
 
   // Tudo ok → PDV
-  return <Pdv aoBloquear={bloquear} />
+  return (
+    <div className="tema-caixa">
+      <Pdv aoBloquear={bloquear} estadoEcra={estadoEcra} />
+    </div>
+  )
 }
 
 export default CaixaPdv

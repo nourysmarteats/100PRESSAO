@@ -11,7 +11,7 @@
 // As plataformas (Uber Eats, Glovo, Bolt Food) não entram aqui: faturam elas.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { fmt, METODOS_PAGAMENTO, nomeItemPedido, SELECT_PEDIDO_COMPLETO } from '../../lib/pedidos'
+import { fmt, METODOS_PAGAMENTO, TIPOS_CARTAO, nomeItemPedido, SELECT_PEDIDO_COMPLETO } from '../../lib/pedidos'
 import { nifOpcionalValido, nifDeEmpresa } from '../../lib/nif'
 import { chamarApiFaturar } from '../../lib/equipa'
 import { imprimirTalao, jaFoiImpresso } from '../../lib/talao'
@@ -44,6 +44,11 @@ const hora = (iso) =>
 
 const rotuloMetodo = (id) =>
   id === 'plataforma' ? 'Pago na plataforma' : METODOS_PAGAMENTO.find((m) => m.id === id)?.rotulo || id || '—'
+
+const rotuloPagamento = (p) => {
+  const cartao = TIPOS_CARTAO.find((t) => t.id === p.tipo_cartao)?.rotulo
+  return `${rotuloMetodo(p.metodo_pagamento)}${cartao ? ` · ${cartao}` : ''}`
+}
 
 function origemDaVenda(p) {
   const posicao = p.sessions?.posicao_mesa || ''
@@ -157,7 +162,7 @@ function DetalheVenda({ venda, aoVoltar, aoAtualizar }) {
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
         <Etiqueta>{origemDaVenda(venda)}</Etiqueta>
-        <Etiqueta>{rotuloMetodo(venda.metodo_pagamento)}</Etiqueta>
+        <Etiqueta>{rotuloPagamento(venda)}</Etiqueta>
         {venda.numero_beta && <Etiqueta cor="ambar">Beta #{venda.numero_beta}</Etiqueta>}
         {especial && <Etiqueta cor="vermelho">{especial}</Etiqueta>}
       </div>
@@ -399,7 +404,7 @@ export default function PainelVendas({ aoFechar }) {
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <Etiqueta>{origemDaVenda(v)}</Etiqueta>
-                          <Etiqueta>{rotuloMetodo(v.metodo_pagamento)}</Etiqueta>
+                          <Etiqueta>{rotuloPagamento(v)}</Etiqueta>
                           {v.fatura_documento_id ? (
                             <Etiqueta cor="ambar">
                               {v.fatura_documento_numero || 'Fatura'}

@@ -45,6 +45,8 @@ export const INSTRUCAO_METODO = {
   multibanco: 'Insira ou aproxime o cartão do terminal',
   cartao: 'Insira ou aproxime o cartão do terminal',
   mbway: 'Confirme o pagamento na app MB Way do seu telemóvel',
+  tpa_revolut: 'Aproxime o cartão ou o telemóvel do terminal',
+  tpa_teya: 'Insira ou aproxime o cartão do terminal',
 }
 
 // Normaliza uma linha de order_items (painel de pedidos) ou do carrinho manual

@@ -118,6 +118,11 @@ export const TIPO_VENDUS_POR_METODO = {
   plataforma: process.env.VENDUS_TIPO_PLATAFORMA || null,
 }
 
+// TPA do balcão (Revolut, Teya): o tipo depende do cartão, que o operador indica
+// no Caixa ao receber (Leandro, 2026-11-03).
+export const TIPO_VENDUS_POR_CARTAO = { debito: 'CD', credito: 'CC' }
+const eTpa = (metodo) => metodo === 'tpa_revolut' || metodo === 'tpa_teya'
+
 // Só o dinheiro tem fatura opcional; tudo o resto é faturado (regra do Leandro,
 // 2026-08-08). Espelha exigeFatura() em src/lib/pedidos.js — o browser não é
 // fonte de verdade para isto, por isso a regra existe também deste lado.
@@ -233,7 +238,12 @@ export async function emitirFatura(admin, pedidoId, { nif, empresa } = {}) {
     throw new Error('O pedido ainda não está pago.')
   }
 
-  const tipoVendus = TIPO_VENDUS_POR_METODO[pedido.metodo_pagamento]
+  if (eTpa(pedido.metodo_pagamento) && !TIPO_VENDUS_POR_CARTAO[pedido.tipo_cartao]) {
+    throw new Error('Pagamento por TPA sem indicação de débito ou crédito.')
+  }
+  const tipoVendus = eTpa(pedido.metodo_pagamento)
+    ? TIPO_VENDUS_POR_CARTAO[pedido.tipo_cartao]
+    : TIPO_VENDUS_POR_METODO[pedido.metodo_pagamento]
   if (!tipoVendus) {
     // Em vez de um beco, listar o que a conta Vendus tem disponível — assim
     // sabe-se logo qual o código a pôr na variável de ambiente.

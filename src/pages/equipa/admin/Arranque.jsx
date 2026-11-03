@@ -427,6 +427,8 @@ const METODOS = [
   { id: 'mbway', rotulo: 'MB Way' },
   { id: 'multibanco', rotulo: 'Multibanco' },
   { id: 'cartao', rotulo: 'Cartão' },
+  { id: 'tpa_revolut', rotulo: 'TPA Revolut' },
+  { id: 'tpa_teya', rotulo: 'TPA Teya' },
   { id: 'pix', rotulo: 'Pix' },
   { id: 'dinheiro', rotulo: 'Dinheiro' },
 ]
