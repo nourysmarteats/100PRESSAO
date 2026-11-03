@@ -32,6 +32,11 @@
 .tema-caixa {
   color-scheme: light;
   color: var(--color-creme-50);
+  font-family: var(--font-sans);
+
+  /* Letra Inter só neste ecrã (decisão do Leandro, 3 nov 2026). */
+  --font-display: "Inter", system-ui, sans-serif;
+  --font-sans: "Inter", system-ui, sans-serif;
 
   --color-grafite-950: #f6f1e7; /* fundo: creme-50 original */
   --color-grafite-900: #fffcf6; /* cartões */

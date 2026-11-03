@@ -1268,7 +1268,19 @@ function Pdv({ aoBloquear, estadoEcra }) {
 // ----------------------------
 // Componente raiz — orquestra estados
 // ----------------------------
+const FONTE_CAIXA =
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+
 function CaixaPdv() {
+  // A Inter só é pedida neste ecrã, para não pesar nas páginas públicas.
+  useEffect(() => {
+    if (document.querySelector(`link[href="${FONTE_CAIXA}"]`)) return
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = FONTE_CAIXA
+    document.head.appendChild(link)
+  }, [])
+
   // null = a verificar, false = sem auth, objeto = sessão válida
   const [sessao, setSessao] = useState(null)
   const [autenticado, setAutenticado] = useState(null)
