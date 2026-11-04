@@ -87,3 +87,15 @@ só com a app aberta e só em modo proximidade ou a meio de uma entrega; apagada
 entregar (se indisponível) e quando tem > 15 min (cron 5 min). Cliente: `/acompanhar?p=<id>` via
 `acompanhar_entrega()` (posição só em 'recolhido'; link morto 2 h após entregue), link na confirmação e no
 email. Relatório mensal + "Lançar fatura" (Financeiro, Serviços externos) em `admin/RelatorioEntregas.jsx`.
+
+## Cliente Beta no Caixa (PDV) — 2026-11-04
+
+Venda manual ao balcão ganhou "+ Cliente Beta (−10%)": o operador escreve o
+número, confere o nome devolvido pelo servidor e aplica. Migração
+`20261104150000_cliente_beta_caixa.sql` **aplicada em produção** a 2026-11-04
+(funções `consultar_cliente_beta_caixa` e `aplicar_cliente_beta_caixa`, só
+`e_equipa()`). O desconto entra no servidor depois de `criar_pedido` e antes de
+marcar pago; a fatura já lia `desconto_percentagem`. Só canal `mesa` — nunca
+plataformas. A utilização fica em `cliente_beta_validacoes` (Admin →
+Utilizações). Contas em `src/lib/clienteBetaCaixa.js` (+ testes).
+Por fazer: o mesmo botão nos pedidos do menu QR pagos no painel da esquerda.

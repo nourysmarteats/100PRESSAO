@@ -1,6 +1,6 @@
 // Balcao Beta -- conferencia rapida ao pagar. A equipa introduz o numero que o
 // cliente mostra e ve, contra a lista real, se e Cliente Beta ativo e qual o
-// nome (para cruzar com o que a pessoa diz). O 10% aplica-se depois no Vendus.
+// nome (para cruzar com o que a pessoa diz). O 10% aplica-se no Caixa (+ Cliente Beta).
 // A verdade e sempre do servidor (RPC verificar_cliente_beta, so autenticados).
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -29,7 +29,7 @@ export default function BetaBalcao() {
   return (
     <div className="mx-auto max-w-md px-4 py-8">
       <h1 className="font-display text-2xl font-bold uppercase tracking-tight text-grafite-900">Balcão Beta</h1>
-      <p className="mt-1 text-sm text-grafite-600/80">Confirma se é Cliente Beta antes de aplicar os 10% no Vendus.</p>
+      <p className="mt-1 text-sm text-grafite-600/80">Confirma se é Cliente Beta. Os 10% aplicam-se no Caixa, em "+ Cliente Beta".</p>
 
       <form onSubmit={verificar} className="mt-6">
         <label className="block text-xs font-semibold uppercase tracking-widest text-ambar-600" htmlFor="num">Número do cliente</label>
@@ -55,7 +55,7 @@ export default function BetaBalcao() {
           <p className="mt-1 font-display text-2xl font-bold text-green-800">Cliente Beta ativo</p>
           <p className="mt-2 text-xl font-semibold text-grafite-900">{res.nome}</p>
           {res.unidade && <p className="text-sm text-grafite-600/80">{res.unidade}</p>}
-          <p className="mt-4 rounded-xl bg-white/70 px-4 py-3 text-sm text-grafite-800">Confirma que o nome bate com a pessoa e aplica <strong>10% no Vendus</strong>.</p>
+          <p className="mt-4 rounded-xl bg-white/70 px-4 py-3 text-sm text-grafite-800">Confirma que o nome bate com a pessoa e aplica os <strong>10% no Caixa</strong>.</p>
         </div>
       )}
       {estado === 'inativo' && res && (

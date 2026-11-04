@@ -24,6 +24,7 @@ import {
 import { useCanalVisor, linhaVisor, totalLinhas } from '../lib/visor'
 import { servidoHoje } from '../lib/dias'
 import { construirVendaveis, categoriasComArtigos, pesquisarVendaveis } from '../lib/caixaEmenta'
+import { descontoCarrinho, numeroBetaValido } from '../lib/clienteBetaCaixa'
 import { chamarApiFaturar, definirOperador, definirTurno, turnoDesbloqueadoPor } from '../lib/equipa'
 import { imprimirTalao } from '../lib/talao'
 import { useEcraLigado } from '../lib/ecraLigado'
@@ -550,6 +551,15 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
   const [origem, setOrigem] = useState('balcao')
   const [refPlataforma, setRefPlataforma] = useState('')
   const plataforma = ePlataforma(origem)
+  // Cliente Beta (só ao balcão, nunca em plataformas — decisão de 25/10/2026).
+  // O operador escreve o número que o cliente mostra, confere o nome que o
+  // servidor devolve e aplica. Os 10% só entram no pedido no servidor, em
+  // aplicar_cliente_beta_caixa, antes de o pedido ser marcado como pago.
+  const [betaAberto, setBetaAberto] = useState(false)
+  const [betaNumero, setBetaNumero] = useState('')
+  const [betaEstado, setBetaEstado] = useState('idle') // idle | a_verificar | ok | inativo | nao | erro
+  const [betaRes, setBetaRes] = useState(null)
+  const [betaAplicado, setBetaAplicado] = useState(null) // { numero, nome, pct }
   // Só devolvemos o visor ao estado neutro se este painel chegou a escrever
   // nele — senão, esvaziar o carrinho manual apagava o pedido que o painel da
   // esquerda tinha posto no ecrã do cliente.
@@ -645,6 +655,10 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
     }
     escreveuNoVisorRef.current = true
     const itens = linhas.map((i) => linhaVisor(i.chave, i.nome, i.quantidade, i.preco * i.quantidade))
+    if (betaAplicado) {
+      const desc = descontoCarrinho(linhas, betaAplicado.pct)
+      if (desc > 0) itens.push(linhaVisor('beta', `Desconto Cliente Beta −${betaAplicado.pct}%`, 1, -desc))
+    }
     const total = totalLinhas(itens)
     const valorRecebido = Number(String(recebido).replace(',', '.')) || 0
     const temTroco = metodo === 'dinheiro' && valorRecebido >= total && valorRecebido > 0
@@ -658,7 +672,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       troco: temTroco ? valorRecebido - total : null,
       aProcessar: ocupado,
     })
-  }, [carrinho, metodo, pedirNif, recebido, ocupado, emitir, limpar, plataforma])
+  }, [carrinho, metodo, pedirNif, recebido, ocupado, emitir, limpar, plataforma, betaAplicado])
 
   // `vendavel` é a forma única de produto simples, variante e combo. O preço
   // vem sempre da linha certa — o servidor revalida em criar_pedido, mas o
@@ -688,6 +702,34 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
     setRecebido('')
     setRefPlataforma('')
     setTipoCartao(null)
+    limparBeta()
+  }
+
+  function limparBeta() {
+    setBetaAberto(false)
+    setBetaNumero('')
+    setBetaEstado('idle')
+    setBetaRes(null)
+    setBetaAplicado(null)
+  }
+
+  async function verificarBeta() {
+    const n = numeroBetaValido(betaNumero)
+    if (!n) { setBetaEstado('erro'); return }
+    if (!supabase) { setBetaEstado('erro'); return }
+    setBetaEstado('a_verificar')
+    const { data, error } = await supabase.rpc('consultar_cliente_beta_caixa', { p_numero: n })
+    if (error) { setBetaEstado('erro'); return }
+    const r = Array.isArray(data) ? data[0] : data
+    if (!r) { setBetaRes(null); setBetaEstado('nao'); return }
+    setBetaRes(r)
+    setBetaEstado(r.ativo ? 'ok' : 'inativo')
+  }
+
+  function aplicarBeta() {
+    if (!betaRes?.ativo) return
+    setBetaAplicado({ numero: betaRes.numero, nome: betaRes.nome, pct: Number(betaRes.desconto_pct) || 10 })
+    setRecebido('')
   }
 
   // Mudar de origem esvazia o carrinho: os preços são outros, e um carrinho
@@ -739,6 +781,8 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
 
   const itensCarrinho = Object.values(carrinho)
   const totalCarrinho = itensCarrinho.reduce((s, i) => s + i.preco * i.quantidade, 0)
+  const descontoBeta = betaAplicado && !plataforma ? descontoCarrinho(itensCarrinho, betaAplicado.pct) : 0
+  const totalAPagar = Math.round((totalCarrinho - descontoBeta) * 100) / 100
   const temItens = itensCarrinho.length > 0
   const precisaFatura = exigeFatura(metodo)
   const refOk = refPlataformaValida(refPlataforma)
@@ -777,6 +821,24 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
 
       const orderId = Array.isArray(order) ? order[0]?.id : order?.id
       if (!orderId) throw new Error('Pedido criado sem ID.')
+      const numeroVenda = (Array.isArray(order) ? order[0]?.numero : order?.numero) ?? orderId
+
+      // 2b. Cliente Beta: o desconto entra no servidor ANTES de marcar pago,
+      // para a fatura e o financeiro saírem já com os 10%. Se falhar, pára
+      // aqui — melhor uma venda por fechar do que cobrar o preço errado.
+      if (betaAplicado) {
+        if (!supabase) throw new Error('Sessão expirada — volta a entrar para aplicar o desconto Beta.')
+        const { error: errBeta } = await supabase.rpc('aplicar_cliente_beta_caixa', {
+          p_order_id: orderId,
+          p_numero: betaAplicado.numero,
+        })
+        if (errBeta) {
+          throw new Error(
+            `Venda nº ${numeroVenda} criada mas SEM desconto Beta: ${errBeta.message}. ` +
+              'Não cobres ainda — retira o Cliente Beta e volta a lançar, ou fecha-a pelo Staff.',
+          )
+        }
+      }
 
       // 3. Marcar como pago + entregue imediatamente.
       //
@@ -797,7 +859,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
         .eq('id', orderId)
       if (errPago) {
         throw new Error(
-          `Venda nº ${(Array.isArray(order) ? order[0]?.numero : order?.numero) ?? orderId} criada mas NÃO marcada como paga: ${errPago.message}. ` +
+          `Venda nº ${numeroVenda} criada mas NÃO marcada como paga: ${errPago.message}. ` +
             'Fecha-a pelo Staff antes de continuar.',
         )
       }
@@ -818,7 +880,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       // 5. Agradecimento no visor, com o troco quando há dinheiro pelo meio
       const valorRecebido = Number(String(recebido).replace(',', '.')) || 0
       const troco =
-        metodo === 'dinheiro' && valorRecebido >= totalCarrinho ? valorRecebido - totalCarrinho : null
+        metodo === 'dinheiro' && valorRecebido >= totalAPagar ? valorRecebido - totalAPagar : null
       escreveuNoVisorRef.current = false
       emitirConcluida({ troco })
       limparCarrinho()
@@ -1026,12 +1088,24 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
       {/* Total + método + conclusão */}
       {temItens && (
         <div className="shrink-0 space-y-3">
+          {descontoBeta > 0 && (
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center justify-between text-creme-500/60">
+                <span>Subtotal</span>
+                <span>{fmt(totalCarrinho)}</span>
+              </div>
+              <div className="flex items-center justify-between text-green-400">
+                <span>Cliente Beta #{betaAplicado.numero} · −{betaAplicado.pct}%</span>
+                <span>−{fmt(descontoBeta)}</span>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold uppercase tracking-widest text-creme-500/60">
               Total
             </span>
             <span className="font-display text-3xl font-bold text-ambar-400">
-              {fmt(totalCarrinho)}
+              {fmt(totalAPagar)}
             </span>
           </div>
 
@@ -1074,6 +1148,83 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
             </div>
           ) : (
           <>
+          {/* Cliente Beta */}
+          {betaAplicado ? (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-green-600/40 bg-green-600/10 px-3 py-2 text-sm">
+              <span className="min-w-0 truncate text-green-300">
+                ✓ Cliente Beta #{betaAplicado.numero} · {betaAplicado.nome}
+              </span>
+              <button
+                type="button"
+                onClick={limparBeta}
+                className="shrink-0 cursor-pointer text-xs font-semibold uppercase tracking-widest text-creme-500/60 hover:text-creme-300"
+              >
+                Remover
+              </button>
+            </div>
+          ) : !betaAberto ? (
+            <button
+              type="button"
+              onClick={() => setBetaAberto(true)}
+              className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-ambar-500/80 hover:text-ambar-400"
+            >
+              + Cliente Beta (−10%)
+            </button>
+          ) : (
+            <div className="space-y-2 rounded-xl border border-grafite-700 bg-grafite-900 p-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  verificarBeta()
+                }}
+                className="flex gap-2"
+              >
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  autoFocus
+                  maxLength={3}
+                  value={betaNumero}
+                  onChange={(e) => {
+                    setBetaNumero(e.target.value.replace(/\D/g, '').slice(0, 3))
+                    if (betaEstado !== 'idle') { setBetaEstado('idle'); setBetaRes(null) }
+                  }}
+                  placeholder="N.º Beta"
+                  aria-label="Número de Cliente Beta"
+                  className="w-28 rounded-xl border border-grafite-600 bg-grafite-800 px-3 py-2 text-center font-display text-lg font-bold tracking-[0.2em] text-creme-50 outline-none focus:border-ambar-500"
+                />
+                <button
+                  type="submit"
+                  disabled={betaEstado === 'a_verificar' || betaNumero.length !== 3}
+                  className={`${BTN_SECUNDARIO} flex-1 text-xs`}
+                >
+                  {betaEstado === 'a_verificar' ? 'A verificar…' : 'Verificar'}
+                </button>
+                <button type="button" onClick={limparBeta} className={`${BTN_SECUNDARIO} px-3 text-xs`} aria-label="Fechar">
+                  ✕
+                </button>
+              </form>
+              {betaEstado === 'ok' && betaRes && (
+                <div className="space-y-2">
+                  <p className="text-sm text-green-300">
+                    ✓ <strong>{betaRes.nome}</strong> — confirma que é a pessoa à tua frente.
+                  </p>
+                  <button type="button" onClick={aplicarBeta} className={`${BTN_PRIMARIO} w-full text-xs`}>
+                    Aplicar −{Number(betaRes.desconto_pct) || 10}%
+                  </button>
+                </div>
+              )}
+              {betaEstado === 'inativo' && betaRes && (
+                <p className="text-sm text-ambar-400">{betaRes.nome}: sem benefício ativo. Não aplicar desconto.</p>
+              )}
+              {betaEstado === 'nao' && <p className="text-sm text-red-400">Este número não é Cliente Beta.</p>}
+              {betaEstado === 'erro' && (
+                <p className="text-sm text-red-400">Número inválido (3 dígitos) ou falha de ligação.</p>
+              )}
+            </div>
+          )}
+
           {/* Método de pagamento */}
           <div className="grid grid-cols-3 gap-2">
             {METODOS_PAGAMENTO.map((m) => (
@@ -1161,7 +1312,7 @@ function PainelVendaManual({ emitir, limpar, emitirConcluida }) {
           {/* Numerário passa pelo ecrã de troco; o resto fecha directamente. */}
           {metodo === 'dinheiro' ? (
             <PagamentoDinheiro
-              total={totalCarrinho}
+              total={totalAPagar}
               recebido={recebido}
               aoMudarRecebido={setRecebido}
               aoConfirmar={concluirVenda}
