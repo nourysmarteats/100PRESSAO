@@ -109,6 +109,6 @@ prazo de 2 h; expurgo de hora a hora pela tarefa `expurgar-distancias`), e a
 aquela morada. `p_distancia` vindo do browser é ignorado. Migração
 `20261105130000_distancia_calculada_servidor.sql`.
 
-**Por fechar:** a faturação do projecto Google Cloud da `GOOGLE_MAPS_API_KEY` está
-desactivada (`REQUEST_DENIED`). Sem ela nenhuma entrega online passa: só
-levantamento. Reactivar em console.cloud.google.com/billing.
+Faturação do projecto Google Cloud **100PRESSAO** (`pressao-504019`, chave
+"Maps Platform API Key", limitada à Distance Matrix API) reactivada pelo Leandro em
+2026-11-05. Testado em produção: Algés → 3,95 km; morada trocada é recusada.
