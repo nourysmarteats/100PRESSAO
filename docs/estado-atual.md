@@ -112,3 +112,15 @@ aquela morada. `p_distancia` vindo do browser é ignorado. Migração
 Faturação do projecto Google Cloud **100PRESSAO** (`pressao-504019`, chave
 "Maps Platform API Key", limitada à Distance Matrix API) reactivada pelo Leandro em
 2026-11-05. Testado em produção: Algés → 3,95 km; morada trocada é recusada.
+
+## Restaurante online — mínimos e despacho (2026-11-05)
+
+- Mínimo de encomenda: `min_encomenda` (15 €) até `km_gratis` (2 km, portes grátis);
+  `min_encomenda_portes` (8 €) acima disso. Regra no checkout e na `criar_pedido_online()`.
+- Despacho: desde que o pagamento entra, a equipa tem `despacho_restaurante_min` (3 min)
+  para carregar em "Entregamos nós" no Staff (`entrega_pela_equipa()`, `entrega_modo = 'propria'`).
+  Passado o prazo, o pg_cron `despacho-automatico` (30 s) chama o estafeta mais próximo
+  (`despacho_modo = 'proximidade'`). `chamar_estafeta()` usa o mesmo núcleo, `despachar_entrega()`.
+- **Por fechar:** `despacho_teste` continua ligado e só há uma empresa (de simulação, 2 estafetas
+  de teste). Até haver empresa real com acordo art. 28.º, o automático oferece encomendas reais
+  aos estafetas de teste; se ninguém aceitar, o Staff mostra "Sem estafeta" ao fim de 5 min.
