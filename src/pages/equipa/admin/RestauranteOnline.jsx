@@ -114,7 +114,9 @@ function EconomiaEntrega({ cfg, entregas }) {
         portes não precisam de cobrir o estafeta sozinhos: como os preços online
         são 10% acima do balcão, cada carrinho traz{' '}
         <strong className="text-grafite-900">{eur(almofada)}</strong> de folga já
-        na encomenda mínima de {eur(c.min_encomenda)}.
+        na encomenda mínima de {eur(c.min_encomenda)}. Atenção: o mínimo só se
+        aplica até {c.km_gratis} km — mais longe não há mínimo, e um carrinho
+        pequeno pode não cobrir o estafeta.
       </p>
 
       <div className="mt-4 overflow-x-auto">
@@ -404,7 +406,7 @@ function RestauranteOnline() {
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
           <Campo
-            rotulo="Encomenda mínima"
+            rotulo="Encomenda mínima (só até aos km grátis)"
             sufixo="€"
             inputMode="decimal"
             value={cfg.min_encomenda}

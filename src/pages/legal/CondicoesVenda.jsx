@@ -82,7 +82,8 @@ function CondicoesVenda() {
           A entrega é gratuita até 2 km. Acima disso, aplica-se uma taxa base de 1,60 € mais
           0,90 € por cada quilómetro adicional (calculado pela distância até à morada indicada),
           até ao raio máximo de 12 km. O valor exato é-te mostrado no carrinho antes do
-          pagamento. A encomenda mínima para entrega é de 20 €.
+          pagamento. Nas entregas até 2 km, com portes grátis, a encomenda mínima é de 15 €;
+          acima de 2 km não há encomenda mínima.
         </p>
         <p className="mt-2">
           As refeições são preparadas na hora e entregues ou levantadas no próprio dia, no

@@ -298,7 +298,10 @@ function Restaurante() {
     )
   }, [betaAtivo, beta, linhas])
   const total = subtotal - descontoBeta + portes
-  const abaixoMinimo = tipo === 'entrega' && subtotal < Number(cfg.min_encomenda || 0)
+  // Encomenda mínima só nas entregas com portes grátis (até km_gratis). Acima
+  // disso o cliente já paga portes e não há mínimo — regra repetida no servidor.
+  const faltaParaMinimo = tipo === 'entrega' && subtotal < Number(cfg.min_encomenda || 0)
+  const abaixoMinimo = faltaParaMinimo && distancia > 0 && distancia <= Number(cfg.km_gratis || 0)
   const foraDoRaio = tipo === 'entrega' && distancia > Number(cfg.raio_max || 0)
   // Sem distância não há portes: a encomenda #51 passou com entrega grátis para
   // Algés porque o cálculo falhou e ninguém impediu o avanço. Uma entrega tem
@@ -748,7 +751,7 @@ function Restaurante() {
             {tipo === 'entrega' ? (
               <>
                 Portes grátis até <strong className="text-grafite-900">{cfg.km_gratis} km</strong>; acima,{' '}
-                {fmt(cfg.taxa_base)} + {fmt(cfg.preco_km)}/km · mínimo{' '}
+                {fmt(cfg.taxa_base)} + {fmt(cfg.preco_km)}/km, sem mínimo · até {cfg.km_gratis} km, mínimo{' '}
                 <strong className="text-grafite-900">{fmt(cfg.min_encomenda)}</strong> · entregamos até {cfg.raio_max} km
               </>
             ) : (
@@ -869,7 +872,8 @@ function Restaurante() {
                   subtotal={subtotal}
                   minimo={Number(cfg.min_encomenda || 0)}
                   tipo={tipo}
-                  abaixoMinimo={abaixoMinimo}
+                  faltaParaMinimo={faltaParaMinimo}
+                  kmGratis={cfg.km_gratis}
                   onAvancar={() => setFase('checkout')}
                 />
               </div>
@@ -894,7 +898,7 @@ function Restaurante() {
               </div>
               {tipo === 'entrega' && (
                 <p className="mt-3 text-xs text-grafite-600/70">
-                  Grátis até {cfg.km_gratis} km; acima, {fmt(cfg.taxa_base)} + {fmt(cfg.preco_km)}/km, até {cfg.raio_max} km. Encomenda mínima {fmt(cfg.min_encomenda)}.
+                  Grátis até {cfg.km_gratis} km, com encomenda mínima de {fmt(cfg.min_encomenda)}; acima, {fmt(cfg.taxa_base)} + {fmt(cfg.preco_km)}/km, sem mínimo, até {cfg.raio_max} km.
                 </p>
               )}
               <p className="mt-2 text-xs text-grafite-600/70">
@@ -1130,7 +1134,7 @@ function Restaurante() {
               {descontoBeta > 0 && <div className="mt-1 flex justify-between text-sm text-green-700"><span>Desconto Cliente Beta (−{beta.pct}%)</span><span>−{fmt(descontoBeta)}</span></div>}
               {tipo === 'entrega' && <div className="mt-1 flex justify-between text-sm text-grafite-600"><span>Portes {portes === 0 ? '(grátis)' : ''}</span><span>{fmt(portes)}</span></div>}
               <div className="mt-2 flex justify-between border-t border-creme-300 pt-2 font-display text-lg font-bold text-grafite-900"><span>Total</span><span>{fmt(total)}</span></div>
-              {abaixoMinimo && <p className="mt-2 text-sm text-red-600">Encomenda mínima de {fmt(cfg.min_encomenda)} para entrega. Faltam {fmt(cfg.min_encomenda - subtotal)}.</p>}
+              {abaixoMinimo && <p className="mt-2 text-sm text-red-600">Nas entregas até {cfg.km_gratis} km (portes grátis) a encomenda mínima é de {fmt(cfg.min_encomenda)}. Faltam {fmt(cfg.min_encomenda - subtotal)}.</p>}
               {bloqueioRecolha && <p className="mt-2 text-sm text-red-600">Tens no pedido artigos só para levantar. Escolhe levantamento ou retira-os do pedido.</p>}
               {foraDoRaio && <p className="mt-2 text-sm text-red-600">Fora da área de entrega (máx. {cfg.raio_max} km). Escolhe levantamento ou uma morada mais próxima.</p>}
               {semDistancia && !foraDoRaio && (
@@ -1316,7 +1320,7 @@ function Restaurante() {
       {fase === 'menu' && nItens > 0 && (
         <div className="sticky bottom-0 z-30 border-t border-creme-300 bg-creme-50/95 backdrop-blur lg:hidden">
           <div className="mx-auto max-w-6xl px-6 py-3">
-            {abaixoMinimo && <BarraProgresso subtotal={subtotal} minimo={Number(cfg.min_encomenda || 0)} />}
+            {faltaParaMinimo && <BarraProgresso subtotal={subtotal} minimo={Number(cfg.min_encomenda || 0)} kmGratis={cfg.km_gratis} />}
             <div className="mt-2 flex items-center justify-between gap-4">
               <span className="text-sm text-grafite-600">{nItens} {nItens === 1 ? 'item' : 'itens'} · <strong className="text-grafite-900">{fmt(subtotal)}</strong></span>
               <button type="button" onClick={() => setFase('checkout')} className={BOTAO}>Rever pedido →</button>
@@ -1393,7 +1397,7 @@ function CabecalhoLoja({ tipo, cfg }) {
     },
     {
       rotulo: 'Mínimo',
-      valor: tipo === 'entrega' ? fmt(cfg.min_encomenda) : 'Sem mínimo',
+      valor: tipo === 'entrega' ? `${fmt(cfg.min_encomenda)} até ${cfg.km_gratis} km` : 'Sem mínimo',
     },
   ]
 
@@ -1619,7 +1623,7 @@ function FolhaItem({ item, carrinho, onFechar, onConfirmar }) {
 }
 
 // ── Carrinho do desktop ──
-function ResumoCarrinho({ linhas, mudar, subtotal, minimo, tipo, abaixoMinimo, onAvancar }) {
+function ResumoCarrinho({ linhas, mudar, subtotal, minimo, tipo, faltaParaMinimo, kmGratis, onAvancar }) {
   return (
     <div className={`${CARTAO} p-5`}>
       <h2 className="font-display text-lg font-bold uppercase tracking-tight text-grafite-900">O teu pedido</h2>
@@ -1640,9 +1644,9 @@ function ResumoCarrinho({ linhas, mudar, subtotal, minimo, tipo, abaixoMinimo, o
             <span>Subtotal</span>
             <span>{fmt(subtotal)}</span>
           </div>
-          {tipo === 'entrega' && abaixoMinimo && (
+          {tipo === 'entrega' && faltaParaMinimo && (
             <div className="mt-3">
-              <BarraProgresso subtotal={subtotal} minimo={minimo} />
+              <BarraProgresso subtotal={subtotal} minimo={minimo} kmGratis={kmGratis} />
             </div>
           )}
           <button type="button" onClick={onAvancar} className={`${BOTAO} mt-4 w-full`}>
@@ -1655,12 +1659,12 @@ function ResumoCarrinho({ linhas, mudar, subtotal, minimo, tipo, abaixoMinimo, o
 }
 
 // ── Progresso até ao mínimo de encomenda ──
-function BarraProgresso({ subtotal, minimo }) {
+function BarraProgresso({ subtotal, minimo, kmGratis }) {
   const pct = minimo > 0 ? Math.min(100, (subtotal / minimo) * 100) : 100
   return (
     <div>
       <p className="text-xs text-grafite-600">
-        Faltam <strong className="text-grafite-900">{fmt(minimo - subtotal)}</strong> para o mínimo de entrega.
+        Faltam <strong className="text-grafite-900">{fmt(minimo - subtotal)}</strong> para o mínimo das entregas grátis (até {kmGratis} km). Mais longe, não há mínimo.
       </p>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-creme-300">
         <div className="h-full rounded-full bg-ambar-500 transition-[width] duration-300" style={{ width: `${pct}%` }} />
