@@ -123,6 +123,8 @@ Faturação do projecto Google Cloud **100PRESSAO** (`pressao-504019`, chave
   (`empresas_entrega.frota_propria`, Sintonia dos Temperos, custo 0 €, só pessoas da casa); depois de
   `despacho_espera_min` (5 min) sem ninguém, `sem_estafeta`. "Entregamos nós" no Staff
   (`entrega_pela_equipa()`) é o recurso manual a qualquer momento.
+- 2026-11-05: `despacho_teste` **desligado** (operação a sério). Sem parceiros reais com acordo
+  art. 28.º, cada entrega vai logo para a frota própria. Seguro de acidentes de trabalho confirmado
+  pelo Leandro.
 - **Por fechar:** convidar as pessoas da frota própria (Admin → Empresas de entrega → frota própria →
-  Criar convite). `despacho_teste` continua ligado: os "parceiros" são os 2 estafetas de teste da empresa
-  de simulação. Seguro de acidentes de trabalho de quem entrega: em aberto (Sofia, 1/11).
+  Criar convite). Sem ninguém na frota, cada entrega cai logo em "Sem estafeta".
