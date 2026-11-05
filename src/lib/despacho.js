@@ -39,21 +39,13 @@ const livre = (p) =>
 export const podeChamar = livre
 export const podeAssumir = livre
 
-// "Entregamos nós": a equipa ficou com a entrega (frota própria).
-export const pelaEquipa = (p) => p?.entrega_modo === 'propria'
+// Frota própria (ata 12/10/2026): último recurso, depois dos parceiros.
+export const daFrota = (p) => p?.entrega_modo === 'propria'
 
-// Segundos que faltam até o pg_cron chamar o estafeta mais próximo
-// (despacho_automatico). null quando já não há contagem: entrega já tratada,
-// ou encomenda por pagar.
-export function segundosParaAutomatico(p, minutos, agora = Date.now()) {
-  if (p?.tipo_entrega !== 'entrega' || p?.entrega_estado) return null
-  if (!['pago', 'na_entrega'].includes(p?.estado_pagamento)) return null
-  const base = new Date(p.pago_em || p.criado_em).getTime()
-  if (!Number.isFinite(base)) return null
-  return Math.max(0, Math.round((base + Number(minutos || 0) * 60000 - agora) / 1000))
-}
-
-export const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+// "Entregamos nós" no Staff: a equipa ficou com a entrega sem passar pela app
+// de estafeta, por isso é o Staff que avança A caminho → Entregue.
+export const entregaManual = (p) =>
+  daFrota(p) && !p?.estafeta_id && ['aceite', 'recolhido'].includes(p?.entrega_estado)
 
 // Uma chamada sem resposta: a base de dados marca sem_estafeta ao fim de N minutos.
 export const precisaAtencao = (p) => p?.entrega_estado === 'sem_estafeta'

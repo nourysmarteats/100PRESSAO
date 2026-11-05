@@ -15,7 +15,7 @@ import {
 import { chamarApiFaturar } from '../../lib/equipa'
 import { nifOpcionalValido } from '../../lib/nif'
 import { useAviso } from './admin/comuns'
-import { ESTADO_ENTREGA, podeChamar, podeAssumir, pelaEquipa, segundosParaAutomatico, mmss, precisaAtencao } from '../../lib/despacho'
+import { ESTADO_ENTREGA, podeChamar, podeAssumir, daFrota, entregaManual, precisaAtencao } from '../../lib/despacho'
 import { avisarDespacho } from '../../lib/push'
 import { imprimirTalao, jaFoiImpresso } from '../../lib/talao'
 import { idsNovos } from '../../lib/novosPedidos'
@@ -36,24 +36,20 @@ function Kpi({ rotulo, valor, destaque }) {
 
 // Estado da entrega, "Entregamos nós" e o botão para chamar estafeta. O tempo
 // real do Staff já recarrega os pedidos quando a encomenda muda (aceite,
-// recolhido, sem estafeta). Regra (Leandro, 2026-11-05): a equipa tem
-// `minRestaurante` minutos desde o pagamento para assumir a entrega; depois o
-// servidor (despacho_automatico) chama o estafeta mais próximo.
-function Despacho({ pedido, minRestaurante }) {
+// recolhido, sem estafeta). Ordem (ata 12/10/2026): mal o pagamento entra, o
+// servidor (despacho_automatico) chama o parceiro mais próximo; 3 min sem
+// resposta passa à frota própria; depois, alerta. "Entregamos nós" é o recurso
+// manual a qualquer momento.
+function Despacho({ pedido }) {
   const [ocupado, setOcupado] = useState(false)
   const [msg, setMsg] = useState('')
-  const [, tic] = useState(0)
   const estado = pedido.entrega_estado
-  const propria = pelaEquipa(pedido)
-  const restante = segundosParaAutomatico(pedido, minRestaurante)
+  const frota = daFrota(pedido)
+  const manual = entregaManual(pedido)
+  const pago = ['pago', 'na_entrega'].includes(pedido.estado_pagamento)
   useEffect(() => {
     if (estado === 'sem_estafeta') avisarDespacho(supabase, 'sem-estafeta', pedido.id) // o servidor só avisa uma vez
   }, [estado, pedido.id])
-  useEffect(() => {
-    if (!(restante > 0)) return undefined
-    const t = setInterval(() => tic((n) => n + 1), 1000)
-    return () => clearInterval(t)
-  }, [restante])
   async function assumir() {
     setOcupado(true)
     const { error } = await supabase.rpc('entrega_pela_equipa', { p_order: pedido.id })
@@ -71,16 +67,18 @@ function Despacho({ pedido, minRestaurante }) {
     <div className={`mt-4 rounded-xl border p-4 ${precisaAtencao(pedido) ? 'border-red-500/50 bg-red-500/10' : 'border-creme-300 bg-creme-100/60'}`}>
       <p className="text-xs font-semibold uppercase tracking-widest text-grafite-600">Estafeta</p>
       <p className={`mt-1 font-semibold ${precisaAtencao(pedido) ? 'text-red-600' : 'text-grafite-900'}`}>
-        {propria
+        {manual
           ? 'Entrega pela equipa'
-          : estado
-            ? ESTADO_ENTREGA[estado]
-            : restante > 0
-              ? `A equipa tem ${mmss(restante)} para assumir`
-              : restante === 0
-                ? 'A chamar o estafeta mais próximo…'
-                : 'Ainda não chamado'}
-        {!propria && estado === 'a_chamar' && pedido.entrega_chamada_em && ` · há ${minutosDesde(pedido.entrega_chamada_em)} min`}
+          : frota && estado === 'a_chamar'
+            ? 'Sem parceiro: oferecida à frota própria'
+            : frota && ['aceite', 'recolhido'].includes(estado)
+              ? `Frota própria · ${estado === 'aceite' ? 'aceite, a preparar a saída' : 'a caminho do cliente'}`
+              : estado
+                ? ESTADO_ENTREGA[estado]
+                : pago
+                  ? 'A chamar o estafeta mais próximo…'
+                  : 'Ainda não chamado'}
+        {estado === 'a_chamar' && pedido.entrega_chamada_em && ` · há ${minutosDesde(pedido.entrega_chamada_em)} min`}
       </p>
       {podeAssumir(pedido) && (
         <button type="button" disabled={ocupado} onClick={assumir}
@@ -115,7 +113,7 @@ const ROTULO_METODO = {
 const ATALHO =
   'inline-flex items-center rounded-full border border-grafite-900/20 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-grafite-800 transition-colors hover:border-grafite-900'
 
-function CartaoPedido({ pedido, aoAvancar, aoEntregar, aoImprimir, minRestaurante }) {
+function CartaoPedido({ pedido, aoAvancar, aoEntregar, aoImprimir }) {
   const entrega = temEntrega(pedido)
   const porCobrar = pedido.estado_pagamento === 'na_entrega'
   const [metodo, setMetodo] = useState(pedido.metodo_pagamento || null)
@@ -311,9 +309,10 @@ function CartaoPedido({ pedido, aoAvancar, aoEntregar, aoImprimir, minRestaurant
         {/* Entregas do restaurante online (ata 2026-10-12): ninguém da equipa escolhe
             o estafeta. Chama-se, e o primeiro estafeta disponível que aceitar fica com
             a entrega. É ele que marca "Recolhido" (→ a caminho) e "Entregue". */}
-        {entrega && <Despacho pedido={pedido} minRestaurante={minRestaurante} />}
-        {/* Pronto com estafeta: é ele que marca "Recolhido". Com a equipa, avança-se aqui. */}
-        {!(entrega && pedido.estado === 'pronto' && !pelaEquipa(pedido)) && (
+        {entrega && <Despacho pedido={pedido} />}
+        {/* Pronto com estafeta (parceiro ou frota pela app): é ele que marca
+            "Recolhido". Com "Entregamos nós", avança-se aqui. */}
+        {!(entrega && pedido.estado === 'pronto' && !entregaManual(pedido)) && (
         <button
           type="button"
           disabled={ocupado}
@@ -339,19 +338,6 @@ function Staff() {
   const [, forcarTick] = useState(0)
   const { mostrarAviso, Aviso } = useAviso()
   const [somLigado, setSomLigado] = useState(true)
-  // Prazo da equipa para assumir uma entrega (definicoes.entrega).
-  const [minRestaurante, setMinRestaurante] = useState(3)
-  useEffect(() => {
-    supabase
-      .from('definicoes')
-      .select('valor')
-      .eq('chave', 'entrega')
-      .maybeSingle()
-      .then(({ data }) => {
-        const m = Number(data?.valor?.despacho_restaurante_min)
-        if (Number.isFinite(m)) setMinRestaurante(m)
-      })
-  }, [])
   const somRef = useRef(true)
   somRef.current = somLigado
   const conhecidosRef = useRef(null) // ids da última leitura (null = ainda não leu)
@@ -406,7 +392,7 @@ function Staff() {
   async function avancarPedido(pedido) {
     const proximo = proximoEstado(pedido.estado, temEntrega(pedido))
     if (!proximo || proximo === 'entregue') return
-    const extra = pelaEquipa(pedido) && proximo === 'a_caminho' ? { entrega_estado: 'recolhido' } : {}
+    const extra = entregaManual(pedido) && proximo === 'a_caminho' ? { entrega_estado: 'recolhido' } : {}
     await supabase.from('orders').update({ estado: proximo, ...extra }).eq('id', pedido.id)
     carregar()
   }
@@ -416,8 +402,8 @@ function Staff() {
       .from('orders')
       .update({ estado: 'entregue', metodo_pagamento: metodo, estado_pagamento: 'pago' })
       .eq('id', id)
-    // Entrega feita pela equipa: fecha também o estado da entrega.
-    await supabase.from('orders').update({ entrega_estado: 'entregue' }).eq('id', id).eq('entrega_modo', 'propria')
+    // "Entregamos nós" (sem estafeta na app): fecha também o estado da entrega.
+    await supabase.from('orders').update({ entrega_estado: 'entregue' }).eq('id', id).eq('entrega_modo', 'propria').is('estafeta_id', null)
     // Regista o pedido de fatura (colunas da migração de fatura). Feito num
     // update à parte para não bloquear a entrega se a migração ainda não
     // estiver aplicada — nesse caso este falha em silêncio.
@@ -505,7 +491,7 @@ function Staff() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {prontos.map((p) => (
-              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} aoImprimir={imprimir} minRestaurante={minRestaurante} />
+              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} aoImprimir={imprimir} />
             ))}
           </div>
         )}
@@ -518,7 +504,7 @@ function Staff() {
         ) : (
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {emCurso.map((p) => (
-              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} aoImprimir={imprimir} minRestaurante={minRestaurante} />
+              <CartaoPedido key={p.id} pedido={p} aoAvancar={avancarPedido} aoEntregar={entregar} aoImprimir={imprimir} />
             ))}
           </div>
         )}

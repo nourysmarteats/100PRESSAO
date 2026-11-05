@@ -1,7 +1,7 @@
 // Testes das regras do despacho.   npm test
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { inicioSemana, mudarSemana, porSemana, rotuloSemana, linkEquipa, inicioDoMes, linkConvite, mensagemConvite, podeChamar, podeAssumir, pelaEquipa, segundosParaAutomatico, mmss, precisaAtencao, totaisEntregas } from './despacho.js'
+import { inicioSemana, mudarSemana, porSemana, rotuloSemana, linkEquipa, inicioDoMes, linkConvite, mensagemConvite, podeChamar, podeAssumir, daFrota, entregaManual, precisaAtencao, totaisEntregas } from './despacho.js'
 
 test('link de convite codifica o token', () => {
   assert.equal(linkConvite('https://x.pt', 'a+b/c'), 'https://x.pt/estafeta?convite=a%2Bb%2Fc')
@@ -30,20 +30,15 @@ test('podeChamar/podeAssumir: entregas em aberto sem ninguém com elas', () => {
   assert.ok(!podeAssumir({ tipo_entrega: 'entrega', estado: 'entregue', entrega_estado: null }))
 })
 
-test('pelaEquipa reconhece a frota própria', () => {
-  assert.ok(pelaEquipa({ entrega_modo: 'propria' }))
-  assert.ok(!pelaEquipa({ entrega_modo: 'proximidade' }))
-})
-
-test('segundosParaAutomatico conta a partir do pagamento', () => {
-  const pago_em = '2026-11-05T19:00:00Z'
-  const agora = Date.parse('2026-11-05T19:01:00Z')
-  const p = { tipo_entrega: 'entrega', estado_pagamento: 'pago', pago_em, entrega_estado: null }
-  assert.equal(segundosParaAutomatico(p, 3, agora), 120)
-  assert.equal(segundosParaAutomatico(p, 3, Date.parse('2026-11-05T19:05:00Z')), 0)
-  assert.equal(segundosParaAutomatico({ ...p, estado_pagamento: 'pendente' }, 3, agora), null)
-  assert.equal(segundosParaAutomatico({ ...p, entrega_estado: 'aceite' }, 3, agora), null)
-  assert.equal(mmss(125), '2:05')
+test('daFrota e entregaManual', () => {
+  assert.ok(daFrota({ entrega_modo: 'propria' }))
+  assert.ok(!daFrota({ entrega_modo: 'proximidade' }))
+  // "Entregamos nós" (sem estafeta na app): o Staff avança a entrega
+  assert.ok(entregaManual({ entrega_modo: 'propria', estafeta_id: null, entrega_estado: 'aceite' }))
+  // Alguém da frota aceitou pela app: é ele que avança
+  assert.ok(!entregaManual({ entrega_modo: 'propria', estafeta_id: 'x', entrega_estado: 'aceite' }))
+  // Oferecida à frota, ainda ninguém aceitou
+  assert.ok(!entregaManual({ entrega_modo: 'propria', estafeta_id: null, entrega_estado: 'a_chamar' }))
 })
 
 test('precisaAtencao quando ninguém aceitou', () => {

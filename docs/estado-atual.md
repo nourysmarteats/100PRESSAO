@@ -117,10 +117,12 @@ Faturação do projecto Google Cloud **100PRESSAO** (`pressao-504019`, chave
 
 - Mínimo de encomenda: `min_encomenda` (15 €) até `km_gratis` (2 km, portes grátis);
   `min_encomenda_portes` (8 €) acima disso. Regra no checkout e na `criar_pedido_online()`.
-- Despacho: desde que o pagamento entra, a equipa tem `despacho_restaurante_min` (3 min)
-  para carregar em "Entregamos nós" no Staff (`entrega_pela_equipa()`, `entrega_modo = 'propria'`).
-  Passado o prazo, o pg_cron `despacho-automatico` (30 s) chama o estafeta mais próximo
-  (`despacho_modo = 'proximidade'`). `chamar_estafeta()` usa o mesmo núcleo, `despachar_entrega()`.
-- **Por fechar:** `despacho_teste` continua ligado e só há uma empresa (de simulação, 2 estafetas
-  de teste). Até haver empresa real com acordo art. 28.º, o automático oferece encomendas reais
-  aos estafetas de teste; se ninguém aceitar, o Staff mostra "Sem estafeta" ao fim de 5 min.
+- Despacho (ata 12/10, confirmada a 5/11 — migração `20261105220000_frota_propria_ultimo_recurso.sql`):
+  mal o pagamento entra, o pg_cron `despacho-automatico` (30 s) chama o parceiro mais próximo; ao fim de
+  `despacho_externo_min` (3 min) sem aceitação — ou logo, sem parceiros — oferece à **frota própria**
+  (`empresas_entrega.frota_propria`, Sintonia dos Temperos, custo 0 €, só pessoas da casa); depois de
+  `despacho_espera_min` (5 min) sem ninguém, `sem_estafeta`. "Entregamos nós" no Staff
+  (`entrega_pela_equipa()`) é o recurso manual a qualquer momento.
+- **Por fechar:** convidar as pessoas da frota própria (Admin → Empresas de entrega → frota própria →
+  Criar convite). `despacho_teste` continua ligado: os "parceiros" são os 2 estafetas de teste da empresa
+  de simulação. Seguro de acidentes de trabalho de quem entrega: em aberto (Sofia, 1/11).
