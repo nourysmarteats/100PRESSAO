@@ -89,7 +89,7 @@ function Despacho({ pedido, minRestaurante }) {
         </button>
       )}
       {precisaAtencao(pedido) && (
-        <p className="mt-1 text-xs text-red-600">Ninguém aceitou a tempo, nem a frota própria. Chama de novo ou contacta a empresa de entregas.</p>
+        <p className="mt-1 text-xs text-red-600">Nenhum estafeta aceitou. Carrega em «Entregamos nós» para a equipa levar a encomenda, ou chama de novo.</p>
       )}
       {podeChamar(pedido) && (
         <button type="button" disabled={ocupado} onClick={chamar}
