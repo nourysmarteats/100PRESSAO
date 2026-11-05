@@ -29,9 +29,31 @@ export function totaisEntregas(linhas) {
   return { entregas: feitas.length, km: Math.round(km * 10) / 10, custo: Math.round(custo * 100) / 100 }
 }
 
-// O Staff só pode chamar estafeta numa entrega pronta que ainda não tenha um.
-export const podeChamar = (p) =>
-  p?.tipo_entrega === 'entrega' && p?.estado === 'pronto' && !['aceite', 'recolhido', 'entregue'].includes(p?.entrega_estado)
+// Enquanto ninguém ficou com a entrega (nem a equipa, nem um estafeta), o Staff
+// pode chamar estafeta ou assumi-la. Desde 2026-11-05 isto vale desde que o
+// pagamento entra, e não só quando a comida está pronta.
+const livre = (p) =>
+  p?.tipo_entrega === 'entrega' &&
+  !['entregue', 'cancelado'].includes(p?.estado) &&
+  !['aceite', 'recolhido', 'entregue'].includes(p?.entrega_estado)
+export const podeChamar = livre
+export const podeAssumir = livre
+
+// "Entregamos nós": a equipa ficou com a entrega (frota própria).
+export const pelaEquipa = (p) => p?.entrega_modo === 'propria'
+
+// Segundos que faltam até o pg_cron chamar o estafeta mais próximo
+// (despacho_automatico). null quando já não há contagem: entrega já tratada,
+// ou encomenda por pagar.
+export function segundosParaAutomatico(p, minutos, agora = Date.now()) {
+  if (p?.tipo_entrega !== 'entrega' || p?.entrega_estado) return null
+  if (!['pago', 'na_entrega'].includes(p?.estado_pagamento)) return null
+  const base = new Date(p.pago_em || p.criado_em).getTime()
+  if (!Number.isFinite(base)) return null
+  return Math.max(0, Math.round((base + Number(minutos || 0) * 60000 - agora) / 1000))
+}
+
+export const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 // Uma chamada sem resposta: a base de dados marca sem_estafeta ao fim de N minutos.
 export const precisaAtencao = (p) => p?.entrega_estado === 'sem_estafeta'
