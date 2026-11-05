@@ -2,6 +2,7 @@
 // Matrix. Usada pelo checkout do restaurante online para calcular os portes.
 // Requer a env var GOOGLE_MAPS_API_KEY no Vercel — a chave nunca chega ao browser.
 // A origem é sempre a loja, lida no servidor, e há limites para proteger a fatura da Google.
+import { createHash } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { dentroDoLimite, ipDoPedido, marcaPrivada } from './_lib/limites.js'
 
@@ -14,7 +15,8 @@ export default async function handler(req, res) {
     return res.status(500).json({ erro: 'GOOGLE_MAPS_API_KEY não configurada no Vercel.' })
   }
 
-  const morada = String(req.body?.morada || '').trim()
+  // Mesma normalização que a criar_pedido_online() aplica antes do hash.
+  const morada = String(req.body?.morada || '').replace(/\s+/g, ' ').trim()
   if (!morada || morada.length > 200) {
     return res.status(400).json({ erro: 'Indica uma morada válida.' })
   }
@@ -75,7 +77,22 @@ export default async function handler(req, res) {
       })
     }
     const km = Math.round((el.distance.value / 1000) * 100) / 100
-    return res.status(200).json({ km })
+    if (!(km > 0)) {
+      return res.status(400).json({ erro: 'Não encontrámos essa morada. Confirma a rua, o número e a localidade.' })
+    }
+    // A encomenda só aceita uma distância gravada aqui, presa à morada (hash,
+    // nunca a morada) e com prazo de 2 horas. O browser recebe só o id.
+    const moradaHash = createHash('sha256').update(morada, 'utf8').digest('hex')
+    const { data: reg, error: errReg } = await admin
+      .from('distancias_calculadas')
+      .insert({ morada_hash: moradaHash, km })
+      .select('id')
+      .single()
+    if (errReg || !reg) {
+      console.error('distancias_calculadas: falha ao gravar', errReg?.message || '')
+      return res.status(500).json({ erro: 'Não conseguimos calcular os portes neste momento.' })
+    }
+    return res.status(200).json({ km, token: reg.id })
   } catch {
     return res.status(500).json({ erro: 'Erro ao contactar o serviço de mapas.' })
   }

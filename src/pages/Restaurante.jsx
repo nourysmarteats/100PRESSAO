@@ -103,7 +103,10 @@ function Restaurante() {
   const [telefone, setTelefone] = useState('')
   const [email, setEmail] = useState('')
   const [morada, setMorada] = useState('')
-  const [distSim, setDistSim] = useState('') // distância (km): calculada pelo mapa ou escrita
+  // Distância (km) calculada pelo servidor + id desse cálculo. O cliente não a
+  // escreve: a encomenda só aceita o id, que o servidor liga à morada.
+  const [distSim, setDistSim] = useState('')
+  const [distToken, setDistToken] = useState(null)
   const [calculando, setCalculando] = useState(false)
   const [erroDist, setErroDist] = useState('')
   const [metodo, setMetodo] = useState('mbway')
@@ -300,7 +303,7 @@ function Restaurante() {
   // Sem distância não há portes: a encomenda #51 passou com entrega grátis para
   // Algés porque o cálculo falhou e ninguém impediu o avanço. Uma entrega tem
   // sempre de ter distância — a validação repete-se no servidor.
-  const semDistancia = tipo === 'entrega' && !(distancia > 0)
+  const semDistancia = tipo === 'entrega' && !(distancia > 0 && distToken)
   // Artigos só para levantar (ex.: mini salgados, que não aguentam a viagem).
   // Com um destes no carrinho não há entrega — a regra repete-se no servidor.
   const soRecolhaNoCarrinho = Object.keys(carrinho).some((k) => resolverChave(k)?.soRecolha)
@@ -313,6 +316,8 @@ function Restaurante() {
     }
     setCalculando(true)
     setErroDist('')
+    setDistSim('')
+    setDistToken(null)
     try {
       const resp = await fetch('/api/distancia', {
         method: 'POST',
@@ -325,6 +330,7 @@ function Restaurante() {
         return
       }
       setDistSim(String(json.km))
+      setDistToken(json.token || null)
     } catch {
       setErroDist('Erro ao calcular a distância.')
     } finally {
@@ -492,7 +498,8 @@ function Restaurante() {
           p_email: email.trim(),
           p_tipo: tipo,
           p_morada: tipo === 'entrega' ? morada.trim() : null,
-          p_distancia: tipo === 'entrega' ? distancia : 0,
+          p_distancia: tipo === 'entrega' ? distancia : 0, // ignorado pelo servidor
+          p_distancia_token: tipo === 'entrega' ? distToken : null,
           p_metodo: metodo,
           p_idade_ok: idade,
           p_aceitou: aceito,
@@ -1000,12 +1007,20 @@ function Restaurante() {
               {tipo === 'entrega' && (
                 <>
                   <label className="mt-3 block text-sm font-semibold uppercase tracking-widest text-ambar-600">Morada de entrega
-                    <input value={morada} onChange={(e) => setMorada(e.target.value)} className={CAMPO} placeholder="Rua, número, andar, código postal" />
+                    <input
+                      value={morada}
+                      onChange={(e) => {
+                        setMorada(e.target.value)
+                        // Morada nova = distância nova: o cálculo anterior deixa de valer.
+                        setDistSim('')
+                        setDistToken(null)
+                      }}
+                      className={CAMPO} placeholder="Rua, número, andar, código postal" />
                   </label>
                   <div className="mt-3">
                     <span className="block text-sm font-semibold uppercase tracking-widest text-ambar-600">Distância (km)</span>
                     <div className="mt-1 flex gap-2">
-                      <input value={distSim} onChange={(e) => setDistSim(e.target.value)} inputMode="decimal" aria-label="Distância em km" className={`${CAMPO} mt-0 flex-1`} placeholder="calcula pela morada ou escreve" />
+                      <input value={distSim} readOnly tabIndex={-1} aria-label="Distância em km" className={`${CAMPO} mt-0 flex-1 bg-creme-100`} placeholder="carrega em Calcular" />
                       <button type="button" onClick={calcularDistancia} disabled={calculando} className={BOTAO_SEC}>
                         {calculando ? 'A calcular…' : 'Calcular'}
                       </button>
