@@ -99,3 +99,16 @@ marcar pago; a fatura já lia `desconto_percentagem`. Só canal `mesa` — nunca
 plataformas. A utilização fica em `cliente_beta_validacoes` (Admin →
 Utilizações). Contas em `src/lib/clienteBetaCaixa.js` (+ testes).
 Por fazer: o mesmo botão nos pedidos do menu QR pagos no painel da esquerda.
+
+## Restaurante online — distância de entrega (2026-11-05)
+
+A distância passou a ser calculada e validada só no servidor. A `/api/distancia`
+grava cada cálculo em `distancias_calculadas` (hash da morada, nunca a morada;
+prazo de 2 h; expurgo de hora a hora pela tarefa `expurgar-distancias`), e a
+`criar_pedido_online()` só aceita entregas com `p_distancia_token` válido para
+aquela morada. `p_distancia` vindo do browser é ignorado. Migração
+`20261105130000_distancia_calculada_servidor.sql`.
+
+**Por fechar:** a faturação do projecto Google Cloud da `GOOGLE_MAPS_API_KEY` está
+desactivada (`REQUEST_DENIED`). Sem ela nenhuma entrega online passa: só
+levantamento. Reactivar em console.cloud.google.com/billing.
